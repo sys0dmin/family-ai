@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +13,10 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = "sqlite:///./family_ai.db"
     message_retention_days: int = 10
+
+    # OpenAI Settings
+    openai_api_key: SecretStr = SecretStr("sk-placeholder")
+    openai_model: str = "gpt-4o-mini"
 
     model_config = SettingsConfigDict(
         env_prefix="FAMILY_AI_",
