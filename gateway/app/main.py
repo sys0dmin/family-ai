@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from gateway.app.config import get_settings
 from gateway.app.routers.conversations import router as conversations_router
 from gateway.app.routers.health import router as health_router
+from gateway.app.routers.voice import router as voice_router
 
 
 def create_app() -> FastAPI:
@@ -18,6 +19,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router)
     app.include_router(conversations_router)
+    app.include_router(voice_router)
     return app
 
 
