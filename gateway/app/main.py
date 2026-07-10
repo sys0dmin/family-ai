@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from gateway.app.config import get_settings
+from gateway.app.routers.conversations import router as conversations_router
 from gateway.app.routers.health import router as health_router
 
 
@@ -16,6 +17,7 @@ def create_app() -> FastAPI:
         description="Internal API for the Family AI Mentor Gateway.",
     )
     app.include_router(health_router)
+    app.include_router(conversations_router)
     return app
 
 

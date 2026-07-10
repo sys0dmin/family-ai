@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: family_ai
+      POSTGRES_USER: family_ai_app
+      POSTGRES_PASSWORD: dev-only-password
+    ports:
+      - "5432:5432"
+    volumes:
+      - family_ai_pgdata:/var/lib/postgresql/data
+
+volumes:
+  family_ai_pgdata:

@@ -10,12 +10,16 @@ class Settings(BaseSettings):
 
     app_name: str = "Family AI Gateway"
     environment: str = "development"
+    database_url: str = "sqlite:///./family_ai.db"
+    message_retention_days: int = 10
 
     model_config = SettingsConfigDict(
         env_prefix="FAMILY_AI_",
+        env_file=".env",
         case_sensitive=False,
         extra="ignore",
     )
+
 
 
 @lru_cache
