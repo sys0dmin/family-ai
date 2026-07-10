@@ -10,6 +10,13 @@ from gateway.app.db.session import get_db_session
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.openai import OpenAIProvider
 from gateway.app.services.conversation_service import ConversationService
+from gateway.app.services.safety_service import SafetyService
+
+
+@lru_cache
+def get_safety_service() -> SafetyService:
+    """Return the safety service singleton."""
+    return SafetyService()
 
 
 def get_ai_provider() -> AIProvider:
@@ -24,6 +31,8 @@ def get_ai_provider() -> AIProvider:
 def get_conversation_service(
     session: Session = Depends(get_db_session),
     provider: AIProvider = Depends(get_ai_provider),
+    safety: SafetyService = Depends(get_safety_service),
 ) -> ConversationService:
     """Return a conversation service with injected dependencies."""
-    return ConversationService(session, provider)
+    return ConversationService(session, provider, safety)
+

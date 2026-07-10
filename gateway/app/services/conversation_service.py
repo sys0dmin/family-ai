@@ -10,14 +10,21 @@ from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.models import ChildProfile, Conversation, Message, MessageRole
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole
+from gateway.app.services.safety_service import SafetyService
 
 
 class ConversationService:
     """Create conversations and store transcript lines."""
 
-    def __init__(self, session: Session, provider: AIProvider | None = None) -> None:
+    def __init__(
+        self,
+        session: Session,
+        provider: AIProvider | None = None,
+        safety: SafetyService | None = None,
+    ) -> None:
         self._session = session
         self._provider = provider
+        self._safety = safety
 
     def create_message(
         self,
@@ -42,26 +49,50 @@ class ConversationService:
         self,
         conversation_id: uuid.UUID,
     ) -> Message:
-        """Generate an AI response based on conversation history."""
+        """Generate an AI response based on conversation history with safety checks."""
 
         if not self._provider:
             raise RuntimeError("AI Provider is not configured")
 
-        # 1. Get history (last 10 messages for context)
-        history = self.get_messages_for_conversation(conversation_id)[-10:]
+        # 1. Get history
+        history = self.get_messages_for_conversation(conversation_id)
+        if not history:
+            raise RuntimeError("No messages in conversation")
 
-        # 2. Build request
+        last_child_msg = next((m for m in reversed(history) if m.role == MessageRole.CHILD), None)
+
+        # 2. Safety check: Incoming
+        if self._safety and last_child_msg:
+            safety_result = self._safety.check_text(last_child_msg.content)
+            if not safety_result.is_safe:
+                return self.create_message(
+                    conversation_id=conversation_id,
+                    role=MessageRole.ASSISTANT,
+                    content=safety_result.suggested_response or "Давай поговорим о чём-нибудь другом?",
+                )
+
+        # 3. Build request for AI
         messages = [get_teacher_friend_system_message()]
-        for msg in history:
+        for msg in history[-10:]:
             role = ProviderRole.USER if msg.role == MessageRole.CHILD else ProviderRole.ASSISTANT
             messages.append(ChatMessage(role=role, content=msg.content))
 
         request = ChatRequest(messages=messages)
 
-        # 3. Call AI
+        # 4. Call AI
         response = await self._provider.generate_response(request)
 
-        # 4. Store and return response
+        # 5. Safety check: Outgoing
+        if self._safety:
+            safety_result = self._safety.check_text(response.content)
+            if not safety_result.is_safe:
+                return self.create_message(
+                    conversation_id=conversation_id,
+                    role=MessageRole.ASSISTANT,
+                    content="Ой, я задумался о чём-то не том. Давай лучше поиграем или спросим у мамы?",
+                )
+
+        # 6. Store and return response
         return self.create_message(
             conversation_id=conversation_id,
             role=MessageRole.ASSISTANT,
