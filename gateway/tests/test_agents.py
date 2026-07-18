@@ -26,6 +26,7 @@ async def test_agent_manifest_exposes_only_child_safe_metadata(
         "storyteller",
         "socrates",
         "musician",
+        "outdoor_guide",
     ]
     assert all("system_prompt" not in item for item in items)
     assert all("tts_voice" not in item for item in items)
@@ -49,7 +50,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
     assert "Клуб любопытных" in page.text
     assert 'id="mic-btn"' in page.text
     assert "browser-speech-toggle" in page.text
-    assert 'src="/static/app.js?v=10"' in page.text
+    assert 'src="/static/app.js?v=12"' in page.text
     assert 'data-state="ready"' in page.text
 
     for filename in (
@@ -58,6 +59,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
         "storyteller.webp",
         "socrates.webp",
         "musician.webp",
+        "murka.webp",
     ):
         asset = await client.get(f"/static/assets/characters/{filename}")
         assert asset.status_code == 200

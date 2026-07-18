@@ -1,6 +1,6 @@
 """OpenAI-compatible implementation of the AIProvider interface."""
 
-from typing import Literal
+from typing import Any, Literal
 
 from openai import AsyncOpenAI
 
@@ -8,6 +8,7 @@ from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import (
     ChatRequest,
     ChatResponse,
+    ProviderTool,
     SpeechRequest,
     SpeechResponse,
     TranscriptionRequest,
@@ -35,6 +36,7 @@ class OpenAIProvider(AIProvider):
         tts_model: str = "tts-1",
         tts_voice: str = "alloy",
         tts_response_format: Literal["mp3", "wav"] = "mp3",
+        web_search_tool_type: Literal["disabled", "browser_search"] = "disabled",
     ) -> None:
         resolved_base_url = base_url
         if resolved_base_url is None and "deepseek" in model.lower():
@@ -54,6 +56,7 @@ class OpenAIProvider(AIProvider):
         self._tts_model = tts_model
         self._tts_voice = tts_voice
         self._tts_response_format = tts_response_format
+        self._web_search_tool_type = web_search_tool_type
 
     @staticmethod
     def _create_client(api_key: str, base_url: str | None) -> AsyncOpenAI:
@@ -77,12 +80,18 @@ class OpenAIProvider(AIProvider):
         messages = [
             {"role": m.role.value, "content": m.content} for m in request.messages
         ]
-        response = await self._chat_client.chat.completions.create(
-            model=self._model,
-            messages=messages,
-            temperature=request.temperature,
-            max_tokens=request.max_tokens,
-        )
+        parameters: dict[str, Any] = {
+            "model": self._model,
+            "messages": messages,
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens,
+        }
+        if (
+            ProviderTool.WEB_SEARCH in request.tools
+            and self._web_search_tool_type == "browser_search"
+        ):
+            parameters["tools"] = [{"type": "browser_search"}]
+        response = await self._chat_client.chat.completions.create(**parameters)
         content = response.choices[0].message.content or ""
         return ChatResponse(content=content, raw_response=response)
 

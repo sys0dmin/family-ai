@@ -17,11 +17,30 @@ from gateway.app.main import create_app
 from gateway.app.models import Agent, AgentRevision, ChildProfile
 
 TEST_AGENTS = (
-    ("teacher_friend", "Учитель-друг", "🐻", "blue", "lulwa", 10, []),
-    ("scientist", "Почемучка", "🔬", "green", "noura", 20, []),
-    ("storyteller", "Сказочник", "🦉", "purple", "aisha", 30, []),
-    ("socrates", "Подумай сама", "🦊", "orange", "lulwa", 40, []),
-    ("musician", "Нотка", "🎵", "teal", "lulwa", 50, ["music_recognition"]),
+    ("teacher_friend", "Учитель-друг", "🐻", "blue", "lulwa", 10, [], []),
+    ("scientist", "Почемучка", "🔬", "green", "noura", 20, [], []),
+    ("storyteller", "Сказочник", "🦉", "purple", "aisha", 30, [], []),
+    ("socrates", "Подумай сама", "🦊", "orange", "lulwa", 40, [], []),
+    (
+        "musician",
+        "Нотка",
+        "🎵",
+        "teal",
+        "lulwa",
+        50,
+        ["music_recognition", "web_search"],
+        [],
+    ),
+    (
+        "outdoor_guide",
+        "Мурка",
+        "🐱",
+        "forest",
+        "noura",
+        60,
+        ["web_search"],
+        ["supervised_outdoor_safety"],
+    ),
 )
 
 
@@ -48,7 +67,7 @@ def session_factory(test_settings: Settings) -> sessionmaker[Session]:
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     with factory() as session:
-        for agent_id, name, icon, color, voice, sort_order, tools in TEST_AGENTS:
+        for agent_id, name, icon, color, voice, sort_order, tools, permissions in TEST_AGENTS:
             session.add(
                 Agent(
                     id=agent_id,
@@ -61,6 +80,7 @@ def session_factory(test_settings: Settings) -> sessionmaker[Session]:
                     enabled=True,
                     sort_order=sort_order,
                     tools=tools,
+                    permissions=permissions,
                 )
             )
         session.flush()

@@ -13,6 +13,7 @@ class AgentManifest:
     greeting: str
     tts_voice: str | None
     tools: tuple[str, ...]
+    permissions: tuple[str, ...]
 
 
 @dataclass(frozen=True)

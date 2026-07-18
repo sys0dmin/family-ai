@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     tts_model: str = "tts-1"
     tts_voice: str = "alloy"
     tts_response_format: Literal["mp3", "wav"] = "mp3"
+    web_search_tool_type: Literal["disabled", "browser_search"] = "disabled"
     voice_language: str = "ru"
     voice_max_audio_bytes: int = 10 * 1024 * 1024
 

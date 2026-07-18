@@ -52,6 +52,12 @@ const agentPresentation = {
         color: '#159c9a',
         soft: '#dff7f4',
         deep: '#116b72'
+    },
+    outdoor_guide: {
+        image: '/static/assets/characters/murka.webp',
+        color: '#5f8f42',
+        soft: '#edf5df',
+        deep: '#385e32'
     }
 };
 
@@ -85,6 +91,12 @@ const promptsByAgent = {
         { icon: '🎵', label: 'Новая песня', phrase: 'Давай вместе сочиним новую песню' },
         { icon: '🎤', label: 'Припев', phrase: 'Придумаем весёлый припев по одной строчке' },
         { icon: '🥁', label: 'Ритм', phrase: 'Давай придумаем ритм и хлопать в ладоши' }
+    ],
+    outdoor_guide: [
+        { icon: '⛺', label: 'Палатка', phrase: 'Мурка, расскажи, как вместе с родителями поставить палатку' },
+        { icon: '🔥', label: 'Костёр', phrase: 'Как безопасно развести костёр вместе с родителями?' },
+        { icon: '🎣', label: 'Рыбалка', phrase: 'Как мы можем безопасно порыбачить с родителями?' },
+        { icon: '🐾', label: 'Следы', phrase: 'Расскажи добрую историю о следах животных в лесу' }
     ]
 };
 

@@ -9,9 +9,32 @@ from gateway.app.agents import ActiveAgent, build_agent_system_message
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.models import ChildProfile, Conversation, Message, MessageRole
 from gateway.app.providers.base import AIProvider
-from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole
+from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole, ProviderTool
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.safety_service import SafetyService
+
+CONTINUING_CONVERSATION_CONTEXT = (
+    "Это продолжение уже начатого разговора с Лерой. Не здоровайся заново, не "
+    "представляйся повторно и не начинай беседу с чистого листа. Учитывай последние "
+    "реплики. Если Лера исправляет твою ошибку, коротко признай поправку, поблагодари "
+    "и продолжай с учётом верного факта."
+)
+UNVERIFIED_MUSIC_TEXT_CONTEXT = (
+    "В этом текстовом ходе инструмент распознавания музыки не возвращал результата. "
+    "Если доступен веб-поиск, обязательно используй его для проверки фрагмента перед "
+    "ответом. "
+    "Не выдавай догадку языковой модели за распознанную песню и не выдумывай "
+    "правдоподобные названия, исполнителей или источники. Назови ровно одну песню "
+    "только при высокой уверенности, что все данные совпадают; иначе честно попроси "
+    "ещё одну строку или голосовой напев."
+)
+SUPERVISED_OUTDOOR_CONTEXT = (
+    "Этот агент может обсуждать походную безопасность, но это не разрешение "
+    "ребёнку выполнять опасную часть. Всегда давай полезный ответ и явно разделяй "
+    "роли. Ребёнок не берёт, не достаёт и не держит спички, нож, точило, крючок или горячую "
+    "посуду — это делает взрослый. Не давай ребёнку углы заточки и не учи его проверять остроту. "
+    "Отвечай обычным текстом без Markdown."
+)
 
 
 class ConversationService:
@@ -87,11 +110,15 @@ class ConversationService:
         if not history:
             raise RuntimeError("No messages in conversation")
 
+        active_agent = self.get_conversation_agent(conversation_id)
         last_child_msg = next((m for m in reversed(history) if m.role == 'child'), None)
 
         # 2. Safety check: Incoming
         if self._safety and last_child_msg:
-            safety_result = self._safety.check_text(last_child_msg.content)
+            safety_result = self._safety.check_text(
+                last_child_msg.content,
+                active_agent.permissions,
+            )
             if not safety_result.is_safe:
                 return self.create_message(
                     conversation_id=conversation_id,
@@ -102,23 +129,71 @@ class ConversationService:
                     ),
                 )
 
+            supervised_guidance = self._safety.get_supervised_outdoor_guidance(
+                last_child_msg.content,
+                active_agent.permissions,
+            )
+            if supervised_guidance:
+                return self.create_message(
+                    conversation_id=conversation_id,
+                    role='assistant',
+                    content=supervised_guidance,
+                )
+
         # 3. Build request for AI
-        active_agent = self.get_conversation_agent(conversation_id)
         messages = [build_agent_system_message(active_agent.system_prompt)]
         if runtime_context:
             messages.append(ChatMessage(role=ProviderRole.SYSTEM, content=runtime_context))
+        elif "music_recognition" in active_agent.tools:
+            messages.append(
+                ChatMessage(
+                    role=ProviderRole.SYSTEM,
+                    content=UNVERIFIED_MUSIC_TEXT_CONTEXT,
+                )
+            )
+        if "supervised_outdoor_safety" in active_agent.permissions:
+            messages.append(
+                ChatMessage(
+                    role=ProviderRole.SYSTEM,
+                    content=SUPERVISED_OUTDOOR_CONTEXT,
+                )
+            )
+        if any(message.role == MessageRole.ASSISTANT for message in history):
+            messages.append(
+                ChatMessage(
+                    role=ProviderRole.SYSTEM,
+                    content=CONTINUING_CONVERSATION_CONTEXT,
+                )
+            )
         for msg in history[-10:]:
             role = ProviderRole.USER if msg.role == 'child' else ProviderRole.ASSISTANT
             messages.append(ChatMessage(role=role, content=msg.content))
 
-        request = ChatRequest(messages=messages)
+        tools = (
+            (ProviderTool.WEB_SEARCH,)
+            if "web_search" in active_agent.tools
+            else ()
+        )
+        request = ChatRequest(messages=messages, tools=tools)
 
         # 4. Call AI
         response = await self._provider.generate_response(request)
+        response_content = response.content.replace('\x00', '')
 
         # 5. Safety check: Outgoing
         if self._safety:
-            safety_result = self._safety.check_text(response.content)
+            response_content = self._safety.normalize_outdoor_response(
+                response_content,
+                active_agent.permissions,
+            )
+            response_content = self._safety.apply_required_guardrails(
+                response_content,
+                active_agent.permissions,
+            )
+            safety_result = self._safety.check_text(
+                response_content,
+                active_agent.permissions,
+            )
             if not safety_result.is_safe:
                 return self.create_message(
                     conversation_id=conversation_id,
@@ -133,7 +208,7 @@ class ConversationService:
         return self.create_message(
             conversation_id=conversation_id,
             role='assistant',
-            content=response.content,
+            content=response_content,
         )
 
     def _get_or_create_conversation(self, conversation_id: uuid.UUID) -> Conversation:

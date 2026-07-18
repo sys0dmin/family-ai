@@ -42,6 +42,7 @@ def get_ai_provider() -> AIProvider:
         tts_model=settings.tts_model,
         tts_voice=settings.tts_voice,
         tts_response_format=settings.tts_response_format,
+        web_search_tool_type=settings.web_search_tool_type,
     )
 
 

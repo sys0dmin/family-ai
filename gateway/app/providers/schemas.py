@@ -13,6 +13,12 @@ class ProviderRole(StrEnum):
     ASSISTANT = "assistant"
 
 
+class ProviderTool(StrEnum):
+    """Provider capabilities requested by application orchestration."""
+
+    WEB_SEARCH = "web_search"
+
+
 @dataclass(frozen=True)
 class ChatMessage:
     """A single message in a chat completion request."""
@@ -26,6 +32,7 @@ class ChatRequest:
     messages: list[ChatMessage]
     temperature: float = 0.7
     max_tokens: int | None = None
+    tools: tuple[ProviderTool, ...] = ()
 
 
 @dataclass(frozen=True)

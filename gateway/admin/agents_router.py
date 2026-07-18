@@ -65,6 +65,7 @@ def _agent_response(agent: Agent) -> AdminAgentResponse:
         greeting=agent.greeting,
         tts_voice=agent.tts_voice,
         tools=agent.tools or [],
+        permissions=agent.permissions or [],
         enabled=agent.enabled,
         sort_order=agent.sort_order,
         active_revision_id=agent.active_revision_id,

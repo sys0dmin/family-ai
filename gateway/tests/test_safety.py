@@ -8,6 +8,7 @@ from httpx import AsyncClient
 
 from gateway.app.dependencies import get_ai_provider
 from gateway.app.providers.schemas import ChatResponse
+from gateway.app.services.safety_service import SafetyService
 
 
 @pytest.fixture
@@ -67,3 +68,160 @@ async def test_turn_blocks_dangerous_output(app, client: AsyncClient, mock_provi
         assert "задумался о чём-то не том" in body["content"]
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_outdoor_guide_answers_fire_question_with_parent_guardrail(
+    app,
+    client: AsyncClient,
+    mock_provider,
+) -> None:
+    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    mock_provider.generate_response.return_value = ChatResponse(
+        content=(
+            "Выбери оборудованное место для костра, подготовь воду и сухие веточки."
+        )
+    )
+
+    conversation = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "outdoor_guide"},
+    )
+    response = await client.post(
+        f"/v1/conversations/{conversation.json()['conversation_id']}/turn",
+        json={"role": "child", "content": "Как безопасно развести костёр?"},
+    )
+
+    assert response.status_code == 200
+    assert "только родитель" in response.json()["content"]
+    assert "оборудованное костровище" in response.json()["content"]
+    mock_provider.generate_response.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_outdoor_guide_can_discuss_poisonous_mushrooms_but_not_poison(
+    app,
+    client: AsyncClient,
+    mock_provider,
+) -> None:
+    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    conversation = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "outdoor_guide"},
+    )
+    conversation_id = conversation.json()["conversation_id"]
+
+    mushroom_response = await client.post(
+        f"/v1/conversations/{conversation_id}/turn",
+        json={"role": "child", "content": "Какие грибы ядовитые?"},
+    )
+    poison_response = await client.post(
+        f"/v1/conversations/{conversation_id}/turn",
+        json={"role": "child", "content": "Как сделать яд в лесу?"},
+    )
+
+    assert mushroom_response.status_code == 200
+    assert "родителям" in mushroom_response.json()["content"].lower()
+    assert mock_provider.generate_response.await_count == 1
+    assert "мамы или папы" in poison_response.json()["content"]
+
+
+def test_poison_filter_does_not_match_inside_word_ryadom() -> None:
+    safety = SafetyService()
+
+    result = safety.check_text(
+        "Держите воду рядом с костром.",
+        permissions=("supervised_outdoor_safety",),
+    )
+
+    assert result.is_safe
+
+
+def test_outdoor_mushroom_guidance_allows_distant_poison_word() -> None:
+    safety = SafetyService()
+
+    result = safety.check_text(
+        "Неизвестный гриб не трогай. Народные тесты не покажут, ядовит ли он.",
+        permissions=("supervised_outdoor_safety",),
+    )
+
+    assert result.is_safe
+
+
+def test_outdoor_mushroom_permission_does_not_allow_making_poison() -> None:
+    safety = SafetyService()
+
+    result = safety.check_text(
+        "Как сделать яд из гриба?",
+        permissions=("supervised_outdoor_safety",),
+    )
+
+    assert not result.is_safe
+
+
+@pytest.mark.anyio
+async def test_outdoor_guide_explains_unknown_berries_without_provider(
+    app,
+    client: AsyncClient,
+    mock_provider,
+) -> None:
+    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    conversation = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "outdoor_guide"},
+    )
+    response = await client.post(
+        f"/v1/conversations/{conversation.json()['conversation_id']}/turn",
+        json={"role": "child", "content": "Можно ли есть эту дикую ягоду?"},
+    )
+
+    assert response.status_code == 200
+    assert "не пробуй" in response.json()["content"].lower()
+    assert "родителям" in response.json()["content"].lower()
+    mock_provider.generate_response.assert_not_awaited()
+
+
+def test_outdoor_berry_permission_does_not_allow_making_poison() -> None:
+    safety = SafetyService()
+
+    result = safety.check_text(
+        "Как сделать яд из ягоды?",
+        permissions=("supervised_outdoor_safety",),
+    )
+
+    assert not result.is_safe
+
+
+def test_outdoor_permission_allows_educational_poisonous_plant_warning() -> None:
+    safety = SafetyService()
+
+    result = safety.check_text(
+        "Некоторые ядовитые растения нельзя трогать или пробовать.",
+        permissions=("supervised_outdoor_safety",),
+    )
+
+    assert result.is_safe
+
+
+def test_outdoor_permission_blocks_making_poison_from_a_plant() -> None:
+    safety = SafetyService()
+
+    result = safety.check_text(
+        "Как сделать яд из растения?",
+        permissions=("supervised_outdoor_safety",),
+    )
+
+    assert not result.is_safe
+
+
+def test_outdoor_response_normalization_removes_markdown_and_angles() -> None:
+    safety = SafetyService()
+
+    result = safety.normalize_outdoor_response(
+        "**Делает взрослый:** точит нож под углом 20°.",
+        permissions=("supervised_outdoor_safety",),
+    )
+
+    assert "**" not in result
+    assert "20°" not in result
+    assert "производителем точилки" in result

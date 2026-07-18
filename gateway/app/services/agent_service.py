@@ -49,6 +49,7 @@ class AgentService:
             greeting=agent.greeting,
             tts_voice=agent.tts_voice,
             tools=tuple(agent.tools or ()),
+            permissions=tuple(agent.permissions or ()),
         )
 
     @classmethod
