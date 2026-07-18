@@ -60,8 +60,9 @@ class VoiceService:
             conversation_id=conversation_id,
             text=transcript,
         )
+        active_agent = self._conversation_service.get_conversation_agent(conversation_id)
         speech = await self._ai_provider.synthesize_speech(
-            SpeechRequest(text=ai_message.content)
+            SpeechRequest(text=ai_message.content, voice=active_agent.tts_voice)
         )
         logger.info(
             "voice_synthesis_completed",

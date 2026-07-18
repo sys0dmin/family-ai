@@ -53,7 +53,7 @@
 
     .field { display: flex; flex-direction: column; gap: 6px; }
     label { font-size: 13px; color: #c7d3ff; }
-    input, select {
+    input, select, textarea {
       width: 100%;
       padding: 10px 12px;
       border-radius: 10px;
@@ -62,7 +62,8 @@
       color: var(--text);
       outline: none;
     }
-    input:focus, select:focus { border-color: var(--accent); }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 100px; font: inherit; }
 
     .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
@@ -119,9 +120,22 @@
     .message-meta { margin-top: 5px; color: #aeb9d5; font-size: 11px; }
     .empty { padding: 24px; text-align: center; color: var(--muted); }
     .pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 14px; }
+    .agent-layout { display: grid; grid-template-columns: 250px 1fr; gap: 14px; }
+    .agent-list { display: flex; flex-direction: column; gap: 8px; }
+    .agent-list-button { display: flex; align-items: center; gap: 10px; text-align: left; color: var(--text); background: #111a35; border: 1px solid var(--border); }
+    .agent-list-button.active { border-color: var(--accent); background: #21325c; }
+    .agent-icon { font-size: 26px; }
+    .agent-form { display: flex; flex-direction: column; gap: 12px; }
+    .safety-baseline { max-height: 170px; overflow: auto; white-space: pre-wrap; padding: 12px; border-radius: 10px; color: #c8d2ed; background: #0a1229; border: 1px solid var(--border); font-size: 13px; }
+    .revision-list { display: flex; flex-direction: column; gap: 8px; }
+    .revision { padding: 11px; border-radius: 10px; background: #111a35; border: 1px solid var(--border); }
+    .revision.active { border-color: var(--ok); }
+    .revision-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .revision-prompt { margin-top: 8px; color: #c8d2ed; font-size: 13px; white-space: pre-wrap; }
+    button:disabled { cursor: not-allowed; opacity: 0.55; }
 
     @media (max-width: 760px) {
-      .grid, .dashboard-grid, .history-toolbar { grid-template-columns: 1fr; }
+      .grid, .dashboard-grid, .history-toolbar, .agent-layout { grid-template-columns: 1fr; }
       .stats-grid { grid-template-columns: 1fr 1fr; }
       .message { max-width: 94%; }
     }
@@ -171,6 +185,7 @@
     <div class="card" id="main-nav" style="display:none;">
       <div class="tabs">
         <button class="tab-button active" id="settings-tab">Настройки</button>
+        <button class="tab-button" id="agents-tab">Агенты</button>
         <button class="tab-button" id="history-tab">История и аналитика</button>
       </div>
     </div>
@@ -249,6 +264,58 @@
       <div class="muted" id="summary" style="margin-top:10px;"></div>
     </div>
 
+    <div class="card" id="agents-card" style="display:none;">
+      <div class="row" style="justify-content:space-between; margin-bottom:14px;">
+        <div>
+          <h2 style="margin:0 0 5px;">Агенты Леры</h2>
+          <div class="muted">Характер, приветствие и голос. Изменение промпта создаёт новую версию.</div>
+        </div>
+        <div id="agents-status" class="status warn" style="display:none;"></div>
+      </div>
+
+      <div class="section-panel" style="margin-bottom:14px;">
+        <h3 class="section-title">Обязательная основа безопасности</h3>
+        <div class="muted" style="margin-bottom:8px;">Добавляется ко всем агентам автоматически и недоступна для редактирования.</div>
+        <div id="safety-baseline" class="safety-baseline"></div>
+      </div>
+
+      <div class="agent-layout">
+        <div id="agent-list" class="agent-list"></div>
+        <div id="agent-editor" class="section-panel" style="display:none;">
+          <div class="agent-form">
+            <div class="grid">
+              <div class="field"><label for="agent-name">Имя</label><input id="agent-name" maxlength="100" /></div>
+              <div class="field"><label for="agent-icon">Иконка</label><input id="agent-icon" maxlength="20" /></div>
+              <div class="field"><label for="agent-color">Цвет</label><input id="agent-color" maxlength="20" /></div>
+              <div class="field"><label for="agent-voice">Голос TTS</label>
+                <select id="agent-voice">
+                  <option value="lulwa">Lulwa</option><option value="noura">Noura</option>
+                  <option value="aisha">Aisha</option><option value="abdullah">Abdullah</option>
+                  <option value="fahad">Fahad</option><option value="sultan">Sultan</option>
+                </select>
+              </div>
+              <div class="field"><label for="agent-order">Порядок</label><input id="agent-order" type="number" min="0" max="10000" /></div>
+              <div class="field"><label for="agent-enabled">Доступен ребёнку</label><select id="agent-enabled"><option value="true">Да</option><option value="false">Нет</option></select></div>
+            </div>
+            <div class="field"><label for="agent-description">Описание в детском интерфейсе</label><input id="agent-description" maxlength="300" /></div>
+            <div class="field"><label for="agent-greeting">Приветствие</label><input id="agent-greeting" maxlength="300" /></div>
+            <div class="row"><button id="agent-save">Сохранить карточку</button></div>
+
+            <hr style="width:100%; border:0; border-top:1px solid var(--border);" />
+            <div class="field">
+              <label for="agent-new-prompt">Новая версия промпта личности</label>
+              <textarea id="agent-new-prompt" minlength="40" maxlength="20000" placeholder="Опиши характер и методику агента…"></textarea>
+            </div>
+            <div class="row"><button id="agent-create-revision">Создать версию</button><span class="muted">Она не включится до публикации.</span></div>
+            <div>
+              <h3 class="section-title">История версий</h3>
+              <div id="agent-revisions" class="revision-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card" id="history-card" style="display:none;">
       <div class="row" style="justify-content:space-between; margin-bottom:12px;">
         <div>
@@ -315,6 +382,7 @@
     const passwordCard = document.getElementById("password-card");
     const mainNav = document.getElementById("main-nav");
     const settingsCard = document.getElementById("settings-card");
+    const agentsCard = document.getElementById("agents-card");
     const historyCard = document.getElementById("history-card");
     const authStatus = document.getElementById("auth-status");
     const passwordStatus = document.getElementById("password-status");
@@ -323,6 +391,8 @@
     const knownTtsVoices = new Set(["lulwa", "noura", "aisha", "abdullah", "fahad", "sultan"]);
     let historyPage = 1;
     let historyTotalPages = 0;
+    let agents = [];
+    let selectedAgentId = null;
 
     function setStatus(el, text, mode) {
       el.style.display = "inline-block";
@@ -373,13 +443,114 @@
     }
 
     function switchTab(tab) {
-      const showHistory = tab === "history";
-      settingsCard.style.display = showHistory ? "none" : "block";
-      historyCard.style.display = showHistory ? "block" : "none";
-      document.getElementById("settings-tab").classList.toggle("active", !showHistory);
-      document.getElementById("history-tab").classList.toggle("active", showHistory);
-      if (showHistory) {
-        loadHistory(true);
+      settingsCard.style.display = tab === "settings" ? "block" : "none";
+      agentsCard.style.display = tab === "agents" ? "block" : "none";
+      historyCard.style.display = tab === "history" ? "block" : "none";
+      for (const name of ["settings", "agents", "history"]) {
+        document.getElementById(`${name}-tab`).classList.toggle("active", tab === name);
+      }
+      if (tab === "agents") loadAgents();
+      if (tab === "history") loadHistory(true);
+    }
+
+    function selectedAgent() {
+      return agents.find(agent => agent.id === selectedAgentId) || null;
+    }
+
+    function renderAgentList() {
+      const list = document.getElementById("agent-list");
+      list.replaceChildren();
+      for (const agent of agents) {
+        const button = document.createElement("button");
+        button.className = `agent-list-button${agent.id === selectedAgentId ? " active" : ""}`;
+        const icon = document.createElement("span");
+        icon.className = "agent-icon";
+        icon.textContent = agent.icon;
+        const label = document.createElement("span");
+        const name = document.createElement("strong");
+        name.textContent = agent.display_name;
+        const state = document.createElement("div");
+        state.className = "muted";
+        state.textContent = agent.enabled ? "Доступен" : "Отключён";
+        label.append(name, state);
+        button.append(icon, label);
+        button.onclick = () => {
+          selectedAgentId = agent.id;
+          renderAgentList();
+          renderAgentEditor();
+        };
+        list.append(button);
+      }
+    }
+
+    function renderAgentEditor() {
+      const agent = selectedAgent();
+      const editor = document.getElementById("agent-editor");
+      editor.style.display = agent ? "block" : "none";
+      if (!agent) return;
+
+      setValue("agent-name", agent.display_name);
+      setValue("agent-icon", agent.icon);
+      setValue("agent-color", agent.color);
+      setValue("agent-voice", agent.tts_voice || "lulwa");
+      setValue("agent-order", agent.sort_order);
+      setValue("agent-enabled", String(agent.enabled));
+      setValue("agent-description", agent.description);
+      setValue("agent-greeting", agent.greeting);
+      setValue("agent-new-prompt", agent.revisions[0]?.system_prompt || "");
+
+      const revisions = document.getElementById("agent-revisions");
+      revisions.replaceChildren();
+      for (const revision of agent.revisions) {
+        const card = document.createElement("div");
+        card.className = `revision${revision.is_active ? " active" : ""}`;
+        const head = document.createElement("div");
+        head.className = "revision-head";
+        const meta = document.createElement("strong");
+        meta.textContent = `Версия ${revision.version}${revision.is_active ? " · опубликована" : ""}`;
+        const action = document.createElement("button");
+        action.className = "secondary";
+        action.textContent = revision.is_active ? "Активна" : "Опубликовать";
+        action.disabled = revision.is_active;
+        action.onclick = () => publishAgentRevision(revision.id, revision.version);
+        head.append(meta, action);
+        const byline = document.createElement("div");
+        byline.className = "muted";
+        byline.textContent = `${formatDateTime(revision.created_at)} · ${revision.created_by}`;
+        const prompt = document.createElement("div");
+        prompt.className = "revision-prompt";
+        prompt.textContent = revision.system_prompt;
+        card.append(head, byline, prompt);
+        revisions.append(card);
+      }
+    }
+
+    async function loadAgents() {
+      const status = document.getElementById("agents-status");
+      setStatus(status, "Загрузка…", "warn");
+      try {
+        const data = await api("/api/agents", { method: "GET" });
+        agents = data.items;
+        document.getElementById("safety-baseline").textContent = data.safety_baseline;
+        if (!selectedAgentId || !agents.some(agent => agent.id === selectedAgentId)) {
+          selectedAgentId = agents[0]?.id || null;
+        }
+        renderAgentList();
+        renderAgentEditor();
+        setStatus(status, "Обновлено", "ok");
+      } catch (error) {
+        setStatus(status, `Ошибка: ${error.message}`, "err");
+      }
+    }
+
+    async function publishAgentRevision(revisionId, version) {
+      const agent = selectedAgent();
+      if (!agent || !confirm(`Опубликовать версию ${version} агента «${agent.display_name}»? Новые диалоги начнут использовать её сразу.`)) return;
+      try {
+        await api(`/api/agents/${encodeURIComponent(agent.id)}/revisions/${revisionId}/publish`, { method: "POST" });
+        await loadAgents();
+      } catch (error) {
+        setStatus(document.getElementById("agents-status"), `Ошибка: ${error.message}`, "err");
       }
     }
 
@@ -556,6 +727,7 @@
         passwordCard.style.display = "block";
         mainNav.style.display = "none";
         settingsCard.style.display = "none";
+        agentsCard.style.display = "none";
         historyCard.style.display = "none";
         setStatus(passwordStatus, "Требуется сменить пароль", "warn");
       } else {
@@ -589,7 +761,51 @@
     };
 
     document.getElementById("settings-tab").onclick = () => switchTab("settings");
+    document.getElementById("agents-tab").onclick = () => switchTab("agents");
     document.getElementById("history-tab").onclick = () => switchTab("history");
+    document.getElementById("agent-save").onclick = async () => {
+      const agent = selectedAgent();
+      if (!agent) return;
+      const payload = {
+        display_name: getValue("agent-name").trim(),
+        description: getValue("agent-description").trim(),
+        icon: getValue("agent-icon").trim(),
+        color: getValue("agent-color").trim(),
+        greeting: getValue("agent-greeting").trim(),
+        tts_voice: getValue("agent-voice") || null,
+        enabled: getValue("agent-enabled") === "true",
+        sort_order: Number(getValue("agent-order"))
+      };
+      try {
+        await api(`/api/agents/${encodeURIComponent(agent.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
+        await loadAgents();
+        setStatus(document.getElementById("agents-status"), "Карточка сохранена", "ok");
+      } catch (error) {
+        setStatus(document.getElementById("agents-status"), `Ошибка: ${error.message}`, "err");
+      }
+    };
+    document.getElementById("agent-create-revision").onclick = async () => {
+      const agent = selectedAgent();
+      const systemPrompt = getValue("agent-new-prompt").trim();
+      if (!agent) return;
+      if (systemPrompt.length < 40) {
+        setStatus(document.getElementById("agents-status"), "Промпт должен быть не короче 40 символов", "err");
+        return;
+      }
+      try {
+        await api(`/api/agents/${encodeURIComponent(agent.id)}/revisions`, {
+          method: "POST",
+          body: JSON.stringify({ system_prompt: systemPrompt })
+        });
+        await loadAgents();
+        setStatus(document.getElementById("agents-status"), "Новая версия создана. Опубликуй её после проверки.", "ok");
+      } catch (error) {
+        setStatus(document.getElementById("agents-status"), `Ошибка: ${error.message}`, "err");
+      }
+    };
     document.getElementById("history-refresh").onclick = () => loadHistory(true);
     document.getElementById("history-days").onchange = () => loadHistory(true);
     document.getElementById("history-search").onkeydown = event => {

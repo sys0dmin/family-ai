@@ -90,7 +90,7 @@ class OpenAIProvider(AIProvider):
         """Convert text to speech using provider TTS API."""
         response = await self._speech_client.audio.speech.create(
             model=self._tts_model,
-            voice=self._tts_voice,
+            voice=request.voice or self._tts_voice,
             input=request.text,
             response_format=self._tts_response_format,
         )

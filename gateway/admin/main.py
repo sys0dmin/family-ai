@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import secrets
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from gateway.admin.agents_router import router as agents_router
+from gateway.admin.auth import verify_admin as _verify_admin
 from gateway.admin.history_schemas import (
     ConversationHistoryResponse,
     HistorySummaryResponse,
@@ -20,8 +20,6 @@ from gateway.admin.history_schemas import (
 from gateway.admin.history_service import HistoryService
 from gateway.app.config import get_settings
 from gateway.app.db.session import get_session_factory
-
-security = HTTPBasic()
 
 
 class SettingsResponse(BaseModel):
@@ -98,29 +96,12 @@ def _must_change_password(settings: Any) -> bool:
     return settings.admin_force_password_change or current_password == "change-me"
 
 
-def _verify_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
-    settings = get_settings()
-    expected_username = settings.admin_username
-    expected_password = settings.admin_password.get_secret_value()
-
-    valid_username = secrets.compare_digest(credentials.username, expected_username)
-    valid_password = secrets.compare_digest(credentials.password, expected_password)
-
-    if not (valid_username and valid_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid admin credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-
-    return credentials.username
-
-
 class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=200)
 
 
 app = FastAPI(title="Family AI Admin", version="0.1.0")
+app.include_router(agents_router)
 
 
 def get_history_session() -> Generator[Session]:

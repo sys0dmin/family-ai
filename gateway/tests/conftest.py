@@ -1,5 +1,6 @@
 """Shared pytest fixtures."""
 
+import uuid
 from collections.abc import Generator
 
 import pytest
@@ -13,7 +14,14 @@ from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.db.base import Base
 from gateway.app.db.session import get_db_session, reset_database_runtime
 from gateway.app.main import create_app
-from gateway.app.models import ChildProfile
+from gateway.app.models import Agent, AgentRevision, ChildProfile
+
+TEST_AGENTS = (
+    ("teacher_friend", "Учитель-друг", "🐻", "blue", "lulwa", 10),
+    ("scientist", "Почемучка", "🔬", "green", "noura", 20),
+    ("storyteller", "Сказочник", "🦉", "purple", "aisha", 30),
+    ("socrates", "Подумай сама", "🦊", "orange", "lulwa", 40),
+)
 
 
 @pytest.fixture
@@ -39,6 +47,41 @@ def session_factory(test_settings: Settings) -> sessionmaker[Session]:
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     with factory() as session:
+        for agent_id, name, icon, color, voice, sort_order in TEST_AGENTS:
+            session.add(
+                Agent(
+                    id=agent_id,
+                    display_name=name,
+                    description=f"Тестовый агент: {name}",
+                    icon=icon,
+                    color=color,
+                    greeting=f"Привет! Я {name}.",
+                    tts_voice=voice,
+                    enabled=True,
+                    sort_order=sort_order,
+                )
+            )
+        session.flush()
+
+        for index, (agent_id, name, *_metadata) in enumerate(TEST_AGENTS, start=1):
+            session.add(
+                AgentRevision(
+                    id=uuid.UUID(f"a0000000-0000-0000-0000-{index:012d}"),
+                    agent_id=agent_id,
+                    version=1,
+                    system_prompt=f"Следуй безопасной роли агента {name}.",
+                    created_by="test",
+                )
+            )
+        session.flush()
+
+        for index, (agent_id, *_metadata) in enumerate(TEST_AGENTS, start=1):
+            agent = session.get(Agent, agent_id)
+            assert agent is not None
+            agent.active_revision_id = uuid.UUID(
+                f"a0000000-0000-0000-0000-{index:012d}"
+            )
+
         session.add(
             ChildProfile(
                 id=LERA_PROFILE_ID,

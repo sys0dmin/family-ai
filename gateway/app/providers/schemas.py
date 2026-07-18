@@ -57,6 +57,7 @@ class SpeechRequest:
     """Request for a text-to-speech (TTS) synthesis."""
 
     text: str
+    voice: str | None = None
 
 
 @dataclass(frozen=True)

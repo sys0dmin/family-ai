@@ -2,7 +2,7 @@
 
 import uuid
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import FastAPI
@@ -88,6 +88,9 @@ async def test_voice_service_preserves_recording_metadata() -> None:
     provider.synthesize_speech.return_value = SpeechResponse(audio_content=b"mp3")
     conversation_service = AsyncMock()
     conversation_service.process_turn.return_value = SimpleNamespace(content="Привет, Лера!")
+    conversation_service.get_conversation_agent = Mock(
+        return_value=SimpleNamespace(tts_voice="lulwa")
+    )
     service = VoiceService(provider, conversation_service)
     conversation_id = uuid.uuid4()
 
@@ -112,7 +115,7 @@ async def test_voice_service_preserves_recording_metadata() -> None:
         text="Привет",
     )
     provider.synthesize_speech.assert_awaited_once_with(
-        SpeechRequest(text="Привет, Лера!")
+        SpeechRequest(text="Привет, Лера!", voice="lulwa")
     )
 
 

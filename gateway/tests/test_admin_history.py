@@ -18,6 +18,8 @@ from gateway.admin.main import (
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.models import Conversation, Message, MessageRole
 
+TEACHER_REVISION_ID = uuid.UUID("a0000000-0000-0000-0000-000000000001")
+
 
 def _add_message(
     session: Session,
@@ -45,6 +47,8 @@ def test_history_summary_calculates_activity_and_questions(db_session: Session) 
         Conversation(
             id=conversation_id,
             child_profile_id=LERA_PROFILE_ID,
+            agent_id="teacher_friend",
+            agent_revision_id=TEACHER_REVISION_ID,
             started_at=now - timedelta(minutes=5),
         )
     )
@@ -100,6 +104,8 @@ def test_history_conversations_support_search_and_pagination(db_session: Session
             Conversation(
                 id=conversation_id,
                 child_profile_id=LERA_PROFILE_ID,
+                agent_id="teacher_friend",
+                agent_revision_id=TEACHER_REVISION_ID,
                 started_at=now - timedelta(minutes=10),
             )
         )

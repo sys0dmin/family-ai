@@ -5,11 +5,12 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from gateway.app.agents import get_teacher_friend_system_message
+from gateway.app.agents import ActiveAgent, build_agent_system_message
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.models import ChildProfile, Conversation, Message, MessageRole
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole
+from gateway.app.services.agent_service import AgentService
 from gateway.app.services.safety_service import SafetyService
 
 
@@ -21,10 +22,14 @@ class ConversationService:
         session: Session,
         provider: AIProvider | None = None,
         safety: SafetyService | None = None,
+        agents: AgentService | None = None,
+        default_agent_id: str = "teacher_friend",
     ) -> None:
         self._session = session
         self._provider = provider
         self._safety = safety
+        self._agents = agents
+        self._default_agent_id = default_agent_id
 
     def create_message(
         self,
@@ -96,7 +101,8 @@ class ConversationService:
                 )
 
         # 3. Build request for AI
-        messages = [get_teacher_friend_system_message()]
+        active_agent = self.get_conversation_agent(conversation_id)
+        messages = [build_agent_system_message(active_agent.system_prompt)]
         for msg in history[-10:]:
             role = ProviderRole.USER if msg.role == 'child' else ProviderRole.ASSISTANT
             messages.append(ChatMessage(role=role, content=msg.content))
@@ -139,12 +145,13 @@ class ConversationService:
         conversation = Conversation(
             id=conversation_id,
             child_profile_id=LERA_PROFILE_ID,
+            **self._agent_binding(self._default_agent_id),
         )
         self._session.add(conversation)
         self._session.flush()
         return conversation
 
-    def create_conversation(self) -> Conversation:
+    def create_conversation(self, agent_id: str | None = None) -> Conversation:
         """Создать новый диалог и вернуть его идентификатор."""
 
         profile = self._session.get(ChildProfile, LERA_PROFILE_ID)
@@ -154,10 +161,33 @@ class ConversationService:
         conversation = Conversation(
             id=uuid.uuid4(),
             child_profile_id=LERA_PROFILE_ID,
+            **self._agent_binding(agent_id or self._default_agent_id),
         )
         self._session.add(conversation)
         self._session.flush()
         return conversation
+
+    def get_conversation_agent(self, conversation_id: uuid.UUID) -> ActiveAgent:
+        """Return the exact published agent revision bound to a conversation."""
+
+        if self._agents is None:
+            raise RuntimeError("Agent service is not configured")
+        conversation = self._session.get(Conversation, conversation_id)
+        if conversation is None:
+            raise RuntimeError("Conversation is not initialized")
+        return self._agents.get_revision(
+            conversation.agent_id,
+            conversation.agent_revision_id,
+        )
+
+    def _agent_binding(self, agent_id: str) -> dict[str, object]:
+        if self._agents is None:
+            raise RuntimeError("Agent service is not configured")
+        agent = self._agents.get_active(agent_id)
+        return {
+            "agent_id": agent.id,
+            "agent_revision_id": uuid.UUID(agent.revision_id),
+        }
 
     def get_messages_for_conversation(self, conversation_id: uuid.UUID) -> list[Message]:
         """Return messages ordered by creation time."""

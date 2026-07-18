@@ -13,10 +13,17 @@ class CreateMessageRequest(BaseModel):
     content: str = Field(min_length=1, max_length=8000)
 
 
+class CreateConversationRequest(BaseModel):
+    """Optional agent selection for a new isolated conversation."""
+
+    agent_id: str = Field(default="teacher_friend", min_length=1, max_length=50)
+
+
 class CreateConversationResponse(BaseModel):
     """Response payload for newly created conversations."""
 
     conversation_id: uuid.UUID
+    agent_id: str
 
 
 class MessageResponse(BaseModel):

@@ -105,6 +105,62 @@
             background: linear-gradient(120deg, rgba(124, 58, 237, 0.92), rgba(236, 72, 153, 0.88));
         }
 
+        #change-agent-btn {
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            border-radius: 14px;
+            padding: 9px 12px;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.16);
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .agent-picker {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: rgba(55, 48, 90, 0.32);
+            backdrop-filter: blur(12px);
+        }
+
+        .agent-picker[hidden] { display: none; }
+        .agent-picker-panel {
+            width: min(760px, 100%);
+            max-height: 92vh;
+            overflow: auto;
+            padding: 22px;
+            border-radius: 28px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 26px 70px rgba(67, 56, 110, 0.28);
+        }
+        .agent-picker-panel h2 { margin: 0; font-size: clamp(1.45rem, 4vw, 2rem); }
+        .agent-picker-panel > p { margin: 8px 0 18px; color: var(--muted); }
+        .agent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .agent-card {
+            min-height: 170px;
+            padding: 18px;
+            border: 3px solid transparent;
+            border-radius: 24px;
+            color: var(--text);
+            cursor: pointer;
+            background: linear-gradient(145deg, #eff6ff, #f5f3ff);
+            box-shadow: 0 10px 24px rgba(100, 116, 139, 0.15);
+            transition: transform 0.16s ease, border-color 0.16s ease;
+        }
+        .agent-card:hover, .agent-card:focus-visible { transform: translateY(-3px); border-color: #a78bfa; outline: none; }
+        .agent-card.blue { background: linear-gradient(145deg, #dbeafe, #eff6ff); }
+        .agent-card.green { background: linear-gradient(145deg, #d1fae5, #ecfdf5); }
+        .agent-card.purple { background: linear-gradient(145deg, #ede9fe, #faf5ff); }
+        .agent-card.orange { background: linear-gradient(145deg, #ffedd5, #fff7ed); }
+        .agent-card-icon { display: block; font-size: 3.5rem; margin-bottom: 7px; }
+        .agent-card-name { display: block; font-size: 1.2rem; font-weight: 800; }
+        .agent-card-description { display: block; margin-top: 7px; color: #475569; line-height: 1.35; }
+        #close-agent-picker { margin-top: 16px; border: 0; background: transparent; color: #64748b; cursor: pointer; }
+
         .title {
             display: flex;
             align-items: center;
@@ -408,40 +464,52 @@
             .app { padding: 0; }
             .panel { border-radius: 0; }
             header { padding: 12px; }
-            .status-wrap { display: none; }
+            .status-wrap { display: block; }
+            #status-pill { display: none; }
             .message-row { max-width: 96%; }
             .quick-strip { padding: 8px; }
             #controls { padding: 10px; gap: 8px; }
             #send-btn { padding: 0 14px; }
+            .agent-picker { padding: 10px; }
+            .agent-picker-panel { padding: 16px; border-radius: 22px; }
+            .agent-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+            .agent-card { min-height: 145px; padding: 12px 8px; }
+            .agent-card-icon { font-size: 2.8rem; }
+            .agent-card-description { font-size: 0.82rem; }
         }
     </style>
 </head>
 <body>
     <main class="app">
         <section class="panel" aria-label="Чат Family AI">
+            <div id="agent-picker" class="agent-picker">
+                <div class="agent-picker-panel">
+                    <h2>С кем поговорим?</h2>
+                    <p>Выбери своего помощника</p>
+                    <div id="agent-grid" class="agent-grid"></div>
+                    <button id="close-agent-picker" type="button" hidden>Остаться в разговоре</button>
+                </div>
+            </div>
             <header>
                 <div class="title">
-                    <div class="logo" aria-hidden="true">✨</div>
+                    <div class="logo" id="agent-logo" aria-hidden="true">✨</div>
                     <div>
-                        <h1>Привет, Лера!</h1>
-                        <p class="subtitle">Давай играть, придумывать и узнавать новое</p>
+                        <h1 id="agent-title">Привет, Лера!</h1>
+                        <p class="subtitle" id="agent-subtitle">Выбери, с кем хочешь поговорить</p>
                     </div>
                 </div>
                 <div class="status-wrap">
                     <div id="status-pill">Готов к чату</div>
+                    <button id="change-agent-btn" type="button">Сменить друга</button>
                 </div>
             </header>
 
             <div id="quick-replies" class="quick-strip"></div>
 
             <div id="chat-container">
-                <div class="welcome-card">
+                <div class="welcome-card" id="welcome-card">
                     <span class="emoji">🌈</span>
-                    <p>Спроси что угодно или выбери подсказку сверху. Можно писать и голосом.</p>
-                </div>
-                <div class="message-row assistant">
-                    <div class="avatar" aria-hidden="true">🤖</div>
-                    <div class="message">Привет! Я рядом. Готов поболтать, сыграть в словесную игру или придумать сказку. Начнем? 😊</div>
+                    <p id="welcome-text">Сначала выбери помощника. Потом можно писать или говорить.</p>
                 </div>
                 <div id="typing-indicator">
                     Думаю
@@ -457,6 +525,6 @@
         </section>
     </main>
 
-    <script src="/static/app.js?v=4"></script>
+    <script src="/static/app.js?v=5"></script>
 </body>
 </html>

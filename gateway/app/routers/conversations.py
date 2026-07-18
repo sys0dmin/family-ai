@@ -1,13 +1,15 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from gateway.app.dependencies import get_conversation_service
 from gateway.app.schemas.conversations import (
+    CreateConversationRequest,
     CreateConversationResponse,
     CreateMessageRequest,
     MessageResponse,
 )
+from gateway.app.services.agent_service import AgentNotFoundError
 from gateway.app.services.conversation_service import ConversationService
 
 
@@ -66,7 +68,17 @@ async def process_turn(
     summary="Create new conversation for Лера",
 )
 def create_conversation(
+    payload: CreateConversationRequest | None = None,
     service: ConversationService = Depends(get_conversation_service),
 ) -> CreateConversationResponse:
-    conversation = service.create_conversation()
-    return CreateConversationResponse(conversation_id=conversation.id)
+    try:
+        conversation = service.create_conversation(payload.agent_id if payload else None)
+    except AgentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent is unavailable",
+        ) from exc
+    return CreateConversationResponse(
+        conversation_id=conversation.id,
+        agent_id=conversation.agent_id,
+    )

@@ -5,10 +5,12 @@ from functools import lru_cache
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.config import Settings
 from gateway.app.db.session import get_db_session
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.openai import OpenAIProvider
+from gateway.app.services.agent_service import AgentService
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.voice_service import VoiceService
@@ -37,13 +39,29 @@ def get_ai_provider() -> AIProvider:
     )
 
 
+def get_agent_service(
+    session: Session = Depends(get_db_session),
+) -> AgentService:
+    """Return agent business rules backed by the configured database."""
+
+    return AgentService(SqlAlchemyAgentRepository(session))
+
+
 def get_conversation_service(
     session: Session = Depends(get_db_session),
     provider: AIProvider = Depends(get_ai_provider),
     safety: SafetyService = Depends(get_safety_service),
+    agents: AgentService = Depends(get_agent_service),
 ) -> ConversationService:
     """Return a conversation service with injected dependencies."""
-    return ConversationService(session, provider, safety)
+    settings = Settings()
+    return ConversationService(
+        session,
+        provider,
+        safety,
+        agents,
+        default_agent_id=settings.default_agent_id,
+    )
 
 
 def get_voice_service(

@@ -2,6 +2,8 @@ let mediaRecorder;
 let audioChunks = [];
 let conversationId = null;
 let isRecording = false;
+let availableAgents = [];
+let selectedAgent = null;
 
 const chatContainer = document.getElementById('chat-container');
 const textInput = document.getElementById('text-input');
@@ -10,14 +12,17 @@ const micBtn = document.getElementById('mic-btn');
 const statusPill = document.getElementById('status-pill');
 const typingIndicator = document.getElementById('typing-indicator');
 const quickReplies = document.getElementById('quick-replies');
+const agentPicker = document.getElementById('agent-picker');
+const agentGrid = document.getElementById('agent-grid');
+const closeAgentPicker = document.getElementById('close-agent-picker');
+const changeAgentBtn = document.getElementById('change-agent-btn');
 
-const quickPhrases = [
-    'Придумай сказку про котенка',
-    'Загадай мне загадку',
-    'Поиграем в слова',
-    'Почему небо голубое?',
-    'Давай викторину про животных'
-];
+const quickPhrasesByAgent = {
+    teacher_friend: ['Объясни мне что-нибудь интересное', 'Загадай мне загадку', 'Поиграем в слова', 'Почему небо голубое?'],
+    scientist: ['Почему идёт дождь?', 'Как растёт цветок?', 'Расскажи про космос', 'Давай простой опыт'],
+    storyteller: ['Придумай сказку про котёнка', 'Сказку про волшебный лес', 'Я выберу героя сказки', 'Продолжим историю вместе'],
+    socrates: ['Помоги мне самой найти ответ', 'Задай мне хитрый вопрос', 'Почему важно дружить?', 'Давай рассуждать вместе']
+};
 
 function setStatus(text, kind = 'ok') {
     if (!statusPill) return;
@@ -45,7 +50,7 @@ function addMessage(text, role) {
         const systemDiv = document.createElement('div');
         systemDiv.className = 'system';
         systemDiv.textContent = text;
-        chatContainer.appendChild(systemDiv);
+        chatContainer.insertBefore(systemDiv, typingIndicator);
         scrollToBottom();
         return;
     }
@@ -55,7 +60,7 @@ function addMessage(text, role) {
 
     const avatar = document.createElement('div');
     avatar.className = 'avatar';
-    avatar.textContent = role === 'assistant' ? '🤖' : '🧒';
+    avatar.textContent = role === 'assistant' ? (selectedAgent?.icon || '✨') : '🧒';
 
     const bubble = document.createElement('div');
     bubble.className = 'message';
@@ -63,7 +68,7 @@ function addMessage(text, role) {
 
     row.appendChild(avatar);
     row.appendChild(bubble);
-    chatContainer.appendChild(row);
+    chatContainer.insertBefore(row, typingIndicator);
     scrollToBottom();
 }
 
@@ -71,7 +76,8 @@ function renderQuickReplies() {
     if (!quickReplies) return;
     quickReplies.innerHTML = '';
 
-    quickPhrases.forEach((phrase) => {
+    const phrases = quickPhrasesByAgent[selectedAgent?.id] || quickPhrasesByAgent.teacher_friend;
+    phrases.forEach((phrase) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = phrase;
@@ -83,14 +89,87 @@ function renderQuickReplies() {
     });
 }
 
+function setControlsEnabled(enabled) {
+    textInput.disabled = !enabled;
+    sendBtn.disabled = !enabled;
+    micBtn.disabled = !enabled;
+}
+
+function renderAgentPicker() {
+    agentGrid.replaceChildren();
+    availableAgents.forEach((agent) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = `agent-card ${['blue', 'green', 'purple', 'orange'].includes(agent.color) ? agent.color : ''}`;
+        const icon = document.createElement('span');
+        icon.className = 'agent-card-icon';
+        icon.textContent = agent.icon;
+        const name = document.createElement('span');
+        name.className = 'agent-card-name';
+        name.textContent = agent.display_name;
+        const description = document.createElement('span');
+        description.className = 'agent-card-description';
+        description.textContent = agent.description;
+        card.append(icon, name, description);
+        card.onclick = () => chooseAgent(agent);
+        agentGrid.append(card);
+    });
+}
+
+function resetConversationView(agent) {
+    conversationId = null;
+    chatContainer.querySelectorAll('.message-row, .system').forEach((element) => element.remove());
+    document.querySelector('#welcome-card .emoji').textContent = agent.icon;
+    document.getElementById('welcome-text').textContent = agent.greeting;
+    addMessage(agent.greeting, 'assistant');
+}
+
+function chooseAgent(agent) {
+    const changed = selectedAgent?.id !== agent.id;
+    selectedAgent = agent;
+    document.getElementById('agent-logo').textContent = agent.icon;
+    document.getElementById('agent-title').textContent = agent.display_name;
+    document.getElementById('agent-subtitle').textContent = agent.description;
+    if (changed) resetConversationView(agent);
+    renderQuickReplies();
+    setControlsEnabled(true);
+    agentPicker.hidden = true;
+    closeAgentPicker.hidden = false;
+    setStatus('Готов к разговору');
+    textInput.focus();
+}
+
+async function loadAgents() {
+    setControlsEnabled(false);
+    setStatus('Загружаю друзей...', 'busy');
+    try {
+        const response = await fetch('/v1/agents');
+        if (!response.ok) throw new Error('Не удалось загрузить агентов');
+        const data = await response.json();
+        availableAgents = data.items;
+        renderAgentPicker();
+        if (!availableAgents.length) throw new Error('Нет доступных агентов');
+        setStatus('Выбери помощника');
+    } catch (err) {
+        console.error('Agent loading failed:', err);
+        agentGrid.textContent = 'Не получилось позвать друзей. Обнови страницу чуть позже.';
+        setStatus('Нет связи с помощниками', 'error');
+    }
+}
+
 async function ensureConversation() {
     if (conversationId) {
         return conversationId;
     }
 
     try {
-        const response = await fetch('/v1/conversations', {
-            method: 'POST'
+        if (!selectedAgent) {
+            throw new Error('Сначала выбери помощника');
+        }
+        const response = await fetch('/v1/conversations/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_id: selectedAgent.id })
         });
 
         if (!response.ok) {
@@ -227,5 +306,12 @@ textInput.onkeypress = (e) => {
     }
 };
 
-renderQuickReplies();
-setStatus('Готов к чату');
+changeAgentBtn.onclick = () => {
+    agentPicker.hidden = false;
+    closeAgentPicker.hidden = !selectedAgent;
+};
+closeAgentPicker.onclick = () => {
+    if (selectedAgent) agentPicker.hidden = true;
+};
+
+loadAgents();
