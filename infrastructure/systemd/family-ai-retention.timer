@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Family AI message retention cleanup daily
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=10m
+Unit=family-ai-retention.service
+
+[Install]
+WantedBy=timers.target

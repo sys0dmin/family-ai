@@ -1,0 +1,17 @@
+[Unit]
+Description=Family AI message retention cleanup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=familyai-deploy
+Group=familyai-deploy
+WorkingDirectory=/home/familyai-deploy/family-ai
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/home/familyai-deploy/family-ai/.venv/bin/python scripts/run_retention.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only

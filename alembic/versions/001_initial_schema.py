@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "001_initial_schema"
@@ -17,21 +18,35 @@ def upgrade() -> None:
     message_role = sa.Enum("child", "assistant", name="message_role")
 
     op.create_table(
-
         "child_profiles",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("name", sa.String(length=100), nullable=False),
         sa.Column("language", sa.String(length=10), nullable=False),
         sa.Column("age", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
         "conversations",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("child_profile_id", sa.Uuid(), nullable=False),
-        sa.Column("started_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "started_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["child_profile_id"], ["child_profiles.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -42,11 +57,20 @@ def upgrade() -> None:
         sa.Column("conversation_id", sa.Uuid(), nullable=False),
         sa.Column("role", message_role, nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["conversation_id"], ["conversations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_messages_conversation_id_created_at", "messages", ["conversation_id", "created_at"])
+    op.create_index(
+        "ix_messages_conversation_id_created_at",
+        "messages",
+        ["conversation_id", "created_at"],
+    )
     op.create_index("ix_messages_created_at", "messages", ["created_at"])
     op.create_table(
         "topic_statistics",
@@ -55,8 +79,18 @@ def upgrade() -> None:
         sa.Column("topic", sa.String(length=100), nullable=False),
         sa.Column("mention_count", sa.Integer(), nullable=False),
         sa.Column("stat_date", sa.Date(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["child_profile_id"], ["child_profiles.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
@@ -66,7 +100,11 @@ def upgrade() -> None:
             name="uq_topic_statistics_profile_topic_date",
         ),
     )
-    op.create_index("ix_topic_statistics_child_profile_id", "topic_statistics", ["child_profile_id"])
+    op.create_index(
+        "ix_topic_statistics_child_profile_id",
+        "topic_statistics",
+        ["child_profile_id"],
+    )
 
     op.execute(
         sa.text(
@@ -76,8 +114,6 @@ def upgrade() -> None:
             """
         ).bindparams(id=LERA_PROFILE_ID)
     )
-
-
 
 def downgrade() -> None:
     op.drop_index("ix_topic_statistics_child_profile_id", table_name="topic_statistics")

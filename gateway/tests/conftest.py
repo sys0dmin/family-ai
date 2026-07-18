@@ -1,13 +1,11 @@
 """Shared pytest fixtures."""
 
-import uuid
 from collections.abc import Generator
-from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from gateway.app.config import Settings, get_settings
@@ -15,7 +13,7 @@ from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.db.base import Base
 from gateway.app.db.session import get_db_session, reset_database_runtime
 from gateway.app.main import create_app
-from gateway.app.models import ChildProfile, Message, MessageRole, TopicStatistic
+from gateway.app.models import ChildProfile
 
 
 @pytest.fixture

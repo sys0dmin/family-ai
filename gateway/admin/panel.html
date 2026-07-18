@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Family AI Admin</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --card: #151c33;
+      --muted: #8f9bb7;
+      --text: #e7ecff;
+      --accent: #6ea8fe;
+      --ok: #2dd4bf;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --border: #2b3558;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: radial-gradient(1200px 700px at 10% -10%, #1b2956 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 920px;
+      margin: 28px auto;
+      padding: 0 16px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, #1a2344 0%, var(--card) 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    .muted { color: var(--muted); font-size: 14px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 13px; color: #c7d3ff; }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0e1630;
+      color: var(--text);
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      color: #0d142b;
+      background: linear-gradient(180deg, #9ec5ff 0%, #6ea8fe 100%);
+    }
+
+    button.secondary {
+      color: var(--text);
+      background: #1d284d;
+      border: 1px solid var(--border);
+    }
+
+    .status {
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+    .status.ok { color: #b8fff0; border-color: rgba(45, 212, 191, 0.5); background: rgba(45, 212, 191, 0.1); }
+    .status.warn { color: #ffe8b3; border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.1); }
+    .status.err { color: #ffd1d1; border-color: rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.1); }
+
+    .tabs { display: flex; gap: 8px; }
+    .tab-button { color: var(--text); background: #1d284d; border: 1px solid var(--border); }
+    .tab-button.active { color: #0d142b; background: linear-gradient(180deg, #9ec5ff 0%, #6ea8fe 100%); }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 14px 0; }
+    .metric { padding: 14px; border-radius: 12px; background: #0e1630; border: 1px solid var(--border); }
+    .metric-value { font-size: 26px; font-weight: 750; margin-top: 6px; }
+    .dashboard-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; }
+    .section-panel { padding: 14px; border-radius: 12px; background: #0e1630; border: 1px solid var(--border); }
+    .section-title { margin: 0 0 12px; font-size: 16px; }
+    .activity-row { display: grid; grid-template-columns: 64px 1fr 42px; gap: 9px; align-items: center; margin: 9px 0; }
+    .activity-track { display: flex; height: 12px; overflow: hidden; border-radius: 99px; background: #202a48; }
+    .activity-child { background: #6ea8fe; }
+    .activity-assistant { background: #2dd4bf; }
+    .question-list { display: flex; flex-direction: column; gap: 8px; }
+    .question-item { display: flex; justify-content: space-between; gap: 12px; padding: 10px; border-radius: 9px; background: #151f3d; }
+    .question-count { flex: 0 0 auto; color: var(--ok); font-weight: 700; }
+    .history-toolbar { display: grid; grid-template-columns: 130px 1fr auto; gap: 10px; align-items: end; }
+    .conversation-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+    .conversation { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #0e1630; }
+    .conversation-head { display: flex; justify-content: space-between; gap: 12px; padding: 11px 13px; background: #182344; color: var(--muted); font-size: 13px; }
+    .messages { display: flex; flex-direction: column; gap: 9px; padding: 13px; }
+    .message { max-width: 84%; padding: 10px 12px; border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .message.child { align-self: flex-start; background: #233661; border-bottom-left-radius: 4px; }
+    .message.assistant { align-self: flex-end; background: #16433f; border-bottom-right-radius: 4px; }
+    .message-meta { margin-top: 5px; color: #aeb9d5; font-size: 11px; }
+    .empty { padding: 24px; text-align: center; color: var(--muted); }
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 14px; }
+
+    @media (max-width: 760px) {
+      .grid, .dashboard-grid, .history-toolbar { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .message { max-width: 94%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Family AI Admin</h1>
+      <div class="muted">Управление моделью, API-ключом и runtime-настройками. Порт админки: <b>8001</b>.</div>
+    </div>
+
+    <div class="card" id="auth-card">
+      <div class="row" style="margin-bottom:10px;">
+        <div class="field" style="flex:1; min-width:180px;">
+          <label for="username">Логин админа</label>
+          <input id="username" value="admin" autocomplete="username" />
+        </div>
+        <div class="field" style="flex:1; min-width:180px;">
+          <label for="password">Пароль админа</label>
+          <input id="password" type="password" autocomplete="current-password" />
+        </div>
+      </div>
+      <div class="row">
+        <button id="login-btn">Подключиться</button>
+        <div id="auth-status" class="muted"></div>
+      </div>
+    </div>
+
+    <div class="card" id="password-card" style="display:none; border-color: rgba(245, 158, 11, 0.6);">
+      <h3 style="margin-top:0;">Смена пароля при первом входе</h3>
+      <div class="muted" style="margin-bottom:10px;">Нужно задать новый пароль админки, прежде чем менять остальные настройки.</div>
+      <div class="field" style="margin-bottom:10px;">
+        <label for="new_admin_password">Новый пароль</label>
+        <input id="new_admin_password" type="password" autocomplete="new-password" />
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <label for="new_admin_password_confirm">Повтори пароль</label>
+        <input id="new_admin_password_confirm" type="password" autocomplete="new-password" />
+      </div>
+      <div class="row">
+        <button id="change-password-btn">Сменить пароль</button>
+        <div id="password-status" class="status warn" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div class="card" id="main-nav" style="display:none;">
+      <div class="tabs">
+        <button class="tab-button active" id="settings-tab">Настройки</button>
+        <button class="tab-button" id="history-tab">История и аналитика</button>
+      </div>
+    </div>
+
+    <div class="card" id="settings-card" style="display:none;">
+      <div class="grid">
+        <div class="field">
+          <label for="openai_model">LLM модель</label>
+          <input id="openai_model" placeholder="deepseek-chat" />
+        </div>
+        <div class="field">
+          <label for="openai_base_url">Base URL (опционально)</label>
+          <input id="openai_base_url" placeholder="https://api.deepseek.com/v1" />
+        </div>
+
+        <div class="field">
+          <label for="speech_base_url">STT/TTS Base URL</label>
+          <input id="speech_base_url" placeholder="https://api.openai.com/v1" />
+        </div>
+
+        <div class="field">
+          <label for="stt_model">STT модель</label>
+          <input id="stt_model" placeholder="whisper-1" />
+        </div>
+        <div class="field">
+          <label for="tts_model">TTS модель</label>
+          <input id="tts_model" placeholder="tts-1" />
+        </div>
+
+        <div class="field">
+          <label for="tts_voice">TTS голос</label>
+          <select id="tts_voice">
+            <option value="lulwa">Lulwa</option>
+            <option value="noura">Noura</option>
+            <option value="aisha">Aisha</option>
+            <option value="abdullah">Abdullah</option>
+            <option value="fahad">Fahad</option>
+            <option value="sultan">Sultan</option>
+            <option value="__custom__">Другой голос…</option>
+          </select>
+          <input
+            id="tts_voice_custom"
+            placeholder="Идентификатор голоса"
+            style="display:none;"
+          />
+        </div>
+        <div class="field">
+          <label for="tts_response_format">Формат TTS-ответа</label>
+          <select id="tts_response_format">
+            <option value="mp3">MP3</option>
+            <option value="wav">WAV</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="message_retention_days">Хранение сообщений (дни)</label>
+          <input id="message_retention_days" type="number" min="1" max="3650" />
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:12px;">
+        <label for="openai_api_key">Новый ключ LLM (оставь пустым, чтобы не менять)</label>
+        <input id="openai_api_key" type="password" placeholder="sk-..." />
+      </div>
+
+      <div class="field" style="margin-top:12px;">
+        <label for="speech_api_key">Новый ключ STT/TTS (оставь пустым, чтобы не менять)</label>
+        <input id="speech_api_key" type="password" placeholder="sk-..." />
+      </div>
+
+      <div class="row" style="margin-top:14px;">
+        <button id="save-btn">Сохранить в .env</button>
+        <button id="reload-btn" class="secondary">Перечитать настройки</button>
+        <div id="save-status" class="status warn" style="display:none;"></div>
+      </div>
+
+      <div class="muted" id="summary" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card" id="history-card" style="display:none;">
+      <div class="row" style="justify-content:space-between; margin-bottom:12px;">
+        <div>
+          <h2 style="margin:0 0 5px;">История и аналитика</h2>
+          <div class="muted">Текстовые расшифровки хранятся до 10 дней. Аудио не сохраняется.</div>
+        </div>
+        <div id="history-status" class="status warn" style="display:none;"></div>
+      </div>
+
+      <div class="history-toolbar">
+        <div class="field">
+          <label for="history-days">Период</label>
+          <select id="history-days">
+            <option value="1">Сегодня</option>
+            <option value="3">3 дня</option>
+            <option value="7">7 дней</option>
+            <option value="10" selected>10 дней</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="history-search">Поиск по сообщениям</label>
+          <input id="history-search" placeholder="Например: космос или динозавры" />
+        </div>
+        <button id="history-refresh">Обновить</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="metric"><div class="muted">Диалогов</div><div class="metric-value" id="metric-conversations">—</div></div>
+        <div class="metric"><div class="muted">Реплик Леры</div><div class="metric-value" id="metric-child">—</div></div>
+        <div class="metric"><div class="muted">Ответов AI</div><div class="metric-value" id="metric-assistant">—</div></div>
+        <div class="metric"><div class="muted">Средний ответ</div><div class="metric-value" id="metric-response">—</div></div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="section-panel">
+          <h3 class="section-title">Активность по дням</h3>
+          <div id="activity-chart"></div>
+        </div>
+        <div class="section-panel">
+          <h3 class="section-title">Частые вопросы</h3>
+          <div id="frequent-questions" class="question-list"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;">
+        <div class="row" style="justify-content:space-between;">
+          <h3 style="margin:0;">Последние разговоры</h3>
+          <div class="muted" id="conversation-total"></div>
+        </div>
+        <div id="conversation-list" class="conversation-list"></div>
+        <div class="pagination" id="history-pagination" style="display:none;">
+          <button class="secondary" id="history-prev">Назад</button>
+          <span id="history-page-label" class="muted"></span>
+          <button class="secondary" id="history-next">Вперёд</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let authHeader = "";
+
+    const authCard = document.getElementById("auth-card");
+    const passwordCard = document.getElementById("password-card");
+    const mainNav = document.getElementById("main-nav");
+    const settingsCard = document.getElementById("settings-card");
+    const historyCard = document.getElementById("history-card");
+    const authStatus = document.getElementById("auth-status");
+    const passwordStatus = document.getElementById("password-status");
+    const saveStatus = document.getElementById("save-status");
+    const summary = document.getElementById("summary");
+    const knownTtsVoices = new Set(["lulwa", "noura", "aisha", "abdullah", "fahad", "sultan"]);
+    let historyPage = 1;
+    let historyTotalPages = 0;
+
+    function setStatus(el, text, mode) {
+      el.style.display = "inline-block";
+      el.textContent = text;
+      el.className = `status ${mode}`;
+    }
+
+    function setSaveStatus(text, mode) {
+      setStatus(saveStatus, text, mode);
+    }
+
+    function getValue(id) {
+      return document.getElementById(id).value;
+    }
+
+    function setValue(id, value) {
+      document.getElementById(id).value = value ?? "";
+    }
+
+    function applyTtsVoice(value) {
+      const customInput = document.getElementById("tts_voice_custom");
+      if (knownTtsVoices.has(value)) {
+        setValue("tts_voice", value);
+        setValue("tts_voice_custom", "");
+        customInput.style.display = "none";
+        return;
+      }
+
+      setValue("tts_voice", "__custom__");
+      setValue("tts_voice_custom", value);
+      customInput.style.display = "block";
+    }
+
+    function getTtsVoice() {
+      const selected = getValue("tts_voice");
+      return selected === "__custom__"
+        ? getValue("tts_voice_custom").trim()
+        : selected;
+    }
+
+    function formatDateTime(value) {
+      return new Intl.DateTimeFormat("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(value));
+    }
+
+    function switchTab(tab) {
+      const showHistory = tab === "history";
+      settingsCard.style.display = showHistory ? "none" : "block";
+      historyCard.style.display = showHistory ? "block" : "none";
+      document.getElementById("settings-tab").classList.toggle("active", !showHistory);
+      document.getElementById("history-tab").classList.toggle("active", showHistory);
+      if (showHistory) {
+        loadHistory(true);
+      }
+    }
+
+    function renderActivity(points) {
+      const chart = document.getElementById("activity-chart");
+      chart.replaceChildren();
+      const maximum = Math.max(1, ...points.map(point => point.child_messages + point.assistant_messages));
+      for (const point of points) {
+        const row = document.createElement("div");
+        row.className = "activity-row";
+
+        const day = document.createElement("span");
+        day.className = "muted";
+        day.textContent = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit" })
+          .format(new Date(`${point.day}T00:00:00`));
+
+        const track = document.createElement("div");
+        track.className = "activity-track";
+        const child = document.createElement("div");
+        child.className = "activity-child";
+        child.style.width = `${point.child_messages / maximum * 100}%`;
+        const assistant = document.createElement("div");
+        assistant.className = "activity-assistant";
+        assistant.style.width = `${point.assistant_messages / maximum * 100}%`;
+        track.append(child, assistant);
+
+        const total = document.createElement("span");
+        total.textContent = String(point.child_messages + point.assistant_messages);
+        row.append(day, track, total);
+        chart.append(row);
+      }
+    }
+
+    function renderQuestions(questions) {
+      const container = document.getElementById("frequent-questions");
+      container.replaceChildren();
+      if (!questions.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Вопросов за этот период пока нет";
+        container.append(empty);
+        return;
+      }
+      for (const question of questions) {
+        const item = document.createElement("div");
+        item.className = "question-item";
+        const text = document.createElement("span");
+        text.textContent = question.text;
+        const count = document.createElement("span");
+        count.className = "question-count";
+        count.textContent = `×${question.count}`;
+        item.append(text, count);
+        container.append(item);
+      }
+    }
+
+    function renderSummary(data) {
+      document.getElementById("metric-conversations").textContent = data.conversations;
+      document.getElementById("metric-child").textContent = data.child_messages;
+      document.getElementById("metric-assistant").textContent = data.assistant_messages;
+      document.getElementById("metric-response").textContent = data.average_response_seconds == null
+        ? "—"
+        : `${data.average_response_seconds} с`;
+      renderActivity(data.daily_activity);
+      renderQuestions(data.frequent_questions);
+    }
+
+    function renderConversations(data) {
+      const container = document.getElementById("conversation-list");
+      container.replaceChildren();
+      document.getElementById("conversation-total").textContent = `Найдено: ${data.total}`;
+      historyTotalPages = data.total_pages;
+
+      if (!data.items.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Разговоров за этот период не найдено";
+        container.append(empty);
+      }
+
+      for (const conversation of data.items) {
+        const card = document.createElement("article");
+        card.className = "conversation";
+        const head = document.createElement("div");
+        head.className = "conversation-head";
+        const title = document.createElement("span");
+        title.textContent = `Диалог ${conversation.conversation_id.slice(0, 8)}`;
+        const meta = document.createElement("span");
+        meta.textContent = `${formatDateTime(conversation.last_message_at)} · ${conversation.message_count} реплик`;
+        head.append(title, meta);
+
+        const messages = document.createElement("div");
+        messages.className = "messages";
+        for (const message of conversation.messages) {
+          const bubble = document.createElement("div");
+          bubble.className = `message ${message.role}`;
+          const content = document.createElement("div");
+          content.textContent = message.content;
+          const messageMeta = document.createElement("div");
+          messageMeta.className = "message-meta";
+          messageMeta.textContent = `${message.role === "child" ? "Лера" : "AI"} · ${formatDateTime(message.created_at)}`;
+          bubble.append(content, messageMeta);
+          messages.append(bubble);
+        }
+        card.append(head, messages);
+        container.append(card);
+      }
+
+      const pagination = document.getElementById("history-pagination");
+      pagination.style.display = data.total_pages > 1 ? "flex" : "none";
+      document.getElementById("history-page-label").textContent = `Страница ${data.page} из ${Math.max(1, data.total_pages)}`;
+      document.getElementById("history-prev").disabled = data.page <= 1;
+      document.getElementById("history-next").disabled = data.page >= data.total_pages;
+    }
+
+    async function loadHistory(resetPage = false) {
+      if (resetPage) historyPage = 1;
+      const days = getValue("history-days");
+      const search = getValue("history-search").trim();
+      const query = new URLSearchParams({ days, page: String(historyPage), page_size: "10" });
+      if (search) query.set("search", search);
+      setStatus(document.getElementById("history-status"), "Загрузка…", "warn");
+      try {
+        const [summary, conversations] = await Promise.all([
+          api(`/api/history/summary?days=${days}`, { method: "GET" }),
+          api(`/api/history/conversations?${query}`, { method: "GET" })
+        ]);
+        renderSummary(summary);
+        renderConversations(conversations);
+        setStatus(document.getElementById("history-status"), "Обновлено", "ok");
+      } catch (error) {
+        setStatus(document.getElementById("history-status"), `Ошибка: ${error.message}`, "err");
+      }
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`HTTP ${response.status}: ${body || response.statusText}`);
+      }
+
+      return response.json();
+    }
+
+    function applySettings(data) {
+      setValue("openai_model", data.openai_model);
+      setValue("openai_base_url", data.openai_base_url || "");
+      setValue("speech_base_url", data.speech_base_url || "");
+      setValue("stt_model", data.stt_model);
+      setValue("tts_model", data.tts_model);
+      applyTtsVoice(data.tts_voice);
+      setValue("tts_response_format", data.tts_response_format);
+      setValue("message_retention_days", data.message_retention_days);
+      setValue("openai_api_key", "");
+      setValue("speech_api_key", "");
+
+      summary.textContent = `env=${data.environment}, LLM key=${data.openai_api_key_preview || "(empty)"}, speech key=${data.speech_api_key_preview || "(empty)"}`;
+    }
+
+    async function loadSettings() {
+      const data = await api("/api/settings", { method: "GET" });
+      applySettings(data);
+      authCard.style.display = "none";
+      if (data.must_change_password) {
+        passwordCard.style.display = "block";
+        mainNav.style.display = "none";
+        settingsCard.style.display = "none";
+        historyCard.style.display = "none";
+        setStatus(passwordStatus, "Требуется сменить пароль", "warn");
+      } else {
+        passwordCard.style.display = "none";
+        mainNav.style.display = "block";
+        switchTab("settings");
+        setSaveStatus("Настройки загружены", "ok");
+      }
+    }
+
+    document.getElementById("login-btn").onclick = async () => {
+      const username = getValue("username").trim();
+      const password = getValue("password");
+      authHeader = "Basic " + btoa(`${username}:${password}`);
+
+      authStatus.textContent = "Проверка доступа...";
+      try {
+        await loadSettings();
+        authStatus.textContent = "";
+      } catch (error) {
+        authStatus.textContent = `Ошибка авторизации: ${error.message}`;
+      }
+    };
+
+    document.getElementById("reload-btn").onclick = async () => {
+      try {
+        await loadSettings();
+      } catch (error) {
+        setSaveStatus(`Ошибка: ${error.message}`, "err");
+      }
+    };
+
+    document.getElementById("settings-tab").onclick = () => switchTab("settings");
+    document.getElementById("history-tab").onclick = () => switchTab("history");
+    document.getElementById("history-refresh").onclick = () => loadHistory(true);
+    document.getElementById("history-days").onchange = () => loadHistory(true);
+    document.getElementById("history-search").onkeydown = event => {
+      if (event.key === "Enter") loadHistory(true);
+    };
+    document.getElementById("history-prev").onclick = () => {
+      if (historyPage > 1) {
+        historyPage -= 1;
+        loadHistory();
+      }
+    };
+    document.getElementById("history-next").onclick = () => {
+      if (historyPage < historyTotalPages) {
+        historyPage += 1;
+        loadHistory();
+      }
+    };
+
+    document.getElementById("tts_voice").onchange = () => {
+      const customInput = document.getElementById("tts_voice_custom");
+      customInput.style.display = getValue("tts_voice") === "__custom__" ? "block" : "none";
+      if (customInput.style.display === "block") {
+        customInput.focus();
+      }
+    };
+
+    document.getElementById("change-password-btn").onclick = async () => {
+      const password = getValue("new_admin_password");
+      const confirm = getValue("new_admin_password_confirm");
+
+      if (password.length < 8) {
+        setStatus(passwordStatus, "Минимум 8 символов", "err");
+        return;
+      }
+      if (password !== confirm) {
+        setStatus(passwordStatus, "Пароли не совпадают", "err");
+        return;
+      }
+
+      try {
+        await api("/api/change-password", {
+          method: "POST",
+          body: JSON.stringify({ new_password: password })
+        });
+
+        setValue("password", password);
+        setValue("new_admin_password", "");
+        setValue("new_admin_password_confirm", "");
+        setStatus(passwordStatus, "Пароль изменён", "ok");
+        await loadSettings();
+      } catch (error) {
+        setStatus(passwordStatus, `Ошибка смены пароля: ${error.message}`, "err");
+      }
+    };
+
+    document.getElementById("save-btn").onclick = async () => {
+      try {
+        const payload = {
+          openai_model: getValue("openai_model").trim(),
+          openai_base_url: getValue("openai_base_url").trim() || null,
+          speech_base_url: getValue("speech_base_url").trim() || null,
+          stt_model: getValue("stt_model").trim(),
+          tts_model: getValue("tts_model").trim(),
+          tts_voice: getTtsVoice(),
+          tts_response_format: getValue("tts_response_format"),
+          message_retention_days: Number(getValue("message_retention_days")),
+          openai_api_key: getValue("openai_api_key").trim() || null,
+          speech_api_key: getValue("speech_api_key").trim() || null
+        };
+
+        const data = await api("/api/settings", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        applySettings(data);
+        setSaveStatus("Сохранено в .env. Для применения перезапусти gateway процесс.", "ok");
+      } catch (error) {
+        setSaveStatus(`Ошибка сохранения: ${error.message}`, "err");
+      }
+    };
+  </script>
+</body>
+</html>

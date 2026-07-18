@@ -1,11 +1,11 @@
 """Message ORM model."""
 
-import enum
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, Uuid, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from gateway.app.db.base import Base
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from gateway.app.models.conversation import Conversation
 
 
-class MessageRole(str, enum.Enum):
+class MessageRole(StrEnum):
     """Author of a stored transcript line."""
 
     CHILD = "child"
@@ -36,7 +36,7 @@ class Message(Base):
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
     )
-    role: Mapped[MessageRole] = mapped_column(Enum(MessageRole, name="message_role"), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

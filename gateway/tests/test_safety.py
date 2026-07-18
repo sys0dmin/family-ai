@@ -7,7 +7,6 @@ import pytest
 from httpx import AsyncClient
 
 from gateway.app.dependencies import get_ai_provider
-from gateway.app.main import app
 from gateway.app.providers.schemas import ChatResponse
 
 

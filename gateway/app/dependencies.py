@@ -5,12 +5,13 @@ from functools import lru_cache
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from gateway.app.config import get_settings
+from gateway.app.config import Settings
 from gateway.app.db.session import get_db_session
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.openai import OpenAIProvider
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.safety_service import SafetyService
+from gateway.app.services.voice_service import VoiceService
 
 
 @lru_cache
@@ -20,11 +21,19 @@ def get_safety_service() -> SafetyService:
 
 
 def get_ai_provider() -> AIProvider:
-    """Return the configured AI provider singleton."""
-    settings = get_settings()
+    """Return provider configuration loaded from the latest .env values."""
+    settings = Settings()
     return OpenAIProvider(
         api_key=settings.openai_api_key.get_secret_value(),
         model=settings.openai_model,
+        base_url=settings.openai_base_url,
+        speech_api_key=settings.speech_api_key.get_secret_value() or None,
+        speech_base_url=settings.speech_base_url,
+        stt_model=settings.stt_model,
+        stt_temperature=settings.stt_temperature,
+        tts_model=settings.tts_model,
+        tts_voice=settings.tts_voice,
+        tts_response_format=settings.tts_response_format,
     )
 
 
@@ -36,3 +45,10 @@ def get_conversation_service(
     """Return a conversation service with injected dependencies."""
     return ConversationService(session, provider, safety)
 
+
+def get_voice_service(
+    provider: AIProvider = Depends(get_ai_provider),
+    conversation: ConversationService = Depends(get_conversation_service),
+) -> VoiceService:
+    """Return a voice service with injected dependencies."""
+    return VoiceService(provider, conversation)

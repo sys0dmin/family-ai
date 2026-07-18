@@ -13,7 +13,9 @@ from gateway.app.services.retention_service import RetentionService
 
 
 @pytest.mark.anyio
-async def test_create_message_creates_conversation_and_stores_child_line(client: AsyncClient) -> None:
+async def test_create_message_creates_conversation_and_stores_child_line(
+    client: AsyncClient,
+) -> None:
     conversation_id = uuid.uuid4()
 
     response = await client.post(

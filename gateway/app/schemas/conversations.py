@@ -5,14 +5,18 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from gateway.app.models.message import MessageRole
-
 
 class CreateMessageRequest(BaseModel):
     """Incoming payload for a new transcript line."""
 
-    role: MessageRole
+    role: str
     content: str = Field(min_length=1, max_length=8000)
+
+
+class CreateConversationResponse(BaseModel):
+    """Response payload for newly created conversations."""
+
+    conversation_id: uuid.UUID
 
 
 class MessageResponse(BaseModel):
@@ -20,7 +24,7 @@ class MessageResponse(BaseModel):
 
     id: uuid.UUID
     conversation_id: uuid.UUID
-    role: MessageRole
+    role: str
     content: str
     created_at: datetime
 

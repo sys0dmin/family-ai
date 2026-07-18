@@ -2,9 +2,9 @@
 
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from alembic import context
 from gateway.app.config import get_settings
 from gateway.app.db.base import Base
 from gateway.app.models import (  # noqa: F401

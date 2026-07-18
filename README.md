@@ -14,12 +14,16 @@
 Все настройки передаются через префикс `FAMILY_AI_` (см. `.env.example`):
 
 - `FAMILY_AI_DATABASE_URL`: `postgresql+psycopg://user:pass@192.168.31.163:5432/family_ai`
-- `FAMILY_AI_OPENAI_API_KEY`: ключ провайдера LLM/STT/TTS
+- `FAMILY_AI_OPENAI_API_KEY`: ключ текстового LLM-провайдера
 - `FAMILY_AI_OPENAI_MODEL`: модель чата (например, `deepseek-chat`)
 - `FAMILY_AI_OPENAI_BASE_URL`: базовый URL провайдера (для DeepSeek: `https://api.deepseek.com/v1`)
+- `FAMILY_AI_SPEECH_API_KEY`: отдельный ключ провайдера STT/TTS
+- `FAMILY_AI_SPEECH_BASE_URL`: API STT/TTS (для OpenAI: `https://api.openai.com/v1`)
 - `FAMILY_AI_STT_MODEL`: модель распознавания речи
+- `FAMILY_AI_STT_TEMPERATURE`: вариативность распознавания (`0` для стабильного результата)
 - `FAMILY_AI_TTS_MODEL`: модель синтеза речи
 - `FAMILY_AI_TTS_VOICE`: голос синтеза
+- `FAMILY_AI_TTS_RESPONSE_FORMAT`: формат аудиоответа (`mp3` или `wav`)
 - `FAMILY_AI_MESSAGE_RETENTION_DAYS`: срок хранения истории (дней)
 
 ### Переменные админки
@@ -49,6 +53,14 @@ uv run uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 Админка доступна по адресу: `http://127.0.0.1:8001`
+
+После входа доступны отдельные вкладки:
+
+- «Настройки» — модели, ключи, голос и срок хранения;
+- «История и аналитика» — недавние диалоги, поиск, активность и частые вопросы.
+
+История доступна только через защищённую админку. Исходное аудио не сохраняется,
+а текстовые сообщения автоматически удаляются согласно сроку хранения.
 
 ## Локальная база данных
 
@@ -82,6 +94,26 @@ sudo systemctl restart family-ai-admin
 sudo journalctl -u family-ai-admin -n 100 --no-pager
 ```
 
+### Управление Gateway через systemd
+
+```bash
+sudo systemctl status family-ai-gateway
+sudo systemctl restart family-ai-gateway
+sudo journalctl -u family-ai-gateway -n 100 --no-pager
+```
+
+### Автоматическая очистка истории
+
+```bash
+sudo systemctl status family-ai-retention.timer
+sudo systemctl start family-ai-retention.service
+sudo journalctl -u family-ai-retention.service -n 50 --no-pager
+```
+
+Timer запускает очистку ежедневно и удаляет сообщения старше
+`FAMILY_AI_MESSAGE_RETENTION_DAYS`. `Persistent=true` выполняет пропущенную
+очистку после включения сервера.
+
 ### Первый вход в админку
 
 1. Открыть `http://<gateway-ip>:8001`
@@ -90,7 +122,7 @@ sudo journalctl -u family-ai-admin -n 100 --no-pager
 
 Конфигурация передаётся через переменные окружения. Секреты и `.env` не добавляются в репозиторий.
 
-## Быстрый запуск в проде (без systemd)
+## Аварийный запуск в проде (без systemd)
 
 ```bash
 cd /home/familyai-deploy/family-ai

@@ -9,7 +9,10 @@ def main() -> None:
     settings = get_settings()
     session = get_session_factory()()
     try:
-        deleted = RetentionService(session, settings.message_retention_days).purge_expired_messages()
+        deleted = RetentionService(
+            session,
+            settings.message_retention_days,
+        ).purge_expired_messages()
         session.commit()
         print(f"Deleted {deleted} expired message(s).")
     except Exception:

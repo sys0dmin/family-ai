@@ -1,11 +1,11 @@
 """Shared schemas for AI providers."""
 
-import enum
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 
 
-class ProviderRole(str, enum.Enum):
+class ProviderRole(StrEnum):
     """Role of the message author in a chat completion."""
 
     SYSTEM = "system"
@@ -36,10 +36,27 @@ class ChatResponse:
 
 
 @dataclass(frozen=True)
+class TranscriptionRequest:
+    """Request for a speech-to-text (STT) transcription."""
+
+    audio_content: bytes
+    filename: str
+    content_type: str
+    language: str = "ru"
+
+
+@dataclass(frozen=True)
 class TranscriptionResponse:
     """Response from a speech-to-text (STT) provider."""
     text: str
     raw_response: Any = None
+
+
+@dataclass(frozen=True)
+class SpeechRequest:
+    """Request for a text-to-speech (TTS) synthesis."""
+
+    text: str
 
 
 @dataclass(frozen=True)

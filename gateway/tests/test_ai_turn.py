@@ -8,7 +8,6 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 
 from gateway.app.dependencies import get_ai_provider
-from gateway.app.main import app
 from gateway.app.providers.schemas import ChatResponse
 
 
@@ -23,7 +22,11 @@ def mock_provider():
 
 
 @pytest.mark.anyio
-async def test_process_turn_generates_ai_response(app: FastAPI, client: AsyncClient, mock_provider) -> None:
+async def test_process_turn_generates_ai_response(
+    app: FastAPI,
+    client: AsyncClient,
+    mock_provider,
+) -> None:
     # Override the dependency on the app instance provided by the fixture
     app.dependency_overrides[get_ai_provider] = lambda: mock_provider
 
