@@ -372,6 +372,11 @@
     .message { padding: 12px 15px; border-radius: 20px; line-height: 1.5; overflow-wrap: anywhere; box-shadow: 0 7px 18px rgba(42, 54, 76, 0.06); }
     .assistant .message { border-bottom-left-radius: 6px; background: var(--theme-soft); }
     .child .message { border-bottom-right-radius: 6px; background: #f0eee8; }
+    .message-media { width: min(440px, 72vw); margin: 12px 0 0; overflow: hidden; border-radius: 16px; background: rgba(255, 255, 255, 0.72); }
+    .message-media img { display: block; width: 100%; max-height: 390px; object-fit: cover; background: #e8edf2; }
+    .message-media figcaption { padding: 7px 10px 9px; font-size: 0.7rem; line-height: 1.25; }
+    .message-media a { color: var(--theme-deep); text-decoration: none; opacity: 0.75; }
+    .message-media a:focus-visible { outline: 2px solid var(--theme); outline-offset: 2px; }
     .system-message { align-self: center; max-width: 85%; padding: 10px 14px; border-radius: 14px; color: #8d4438; background: #fff0ec; text-align: center; font-size: 0.86rem; }
 
     .typing-indicator {
@@ -488,6 +493,7 @@
       .welcome-symbol { margin-bottom: 5px; font-size: 1.5rem; }
       .message-row { max-width: 92%; }
       .message { padding: 10px 12px; font-size: 0.92rem; }
+      .message-media { width: min(70vw, 340px); margin-top: 10px; }
       .avatar { width: 31px; height: 31px; }
       .control-dock { padding: 12px 14px var(--safe-bottom); }
       .voice-controls { grid-template-columns: 46px 1fr 46px; gap: 11px; }
@@ -586,6 +592,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js?v=12"></script>
+  <script src="/static/app.js?v=14"></script>
 </body>
 </html>

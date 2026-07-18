@@ -23,6 +23,22 @@ def normalize_role(role_str: str) -> str:
 router = APIRouter(prefix="/v1/conversations", tags=["conversations"])
 
 
+@router.get(
+    "/{conversation_id}/messages/{message_id}",
+    response_model=MessageResponse,
+    summary="Get one stored conversation message",
+)
+def get_message(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    service: ConversationService = Depends(get_conversation_service),
+) -> MessageResponse:
+    message = service.get_message(conversation_id, message_id)
+    if message is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    return MessageResponse.model_validate(message)
+
+
 @router.post(
     "/{conversation_id}/messages",
     response_model=MessageResponse,

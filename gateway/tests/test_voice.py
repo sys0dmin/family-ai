@@ -17,7 +17,7 @@ from gateway.app.providers.schemas import (
     TranscriptionResponse,
 )
 from gateway.app.services.music_recognition_service import MusicRecognitionContext
-from gateway.app.services.voice_service import VoiceService
+from gateway.app.services.voice_service import VoiceService, VoiceTurnResult
 
 
 @pytest.mark.anyio
@@ -88,7 +88,11 @@ async def test_voice_service_preserves_recording_metadata() -> None:
     provider.transcribe_audio.return_value = TranscriptionResponse(text="Привет")
     provider.synthesize_speech.return_value = SpeechResponse(audio_content=b"mp3")
     conversation_service = AsyncMock()
-    conversation_service.process_turn.return_value = SimpleNamespace(content="Привет, Лера!")
+    message_id = uuid.uuid4()
+    conversation_service.process_turn.return_value = SimpleNamespace(
+        id=message_id,
+        content="Привет, Лера!",
+    )
     conversation_service.get_conversation_agent = Mock(
         return_value=SimpleNamespace(tts_voice="lulwa")
     )
@@ -102,7 +106,8 @@ async def test_voice_service_preserves_recording_metadata() -> None:
         content_type="audio/webm",
     )
 
-    assert result.audio_content == b"mp3"
+    assert result.speech.audio_content == b"mp3"
+    assert result.message_id == message_id
     provider.transcribe_audio.assert_awaited_once_with(
         TranscriptionRequest(
             audio_content=b"webm-audio",
@@ -127,7 +132,10 @@ async def test_voice_service_uses_melody_context_when_humming_has_no_words() -> 
     provider.transcribe_audio.return_value = TranscriptionResponse(text="")
     provider.synthesize_speech.return_value = SpeechResponse(audio_content=b"wav")
     conversation_service = AsyncMock()
-    conversation_service.process_turn.return_value = SimpleNamespace(content="Кажется, это песня!")
+    conversation_service.process_turn.return_value = SimpleNamespace(
+        id=uuid.uuid4(),
+        content="Кажется, это песня!",
+    )
     agent = SimpleNamespace(tts_voice="lulwa", tools=("music_recognition",))
     conversation_service.get_conversation_agent = Mock(return_value=agent)
     recognition_service = AsyncMock()
@@ -182,9 +190,13 @@ async def test_voice_endpoint_returns_provider_content_type(
     client: AsyncClient,
 ) -> None:
     voice_service = AsyncMock()
-    voice_service.process_voice_turn.return_value = SpeechResponse(
-        audio_content=b"audio-response",
-        content_type="audio/mpeg",
+    message_id = uuid.uuid4()
+    voice_service.process_voice_turn.return_value = VoiceTurnResult(
+        speech=SpeechResponse(
+            audio_content=b"audio-response",
+            content_type="audio/mpeg",
+        ),
+        message_id=message_id,
     )
     app.dependency_overrides[get_voice_service] = lambda: voice_service
     conversation_id = uuid.uuid4()
@@ -198,6 +210,7 @@ async def test_voice_endpoint_returns_provider_content_type(
     assert response.content == b"audio-response"
     assert response.headers["content-type"] == "audio/mpeg"
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-family-ai-message-id"] == str(message_id)
     voice_service.process_voice_turn.assert_awaited_once_with(
         conversation_id=conversation_id,
         audio_content=b"webm-audio",

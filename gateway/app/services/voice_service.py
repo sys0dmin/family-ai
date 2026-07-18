@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from uuid import UUID
 
 from gateway.app.providers.base import AIProvider
@@ -18,6 +19,14 @@ logger = logging.getLogger(__name__)
 
 class VoiceInputError(ValueError):
     """Raised when a recording cannot produce a useful transcript."""
+
+
+@dataclass(frozen=True)
+class VoiceTurnResult:
+    """Synthesized speech linked to the stored assistant message."""
+
+    speech: SpeechResponse
+    message_id: UUID
 
 
 class VoiceService:
@@ -40,7 +49,7 @@ class VoiceService:
         filename: str,
         content_type: str,
         language: str = "ru",
-    ) -> SpeechResponse:
+    ) -> VoiceTurnResult:
         """Run one audio request through STT, conversation safety, and TTS."""
 
         active_agent = self._conversation_service.get_conversation_agent(conversation_id)
@@ -89,7 +98,7 @@ class VoiceService:
             "voice_synthesis_completed",
             extra={"audio_bytes": len(speech.audio_content)},
         )
-        return speech
+        return VoiceTurnResult(speech=speech, message_id=ai_message.id)
 
     async def synthesize_text(
         self,

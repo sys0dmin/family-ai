@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.config import Settings
 from gateway.app.db.session import get_db_session
+from gateway.app.images import ImageSearchProvider, OpenverseImageSearchProvider
 from gateway.app.music import MusicRecognitionProvider
 from gateway.app.music.acrcloud import AcrCloudMusicRecognitionProvider
 from gateway.app.providers.base import AIProvider
@@ -17,6 +18,7 @@ from gateway.app.services.agent_service import AgentService
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.music_recognition_service import MusicRecognitionService
 from gateway.app.services.safety_service import SafetyService
+from gateway.app.services.visual_media_service import VisualMediaService
 from gateway.app.services.voice_service import VoiceService
 
 logger = logging.getLogger(__name__)
@@ -83,11 +85,29 @@ def get_music_recognition_service(
     return MusicRecognitionService(provider)
 
 
+def get_image_search_provider() -> ImageSearchProvider | None:
+    """Build the optional licensed-image provider."""
+
+    settings = Settings()
+    if settings.image_search_provider == "disabled":
+        return None
+    return OpenverseImageSearchProvider(settings.image_search_timeout_seconds)
+
+
+def get_visual_media_service(
+    session: Session = Depends(get_db_session),
+    provider: ImageSearchProvider | None = Depends(get_image_search_provider),
+) -> VisualMediaService:
+    settings = Settings()
+    return VisualMediaService(session, provider, settings.image_search_timeout_seconds)
+
+
 def get_conversation_service(
     session: Session = Depends(get_db_session),
     provider: AIProvider = Depends(get_ai_provider),
     safety: SafetyService = Depends(get_safety_service),
     agents: AgentService = Depends(get_agent_service),
+    visual_media: VisualMediaService = Depends(get_visual_media_service),
 ) -> ConversationService:
     """Return a conversation service with injected dependencies."""
     settings = Settings()
@@ -96,6 +116,7 @@ def get_conversation_service(
         provider,
         safety,
         agents,
+        visual_media,
         default_agent_id=settings.default_agent_id,
     )
 

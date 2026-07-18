@@ -12,6 +12,7 @@ from gateway.app.db.base import Base
 
 if TYPE_CHECKING:
     from gateway.app.models.conversation import Conversation
+    from gateway.app.models.message_media import MessageMedia
 
 
 class MessageRole(StrEnum):
@@ -45,3 +46,8 @@ class Message(Base):
     )
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+    media: Mapped[list["MessageMedia"]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )

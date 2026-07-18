@@ -27,11 +27,14 @@ SUPPORTED_AUDIO_TYPES = {
 }
 
 
-def _speech_response(speech) -> Response:
+def _speech_response(speech, message_id: UUID | None = None) -> Response:
+    headers = {"Cache-Control": "no-store"}
+    if message_id is not None:
+        headers["X-Family-AI-Message-Id"] = str(message_id)
     return Response(
         content=speech.audio_content,
         media_type=speech.content_type,
-        headers={"Cache-Control": "no-store"},
+        headers=headers,
     )
 
 
@@ -65,7 +68,7 @@ async def voice_turn(
     filename = f"{original_stem}.{extension}"
 
     try:
-        speech = await voice_service.process_voice_turn(
+        result = await voice_service.process_voice_turn(
             conversation_id=conversation_id,
             audio_content=content,
             filename=filename,
@@ -87,7 +90,7 @@ async def voice_turn(
             detail="Voice provider is temporarily unavailable",
         ) from exc
 
-    return _speech_response(speech)
+    return _speech_response(result.speech, result.message_id)
 
 
 @router.post("/{conversation_id}/synthesize", response_class=Response)

@@ -131,6 +131,27 @@ async def test_outdoor_guide_can_use_web_search_for_nature_facts(
 
 
 @pytest.mark.anyio
+async def test_tech_guide_can_use_web_search_for_current_it_facts(
+    app: FastAPI,
+    client: AsyncClient,
+    mock_provider,
+) -> None:
+    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    conversation = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "tech_guide"},
+    )
+
+    await client.post(
+        f"/v1/conversations/{conversation.json()['conversation_id']}/turn",
+        json={"role": "child", "content": "Что такое X5 Salt?"},
+    )
+
+    request = mock_provider.generate_response.await_args.args[0]
+    assert request.tools == (ProviderTool.WEB_SEARCH,)
+
+
+@pytest.mark.anyio
 async def test_openai_provider_maps_generic_web_search_tool() -> None:
     provider = OpenAIProvider(
         api_key="test-key",

@@ -28,6 +28,15 @@ class SafetyService:
         + f"(?:{POISON_PATTERN})"
         + r".{0,40}(?:сделать|приготовить|добыть|извлечь|отравить)"
     )
+    CYBER_ABUSE_PATTERN = (
+        r"(?:как|помоги|научи|хочу).{0,50}"
+        r"(?:взлом|обойт\w*.{0,15}защит|украст\w*.{0,15}парол|"
+        r"сломать\w*.{0,15}(?:сайт|сервер)|ддос)"
+    )
+    SECRET_REQUEST_PATTERN = (
+        r"(?:скажи|покажи|назови|дай).{0,40}"
+        r"(?:парол|токен|api.{0,5}ключ|ip.{0,5}адрес)"
+    )
     SUPERVISED_OUTDOOR_KEYWORDS = [
         r"спичк",
         r"огонь",
@@ -37,6 +46,8 @@ class SafetyService:
         r"точил",
     ]
     DANGEROUS_KEYWORDS = [
+        CYBER_ABUSE_PATTERN,
+        SECRET_REQUEST_PATTERN,
         r"розетк",
         r"лекарств",
         r"таблетк",

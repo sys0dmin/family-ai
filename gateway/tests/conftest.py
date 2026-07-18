@@ -17,8 +17,8 @@ from gateway.app.main import create_app
 from gateway.app.models import Agent, AgentRevision, ChildProfile
 
 TEST_AGENTS = (
-    ("teacher_friend", "Учитель-друг", "🐻", "blue", "lulwa", 10, [], []),
-    ("scientist", "Почемучка", "🔬", "green", "noura", 20, [], []),
+    ("teacher_friend", "Учитель-друг", "🐻", "blue", "lulwa", 10, ["image_search"], []),
+    ("scientist", "Почемучка", "🔬", "green", "noura", 20, ["image_search"], []),
     ("storyteller", "Сказочник", "🦉", "purple", "aisha", 30, [], []),
     ("socrates", "Подумай сама", "🦊", "orange", "lulwa", 40, [], []),
     (
@@ -38,8 +38,18 @@ TEST_AGENTS = (
         "forest",
         "noura",
         60,
-        ["web_search"],
+        ["web_search", "image_search"],
         ["supervised_outdoor_safety"],
+    ),
+    (
+        "tech_guide",
+        "Байтик",
+        "🦝",
+        "navy",
+        "fahad",
+        70,
+        ["web_search", "image_search"],
+        [],
     ),
 )
 

@@ -26,6 +26,20 @@ class CreateConversationResponse(BaseModel):
     agent_id: str
 
 
+class MessageMediaResponse(BaseModel):
+    """Licensed visual attachment returned with an assistant message."""
+
+    id: uuid.UUID
+    media_type: str
+    content_url: str
+    source_url: str
+    title: str
+    attribution: str
+    license_url: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class MessageResponse(BaseModel):
     """Stored message returned to API clients."""
 
@@ -34,5 +48,6 @@ class MessageResponse(BaseModel):
     role: str
     content: str
     created_at: datetime
+    media: list[MessageMediaResponse] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

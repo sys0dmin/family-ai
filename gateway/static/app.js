@@ -58,6 +58,12 @@ const agentPresentation = {
         color: '#5f8f42',
         soft: '#edf5df',
         deep: '#385e32'
+    },
+    tech_guide: {
+        image: '/static/assets/characters/baytik.webp',
+        color: '#176b91',
+        soft: '#e2f3f8',
+        deep: '#173f64'
     }
 };
 
@@ -97,6 +103,12 @@ const promptsByAgent = {
         { icon: '🔥', label: 'Костёр', phrase: 'Как безопасно развести костёр вместе с родителями?' },
         { icon: '🎣', label: 'Рыбалка', phrase: 'Как мы можем безопасно порыбачить с родителями?' },
         { icon: '🐾', label: 'Следы', phrase: 'Расскажи добрую историю о следах животных в лесу' }
+    ],
+    tech_guide: [
+        { icon: '🗄️', label: 'Сервер', phrase: 'Байтик, что такое сервер и зачем он нужен?' },
+        { icon: '☁️', label: 'Облако', phrase: 'Почему компьютерное облако называется облаком?' },
+        { icon: '🤖', label: 'ИИ', phrase: 'Как работает искусственный интеллект?' },
+        { icon: '👨‍💻', label: 'Папина работа', phrase: 'Расскажи, чем папа-админ занимается на работе' }
     ]
 };
 
@@ -260,7 +272,7 @@ function renderQuickReplies() {
     }
 }
 
-function addMessage(text, role) {
+function addMessage(text, role, media = []) {
     if (role === 'system') {
         const message = document.createElement('div');
         message.className = 'system-message';
@@ -285,7 +297,31 @@ function addMessage(text, role) {
     }
     const bubble = document.createElement('div');
     bubble.className = 'message';
-    bubble.textContent = text;
+    const messageText = document.createElement('div');
+    messageText.textContent = text;
+    bubble.append(messageText);
+    if (role === 'assistant') {
+        for (const item of media) {
+            if (item.media_type !== 'image') continue;
+            const figure = document.createElement('figure');
+            figure.className = 'message-media';
+            const image = document.createElement('img');
+            image.src = item.content_url;
+            image.alt = item.title || 'Картинка к ответу';
+            image.loading = 'lazy';
+            const caption = document.createElement('figcaption');
+            const source = document.createElement('a');
+            source.href = item.source_url;
+            source.target = '_blank';
+            source.rel = 'noopener noreferrer';
+            source.textContent = item.attribution
+                ? `Фото: ${item.attribution}`
+                : 'Источник изображения';
+            caption.append(source);
+            figure.append(image, caption);
+            bubble.append(figure);
+        }
+    }
     row.append(avatar, bubble);
     chatContainer.insertBefore(row, typingIndicator);
     scrollToBottom();
@@ -397,7 +433,7 @@ async function sendText(forcedText = null) {
         });
         if (!response.ok) throw new Error('Message was rejected');
         const data = await response.json();
-        addMessage(data.content, 'assistant');
+        addMessage(data.content, 'assistant', data.media);
         showTyping(false);
         if (browserSpeechEnabled) {
             try {
@@ -536,7 +572,21 @@ async function sendVoice(audioBlob, mimeType) {
             body: formData
         });
         if (!response.ok) throw new Error('Voice turn failed');
-        addMessage('🔊', 'assistant');
+        let messageMedia = [];
+        const messageId = response.headers.get('X-Family-AI-Message-Id');
+        if (messageId) {
+            try {
+                const messageResponse = await fetch(
+                    `/v1/conversations/${conversationId}/messages/${messageId}`
+                );
+                if (messageResponse.ok) {
+                    messageMedia = (await messageResponse.json()).media || [];
+                }
+            } catch (mediaError) {
+                console.warn('Voice reply image could not be loaded:', mediaError);
+            }
+        }
+        addMessage('🔊', 'assistant', messageMedia);
         showTyping(false);
         await playAudioBlob(await response.blob());
     } catch (error) {

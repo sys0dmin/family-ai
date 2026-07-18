@@ -12,6 +12,7 @@ from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole, ProviderTool
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.safety_service import SafetyService
+from gateway.app.services.visual_media_service import VisualMediaService
 
 CONTINUING_CONVERSATION_CONTEXT = (
     "Это продолжение уже начатого разговора с Лерой. Не здоровайся заново, не "
@@ -46,12 +47,14 @@ class ConversationService:
         provider: AIProvider | None = None,
         safety: SafetyService | None = None,
         agents: AgentService | None = None,
+        visual_media: VisualMediaService | None = None,
         default_agent_id: str = "teacher_friend",
     ) -> None:
         self._session = session
         self._provider = provider
         self._safety = safety
         self._agents = agents
+        self._visual_media = visual_media
         self._default_agent_id = default_agent_id
 
     def create_message(
@@ -205,11 +208,18 @@ class ConversationService:
                 )
 
         # 6. Store and return response
-        return self.create_message(
+        message = self.create_message(
             conversation_id=conversation_id,
             role='assistant',
             content=response_content,
         )
+        if self._visual_media and last_child_msg:
+            await self._visual_media.attach_for_turn(
+                message=message,
+                agent=active_agent,
+                child_text=last_child_msg.content,
+            )
+        return message
 
     def _get_or_create_conversation(self, conversation_id: uuid.UUID) -> Conversation:
         conversation = self._session.get(Conversation, conversation_id)
@@ -284,3 +294,13 @@ class ConversationService:
                 msg.role = MessageRole(msg.role)
 
         return messages
+
+    def get_message(self, conversation_id: uuid.UUID, message_id: uuid.UUID) -> Message | None:
+        """Return one message only when it belongs to the requested conversation."""
+
+        return self._session.scalar(
+            select(Message).where(
+                Message.id == message_id,
+                Message.conversation_id == conversation_id,
+            )
+        )

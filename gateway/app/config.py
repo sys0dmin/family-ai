@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     tts_voice: str = "alloy"
     tts_response_format: Literal["mp3", "wav"] = "mp3"
     web_search_tool_type: Literal["disabled", "browser_search"] = "disabled"
+    image_search_provider: Literal["disabled", "openverse"] = "disabled"
+    image_search_timeout_seconds: float = 6.0
     voice_language: str = "ru"
     voice_max_audio_bytes: int = 10 * 1024 * 1024
 
@@ -55,7 +57,6 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
-
 
 
 @lru_cache
