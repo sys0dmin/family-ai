@@ -9,3 +9,16 @@ coverage.xml
 .env.*
 !.env.example
 api.txt
+
+# Local runtime data and disposable previews
+*.db
+*.db-*
+/tmp/
+
+# One-off root-level diagnostics and repair helpers
+/check_*
+/fix_enum.sql
+/grant_permissions.*
+/recreate_messages_table.sql
+/test*.json
+/file
