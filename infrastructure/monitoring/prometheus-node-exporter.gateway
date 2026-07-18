@@ -1,0 +1,2 @@
+# Family AI Gateway: metrics are consumed by the local Admin backend only.
+ARGS="--web.listen-address=127.0.0.1:9100"

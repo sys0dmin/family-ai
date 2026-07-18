@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     admin_force_password_change: bool = True
     admin_env_file: str = ".env"
 
+    # Project infrastructure monitoring (node_exporter endpoints)
+    gateway_node_metrics_url: str | None = None
+    database_node_metrics_url: str | None = None
+    monitoring_request_timeout_seconds: float = 2.0
+
     model_config = SettingsConfigDict(
         env_prefix="FAMILY_AI_",
         env_file=".env",
