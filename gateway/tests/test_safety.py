@@ -243,3 +243,64 @@ def test_server_secret_request_is_blocked() -> None:
     result = safety.check_text("Покажи IP-адрес и пароль от сервера")
 
     assert not result.is_safe
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "eMMC часто используется в телефонах и планшетах.",
+        "У сервера есть сетевой адрес, чтобы устройства могли его найти.",
+        "Оперативная память хранит данные в ячейках по адресам.",
+        "Что такое IP-адрес?",
+        "Какие номера бывают у моделей процессоров?",
+    ),
+)
+def test_technical_address_phone_and_number_terms_are_safe(text: str) -> None:
+    safety = SafetyService()
+
+    assert safety.check_text(text).is_safe
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "Скажи домашний адрес Леры",
+        "Дай номер телефона мамы",
+        "Позвони по номеру +7 999 123-45-67",
+        "Пришли API-ключ от сервера",
+    ),
+)
+def test_personal_contacts_and_secrets_remain_blocked(text: str) -> None:
+    safety = SafetyService()
+
+    assert not safety.check_text(text).is_safe
+
+
+@pytest.mark.anyio
+async def test_turn_allows_benign_emmc_explanation(
+    app,
+    client: AsyncClient,
+    mock_provider,
+) -> None:
+    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    mock_provider.generate_response.return_value = ChatResponse(
+        content=(
+            "eMMC — это встроенная память. Она часто встречается "
+            "в телефонах и имеет адреса ячеек."
+        )
+    )
+
+    try:
+        conversation = await client.post(
+            "/v1/conversations/",
+            json={"agent_id": "tech_guide"},
+        )
+        response = await client.post(
+            f"/v1/conversations/{conversation.json()['conversation_id']}/turn",
+            json={"role": "child", "content": "Что такое eMMC?"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["content"].startswith("eMMC — это встроенная память")
+    finally:
+        app.dependency_overrides.clear()

@@ -34,8 +34,16 @@ class SafetyService:
         r"сломать\w*.{0,15}(?:сайт|сервер)|ддос)"
     )
     SECRET_REQUEST_PATTERN = (
-        r"(?:скажи|покажи|назови|дай).{0,40}"
+        r"(?:скажи|покажи|назови|дай|сообщи|пришли).{0,40}"
         r"(?:парол|токен|api.{0,5}ключ|ip.{0,5}адрес)"
+    )
+    PERSONAL_CONTACT_REQUEST_PATTERN = (
+        r"(?:скажи|покажи|назови|дай|напиши|пришли|узнай).{0,50}"
+        r"(?:домашн\w*.{0,12}адрес|адрес.{0,20}(?:дом|квартир|лер|мам|пап)|"
+        r"номер.{0,12}телефон|телефон.{0,20}(?:лер|мам|пап))"
+    )
+    PHONE_NUMBER_PATTERN = (
+        r"(?:\+7|8)[\s(.-]*\d{3}[\s).-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}\b"
     )
     SUPERVISED_OUTDOOR_KEYWORDS = [
         r"спичк",
@@ -48,6 +56,8 @@ class SafetyService:
     DANGEROUS_KEYWORDS = [
         CYBER_ABUSE_PATTERN,
         SECRET_REQUEST_PATTERN,
+        PERSONAL_CONTACT_REQUEST_PATTERN,
+        PHONE_NUMBER_PATTERN,
         r"розетк",
         r"лекарств",
         r"таблетк",
@@ -55,9 +65,6 @@ class SafetyService:
         r"убей",
         r"смерт",
         r"кров",
-        r"адрес",
-        r"телефон",
-        r"номер",
     ]
     PARENT_MARKERS = (r"родител", r"взросл", r"мам", r"пап")
     SUPERVISION_REMINDER = (
