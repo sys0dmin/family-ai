@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     ForeignKey,
@@ -35,6 +36,7 @@ class Agent(Base):
     color: Mapped[str] = mapped_column(String(20), nullable=False)
     greeting: Mapped[str] = mapped_column(String(300), nullable=False)
     tts_voice: Mapped[str | None] = mapped_column(String(100))
+    tools: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     active_revision_id: Mapped[uuid.UUID | None] = mapped_column(

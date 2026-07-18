@@ -46,6 +46,12 @@ const agentPresentation = {
         color: '#d87831',
         soft: '#fbeddf',
         deep: '#9b4f1f'
+    },
+    musician: {
+        image: '/static/assets/characters/musician.webp',
+        color: '#159c9a',
+        soft: '#dff7f4',
+        deep: '#116b72'
     }
 };
 
@@ -73,6 +79,12 @@ const promptsByAgent = {
         { icon: '💭', label: 'Подумать', phrase: 'Помоги мне самой найти ответ' },
         { icon: '🧩', label: 'Задача', phrase: 'Задай мне интересную задачку' },
         { icon: '⚖', label: 'Выбор', phrase: 'Давай рассуждать вместе' }
+    ],
+    musician: [
+        { icon: '🎧', label: 'Угадай', phrase: 'Я напою мелодию, а ты попробуй угадать песню' },
+        { icon: '🎵', label: 'Новая песня', phrase: 'Давай вместе сочиним новую песню' },
+        { icon: '🎤', label: 'Припев', phrase: 'Придумаем весёлый припев по одной строчке' },
+        { icon: '🥁', label: 'Ритм', phrase: 'Давай придумаем ритм и хлопать в ладоши' }
     ]
 };
 

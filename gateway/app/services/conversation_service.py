@@ -61,6 +61,7 @@ class ConversationService:
         self,
         conversation_id: uuid.UUID,
         text: str,
+        runtime_context: str | None = None,
     ) -> Message:
         """Store a child message and return the generated assistant response."""
 
@@ -69,11 +70,12 @@ class ConversationService:
             role=MessageRole.CHILD,
             content=text,
         )
-        return await self.generate_ai_response(conversation_id)
+        return await self.generate_ai_response(conversation_id, runtime_context=runtime_context)
 
     async def generate_ai_response(
         self,
         conversation_id: uuid.UUID,
+        runtime_context: str | None = None,
     ) -> Message:
         """Generate an AI response based on conversation history with safety checks."""
 
@@ -103,6 +105,8 @@ class ConversationService:
         # 3. Build request for AI
         active_agent = self.get_conversation_agent(conversation_id)
         messages = [build_agent_system_message(active_agent.system_prompt)]
+        if runtime_context:
+            messages.append(ChatMessage(role=ProviderRole.SYSTEM, content=runtime_context))
         for msg in history[-10:]:
             role = ProviderRole.USER if msg.role == 'child' else ProviderRole.ASSISTANT
             messages.append(ChatMessage(role=role, content=msg.content))

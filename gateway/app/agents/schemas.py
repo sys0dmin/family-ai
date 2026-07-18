@@ -12,6 +12,7 @@ class AgentManifest:
     color: str
     greeting: str
     tts_voice: str | None
+    tools: tuple[str, ...]
 
 
 @dataclass(frozen=True)

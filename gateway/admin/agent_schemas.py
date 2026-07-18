@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -25,6 +26,7 @@ class AdminAgentResponse(BaseModel):
     color: str
     greeting: str
     tts_voice: str | None
+    tools: list[str]
     enabled: bool
     sort_order: int
     active_revision_id: uuid.UUID | None
@@ -43,6 +45,7 @@ class AgentUpdateRequest(BaseModel):
     color: str = Field(min_length=1, max_length=20)
     greeting: str = Field(min_length=1, max_length=300)
     tts_voice: str | None = Field(default=None, max_length=100)
+    tools: list[Literal["music_recognition"]] = Field(default_factory=list, max_length=10)
     enabled: bool
     sort_order: int = Field(ge=0, le=10_000)
 
@@ -65,6 +68,11 @@ class AgentUpdateRequest(BaseModel):
     @classmethod
     def normalize_voice(cls, value: str | None) -> str | None:
         return (value.strip() or None) if value is not None else None
+
+    @field_validator("tools")
+    @classmethod
+    def deduplicate_tools(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys(value))
 
 
 class CreateAgentRevisionRequest(BaseModel):

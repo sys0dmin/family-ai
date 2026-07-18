@@ -48,6 +48,7 @@ class AgentService:
             color=agent.color,
             greeting=agent.greeting,
             tts_voice=agent.tts_voice,
+            tools=tuple(agent.tools or ()),
         )
 
     @classmethod

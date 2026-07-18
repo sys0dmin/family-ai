@@ -37,6 +37,13 @@ class SettingsResponse(BaseModel):
     openai_api_key_preview: str
     has_speech_api_key: bool
     speech_api_key_preview: str
+    music_recognition_provider: Literal["disabled", "acrcloud"]
+    acrcloud_host: str | None
+    has_acrcloud_access_key: bool
+    acrcloud_access_key_preview: str
+    has_acrcloud_access_secret: bool
+    acrcloud_access_secret_preview: str
+    music_recognition_timeout_seconds: float
     must_change_password: bool
 
 
@@ -51,6 +58,11 @@ class SettingsUpdateRequest(BaseModel):
     tts_response_format: Literal["mp3", "wav"]
     openai_api_key: str | None = Field(default=None, max_length=500)
     speech_api_key: str | None = Field(default=None, max_length=500)
+    music_recognition_provider: Literal["disabled", "acrcloud"] = "disabled"
+    acrcloud_host: str | None = Field(default=None, max_length=500)
+    acrcloud_access_key: str | None = Field(default=None, max_length=500)
+    acrcloud_access_secret: str | None = Field(default=None, max_length=500)
+    music_recognition_timeout_seconds: float = Field(default=8.0, ge=1, le=30)
 
 
 def _mask_secret(value: str) -> str:
@@ -133,6 +145,8 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
     settings = get_settings()
     api_key = settings.openai_api_key.get_secret_value()
     speech_api_key = settings.speech_api_key.get_secret_value()
+    acrcloud_access_key = settings.acrcloud_access_key.get_secret_value()
+    acrcloud_access_secret = settings.acrcloud_access_secret.get_secret_value()
 
     return SettingsResponse(
         environment=settings.environment,
@@ -148,6 +162,13 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
         openai_api_key_preview=_mask_secret(api_key),
         has_speech_api_key=bool(speech_api_key),
         speech_api_key_preview=_mask_secret(speech_api_key),
+        music_recognition_provider=settings.music_recognition_provider,
+        acrcloud_host=settings.acrcloud_host,
+        has_acrcloud_access_key=bool(acrcloud_access_key),
+        acrcloud_access_key_preview=_mask_secret(acrcloud_access_key),
+        has_acrcloud_access_secret=bool(acrcloud_access_secret),
+        acrcloud_access_secret_preview=_mask_secret(acrcloud_access_secret),
+        music_recognition_timeout_seconds=settings.music_recognition_timeout_seconds,
         must_change_password=_must_change_password(settings),
     )
 
@@ -199,12 +220,21 @@ def update_runtime_settings(
         "FAMILY_AI_TTS_MODEL": payload.tts_model.strip(),
         "FAMILY_AI_TTS_VOICE": payload.tts_voice.strip(),
         "FAMILY_AI_TTS_RESPONSE_FORMAT": payload.tts_response_format,
+        "FAMILY_AI_MUSIC_RECOGNITION_PROVIDER": payload.music_recognition_provider,
+        "FAMILY_AI_ACRCLOUD_HOST": (payload.acrcloud_host or "").strip(),
+        "FAMILY_AI_MUSIC_RECOGNITION_TIMEOUT_SECONDS": str(
+            payload.music_recognition_timeout_seconds
+        ),
     }
 
     if payload.openai_api_key and payload.openai_api_key.strip():
         updates["FAMILY_AI_OPENAI_API_KEY"] = payload.openai_api_key.strip()
     if payload.speech_api_key and payload.speech_api_key.strip():
         updates["FAMILY_AI_SPEECH_API_KEY"] = payload.speech_api_key.strip()
+    if payload.acrcloud_access_key and payload.acrcloud_access_key.strip():
+        updates["FAMILY_AI_ACRCLOUD_ACCESS_KEY"] = payload.acrcloud_access_key.strip()
+    if payload.acrcloud_access_secret and payload.acrcloud_access_secret.strip():
+        updates["FAMILY_AI_ACRCLOUD_ACCESS_SECRET"] = payload.acrcloud_access_secret.strip()
 
     _upsert_env_values(env_path, updates)
 
@@ -212,6 +242,8 @@ def update_runtime_settings(
     refreshed = get_settings()
     api_key = refreshed.openai_api_key.get_secret_value()
     speech_api_key = refreshed.speech_api_key.get_secret_value()
+    acrcloud_access_key = refreshed.acrcloud_access_key.get_secret_value()
+    acrcloud_access_secret = refreshed.acrcloud_access_secret.get_secret_value()
 
     return SettingsResponse(
         environment=refreshed.environment,
@@ -227,6 +259,13 @@ def update_runtime_settings(
         openai_api_key_preview=_mask_secret(api_key),
         has_speech_api_key=bool(speech_api_key),
         speech_api_key_preview=_mask_secret(speech_api_key),
+        music_recognition_provider=refreshed.music_recognition_provider,
+        acrcloud_host=refreshed.acrcloud_host,
+        has_acrcloud_access_key=bool(acrcloud_access_key),
+        acrcloud_access_key_preview=_mask_secret(acrcloud_access_key),
+        has_acrcloud_access_secret=bool(acrcloud_access_secret),
+        acrcloud_access_secret_preview=_mask_secret(acrcloud_access_secret),
+        music_recognition_timeout_seconds=refreshed.music_recognition_timeout_seconds,
         must_change_password=_must_change_password(refreshed),
     )
 

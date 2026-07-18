@@ -1,5 +1,6 @@
 """FastAPI dependencies for the Gateway."""
 
+import logging
 from functools import lru_cache
 
 from fastapi import Depends
@@ -8,12 +9,17 @@ from sqlalchemy.orm import Session
 from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.config import Settings
 from gateway.app.db.session import get_db_session
+from gateway.app.music import MusicRecognitionProvider
+from gateway.app.music.acrcloud import AcrCloudMusicRecognitionProvider
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.openai import OpenAIProvider
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.conversation_service import ConversationService
+from gateway.app.services.music_recognition_service import MusicRecognitionService
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.voice_service import VoiceService
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache
@@ -47,6 +53,35 @@ def get_agent_service(
     return AgentService(SqlAlchemyAgentRepository(session))
 
 
+def get_music_recognition_provider() -> MusicRecognitionProvider | None:
+    """Build the configured optional melody recognition provider."""
+
+    settings = Settings()
+    if settings.music_recognition_provider == "disabled":
+        return None
+    host = (settings.acrcloud_host or "").strip()
+    access_key = settings.acrcloud_access_key.get_secret_value().strip()
+    access_secret = settings.acrcloud_access_secret.get_secret_value().strip()
+    if not host or not access_key or not access_secret:
+        return None
+    try:
+        return AcrCloudMusicRecognitionProvider(
+            host=host,
+            access_key=access_key,
+            access_secret=access_secret,
+            timeout_seconds=settings.music_recognition_timeout_seconds,
+        )
+    except ValueError:
+        logger.warning("music_recognition_provider_configuration_invalid")
+        return None
+
+
+def get_music_recognition_service(
+    provider: MusicRecognitionProvider | None = Depends(get_music_recognition_provider),
+) -> MusicRecognitionService:
+    return MusicRecognitionService(provider)
+
+
 def get_conversation_service(
     session: Session = Depends(get_db_session),
     provider: AIProvider = Depends(get_ai_provider),
@@ -67,6 +102,7 @@ def get_conversation_service(
 def get_voice_service(
     provider: AIProvider = Depends(get_ai_provider),
     conversation: ConversationService = Depends(get_conversation_service),
+    music_recognition: MusicRecognitionService = Depends(get_music_recognition_service),
 ) -> VoiceService:
     """Return a voice service with injected dependencies."""
-    return VoiceService(provider, conversation)
+    return VoiceService(provider, conversation, music_recognition)

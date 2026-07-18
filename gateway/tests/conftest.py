@@ -17,10 +17,11 @@ from gateway.app.main import create_app
 from gateway.app.models import Agent, AgentRevision, ChildProfile
 
 TEST_AGENTS = (
-    ("teacher_friend", "Учитель-друг", "🐻", "blue", "lulwa", 10),
-    ("scientist", "Почемучка", "🔬", "green", "noura", 20),
-    ("storyteller", "Сказочник", "🦉", "purple", "aisha", 30),
-    ("socrates", "Подумай сама", "🦊", "orange", "lulwa", 40),
+    ("teacher_friend", "Учитель-друг", "🐻", "blue", "lulwa", 10, []),
+    ("scientist", "Почемучка", "🔬", "green", "noura", 20, []),
+    ("storyteller", "Сказочник", "🦉", "purple", "aisha", 30, []),
+    ("socrates", "Подумай сама", "🦊", "orange", "lulwa", 40, []),
+    ("musician", "Нотка", "🎵", "teal", "lulwa", 50, ["music_recognition"]),
 )
 
 
@@ -47,7 +48,7 @@ def session_factory(test_settings: Settings) -> sessionmaker[Session]:
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     with factory() as session:
-        for agent_id, name, icon, color, voice, sort_order in TEST_AGENTS:
+        for agent_id, name, icon, color, voice, sort_order, tools in TEST_AGENTS:
             session.add(
                 Agent(
                     id=agent_id,
@@ -59,6 +60,7 @@ def session_factory(test_settings: Settings) -> sessionmaker[Session]:
                     tts_voice=voice,
                     enabled=True,
                     sort_order=sort_order,
+                    tools=tools,
                 )
             )
         session.flush()

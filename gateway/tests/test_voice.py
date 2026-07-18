@@ -16,6 +16,7 @@ from gateway.app.providers.schemas import (
     TranscriptionRequest,
     TranscriptionResponse,
 )
+from gateway.app.services.music_recognition_service import MusicRecognitionContext
 from gateway.app.services.voice_service import VoiceService
 
 
@@ -113,9 +114,46 @@ async def test_voice_service_preserves_recording_metadata() -> None:
     conversation_service.process_turn.assert_awaited_once_with(
         conversation_id=conversation_id,
         text="Привет",
+        runtime_context=None,
     )
     provider.synthesize_speech.assert_awaited_once_with(
         SpeechRequest(text="Привет, Лера!", voice="lulwa")
+    )
+
+
+@pytest.mark.anyio
+async def test_voice_service_uses_melody_context_when_humming_has_no_words() -> None:
+    provider = AsyncMock()
+    provider.transcribe_audio.return_value = TranscriptionResponse(text="")
+    provider.synthesize_speech.return_value = SpeechResponse(audio_content=b"wav")
+    conversation_service = AsyncMock()
+    conversation_service.process_turn.return_value = SimpleNamespace(content="Кажется, это песня!")
+    agent = SimpleNamespace(tts_voice="lulwa", tools=("music_recognition",))
+    conversation_service.get_conversation_agent = Mock(return_value=agent)
+    recognition_service = AsyncMock()
+    recognition_service.recognize_for_agent.return_value = MusicRecognitionContext(
+        prompt_context="Вариант 1: название='Тест'"
+    )
+    service = VoiceService(provider, conversation_service, recognition_service)
+    conversation_id = uuid.uuid4()
+
+    await service.process_voice_turn(
+        conversation_id=conversation_id,
+        audio_content=b"humming",
+        filename="recording.webm",
+        content_type="audio/webm",
+    )
+
+    recognition_service.recognize_for_agent.assert_awaited_once_with(
+        agent=agent,
+        audio_content=b"humming",
+        filename="recording.webm",
+        content_type="audio/webm",
+    )
+    conversation_service.process_turn.assert_awaited_once_with(
+        conversation_id=conversation_id,
+        text="[Лера напела мелодию без слов]",
+        runtime_context="Вариант 1: название='Тест'",
     )
 
 

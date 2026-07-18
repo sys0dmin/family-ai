@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     voice_language: str = "ru"
     voice_max_audio_bytes: int = 10 * 1024 * 1024
 
+    # Optional music recognition tool for capable agents
+    music_recognition_provider: Literal["disabled", "acrcloud"] = "disabled"
+    acrcloud_host: str | None = None
+    acrcloud_access_key: SecretStr = SecretStr("")
+    acrcloud_access_secret: SecretStr = SecretStr("")
+    music_recognition_timeout_seconds: float = 8.0
+
     # Admin panel settings
     admin_username: str = "admin"
     admin_password: SecretStr = SecretStr("change-me")
