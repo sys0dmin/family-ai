@@ -76,6 +76,7 @@ Gateway не содержит привязки к OpenAI SDK, Matrix или де
 | `POST /v1/voice/turn` | Принять один аудиофрагмент и вернуть аудиоответ |
 | `POST /v1/conversations/{conversation_id}/messages` | Сохранить одно сообщение |
 | `POST /v1/conversations/{conversation_id}/turn` | Текстовый ход: принять сообщение и вернуть ответ AI |
+| `POST /v1/voice/{conversation_id}/synthesize` | Озвучить готовую реплику голосом закреплённого агента |
 | `GET /v1/agents` | Получить безопасные карточки доступных ребёнку агентов |
 | `POST /v1/conversations/` | Создать диалог и закрепить выбранного агента и его текущую ревизию |
 | `GET /healthz` | Проверка готовности сервиса |

@@ -1,317 +1,556 @@
-let mediaRecorder;
+let mediaRecorder = null;
+let mediaStream = null;
 let audioChunks = [];
+let currentAudio = null;
+let currentAudioUrl = null;
 let conversationId = null;
 let isRecording = false;
+let turnInProgress = false;
 let availableAgents = [];
 let selectedAgent = null;
+let browserSpeechEnabled = loadBrowserSpeechPreference();
 
+const chooser = document.getElementById('chooser');
+const conversation = document.getElementById('conversation');
+const agentGrid = document.getElementById('agent-grid');
 const chatContainer = document.getElementById('chat-container');
+const typingIndicator = document.getElementById('typing-indicator');
+const quickReplies = document.getElementById('quick-replies');
 const textInput = document.getElementById('text-input');
 const sendBtn = document.getElementById('send-btn');
 const micBtn = document.getElementById('mic-btn');
-const statusPill = document.getElementById('status-pill');
-const typingIndicator = document.getElementById('typing-indicator');
-const quickReplies = document.getElementById('quick-replies');
-const agentPicker = document.getElementById('agent-picker');
-const agentGrid = document.getElementById('agent-grid');
-const closeAgentPicker = document.getElementById('close-agent-picker');
-const changeAgentBtn = document.getElementById('change-agent-btn');
+const keyboardToggle = document.getElementById('keyboard-toggle');
+const textComposer = document.getElementById('text-composer');
 
-const quickPhrasesByAgent = {
-    teacher_friend: ['Объясни мне что-нибудь интересное', 'Загадай мне загадку', 'Поиграем в слова', 'Почему небо голубое?'],
-    scientist: ['Почему идёт дождь?', 'Как растёт цветок?', 'Расскажи про космос', 'Давай простой опыт'],
-    storyteller: ['Придумай сказку про котёнка', 'Сказку про волшебный лес', 'Я выберу героя сказки', 'Продолжим историю вместе'],
-    socrates: ['Помоги мне самой найти ответ', 'Задай мне хитрый вопрос', 'Почему важно дружить?', 'Давай рассуждать вместе']
+const agentPresentation = {
+    teacher_friend: {
+        image: '/static/assets/characters/teacher-friend.webp',
+        color: '#356fc0',
+        soft: '#e7f0fd',
+        deep: '#214d8a'
+    },
+    scientist: {
+        image: '/static/assets/characters/scientist.webp',
+        color: '#138b78',
+        soft: '#e0f5ef',
+        deep: '#176557'
+    },
+    storyteller: {
+        image: '/static/assets/characters/storyteller.webp',
+        color: '#6654ad',
+        soft: '#ece9f8',
+        deep: '#46377f'
+    },
+    socrates: {
+        image: '/static/assets/characters/socrates.webp',
+        color: '#d87831',
+        soft: '#fbeddf',
+        deep: '#9b4f1f'
+    }
 };
 
-function setStatus(text, kind = 'ok') {
-    if (!statusPill) return;
-    statusPill.textContent = text;
-    statusPill.classList.remove('busy', 'error');
-    if (kind === 'busy' || kind === 'error') {
-        statusPill.classList.add(kind);
+const promptsByAgent = {
+    teacher_friend: [
+        { icon: '☁', label: 'Почему небо?', phrase: 'Почему небо голубое?' },
+        { icon: '🦁', label: 'Животные', phrase: 'Давай викторину про животных' },
+        { icon: '🔤', label: 'Игра в слова', phrase: 'Поиграем в слова' },
+        { icon: '❓', label: 'Загадка', phrase: 'Загадай мне загадку' }
+    ],
+    scientist: [
+        { icon: '🌧', label: 'Дождь', phrase: 'Почему идёт дождь?' },
+        { icon: '🌱', label: 'Растения', phrase: 'Как растёт цветок?' },
+        { icon: '🪐', label: 'Космос', phrase: 'Расскажи мне про космос' },
+        { icon: '🔎', label: 'Опыт', phrase: 'Давай проведём простой безопасный опыт' }
+    ],
+    storyteller: [
+        { icon: '🐈', label: 'Котёнок', phrase: 'Придумай сказку про котёнка' },
+        { icon: '🌲', label: 'Лес', phrase: 'Расскажи сказку про волшебный лес' },
+        { icon: '🏰', label: 'Замок', phrase: 'Давай придумаем сказку про добрый замок' },
+        { icon: '⭐', label: 'Продолжить', phrase: 'Начни сказку, а я буду выбирать продолжение' }
+    ],
+    socrates: [
+        { icon: '🤝', label: 'Дружба', phrase: 'Почему важно дружить?' },
+        { icon: '💭', label: 'Подумать', phrase: 'Помоги мне самой найти ответ' },
+        { icon: '🧩', label: 'Задача', phrase: 'Задай мне интересную задачку' },
+        { icon: '⚖', label: 'Выбор', phrase: 'Давай рассуждать вместе' }
+    ]
+};
+
+function presentationFor(agent) {
+    return agentPresentation[agent.id] || agentPresentation.teacher_friend;
+}
+
+function setTheme(agent) {
+    const presentation = presentationFor(agent);
+    conversation.style.setProperty('--theme', presentation.color);
+    conversation.style.setProperty('--theme-soft', presentation.soft);
+    conversation.style.setProperty('--theme-deep', presentation.deep);
+}
+
+function loadBrowserSpeechPreference() {
+    try {
+        return window.localStorage.getItem('family-ai-browser-speech') !== 'off';
+    } catch (error) {
+        console.warn('Browser speech preference is unavailable:', error);
+        return true;
     }
+}
+
+function saveBrowserSpeechPreference() {
+    try {
+        window.localStorage.setItem(
+            'family-ai-browser-speech',
+            browserSpeechEnabled ? 'on' : 'off'
+        );
+    } catch (error) {
+        console.warn('Browser speech preference could not be saved:', error);
+    }
+}
+
+function renderBrowserSpeechToggles() {
+    document.querySelectorAll('.browser-speech-toggle').forEach((button) => {
+        button.textContent = browserSpeechEnabled ? '🔊' : '🔇';
+        button.classList.toggle('is-off', !browserSpeechEnabled);
+        const action = browserSpeechEnabled
+            ? 'Выключить автоозвучку'
+            : 'Включить автоозвучку';
+        button.setAttribute('aria-label', action);
+        button.title = action;
+        button.setAttribute('aria-pressed', String(browserSpeechEnabled));
+    });
+}
+
+function toggleBrowserSpeech() {
+    browserSpeechEnabled = !browserSpeechEnabled;
+    saveBrowserSpeechPreference();
+    if (!browserSpeechEnabled) {
+        window.speechSynthesis?.cancel();
+        if (!conversation.hidden && !turnInProgress) {
+            setState('ready', 'Готов слушать');
+        }
+    } else if (selectedAgent && !conversation.hidden && !turnInProgress) {
+        speakText(selectedAgent.greeting);
+    }
+    renderBrowserSpeechToggles();
+}
+
+function setState(state, text) {
+    conversation.dataset.state = state;
+    document.querySelectorAll('.visual-status').forEach((element) => {
+        element.className = `visual-status ${state}`;
+        const label = element.querySelector('.status-text');
+        if (label) label.textContent = text;
+    });
+}
+
+function showTyping(show) {
+    typingIndicator.classList.toggle('visible', Boolean(show));
+    if (show) scrollToBottom();
+}
+
+function showSilentResponse() {
+    setState('responded', 'Ответ готов');
+    window.setTimeout(() => {
+        if (conversation.dataset.state === 'responded') {
+            setState('ready', 'Готов слушать');
+        }
+    }, 1100);
 }
 
 function scrollToBottom() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-function showTyping(show) {
-    if (!typingIndicator) return;
-    typingIndicator.classList.toggle('visible', Boolean(show));
-    if (show) {
-        scrollToBottom();
+function speakText(text) {
+    if (!browserSpeechEnabled || !('speechSynthesis' in window) || !text) return false;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ru-RU';
+    utterance.rate = 0.92;
+    utterance.pitch = 1.03;
+    const russianVoice = window.speechSynthesis.getVoices()
+        .find((voice) => voice.lang.toLowerCase().startsWith('ru'));
+    if (russianVoice) utterance.voice = russianVoice;
+    utterance.onstart = () => setState('speaking', 'Говорю');
+    utterance.onend = () => setState('ready', 'Готов слушать');
+    utterance.onerror = () => setState('ready', 'Готов слушать');
+    window.speechSynthesis.speak(utterance);
+    return true;
+}
+
+function renderAgentCards() {
+    agentGrid.replaceChildren();
+    for (const agent of availableAgents) {
+        const presentation = presentationFor(agent);
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'agent-card';
+        card.setAttribute('aria-label', `${agent.display_name}. ${agent.description}`);
+        card.style.setProperty('--agent-color', presentation.color);
+        card.style.setProperty('--agent-soft', presentation.soft);
+
+        const art = document.createElement('img');
+        art.className = 'agent-card-art';
+        art.src = presentation.image;
+        art.alt = '';
+
+        const sound = document.createElement('span');
+        sound.className = 'agent-card-sound';
+        sound.setAttribute('aria-hidden', 'true');
+        sound.textContent = '♪';
+
+        const copy = document.createElement('span');
+        copy.className = 'agent-card-copy';
+        const name = document.createElement('span');
+        name.className = 'agent-card-name';
+        name.textContent = agent.display_name;
+        const hint = document.createElement('span');
+        hint.className = 'agent-card-hint';
+        hint.textContent = agent.description;
+        copy.append(name, hint);
+
+        card.append(art, sound, copy);
+        card.onclick = () => chooseAgent(agent);
+        agentGrid.append(card);
+    }
+}
+
+function renderQuickReplies() {
+    quickReplies.replaceChildren();
+    const prompts = promptsByAgent[selectedAgent?.id] || promptsByAgent.teacher_friend;
+    for (const prompt of prompts) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'prompt-button';
+        button.setAttribute('aria-label', prompt.phrase);
+        const icon = document.createElement('span');
+        icon.className = 'prompt-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = prompt.icon;
+        const label = document.createElement('span');
+        label.className = 'prompt-label';
+        label.textContent = prompt.label;
+        button.append(icon, label);
+        button.onclick = () => sendText(prompt.phrase);
+        quickReplies.append(button);
     }
 }
 
 function addMessage(text, role) {
     if (role === 'system') {
-        const systemDiv = document.createElement('div');
-        systemDiv.className = 'system';
-        systemDiv.textContent = text;
-        chatContainer.insertBefore(systemDiv, typingIndicator);
+        const message = document.createElement('div');
+        message.className = 'system-message';
+        message.textContent = text;
+        chatContainer.insertBefore(message, typingIndicator);
         scrollToBottom();
         return;
     }
 
     const row = document.createElement('div');
     row.className = `message-row ${role}`;
-
     const avatar = document.createElement('div');
     avatar.className = 'avatar';
-    avatar.textContent = role === 'assistant' ? (selectedAgent?.icon || '✨') : '🧒';
-
+    if (role === 'assistant') {
+        const image = document.createElement('img');
+        image.src = presentationFor(selectedAgent).image;
+        image.alt = '';
+        avatar.append(image);
+    } else {
+        avatar.textContent = '●';
+        avatar.setAttribute('aria-hidden', 'true');
+    }
     const bubble = document.createElement('div');
     bubble.className = 'message';
     bubble.textContent = text;
-
-    row.appendChild(avatar);
-    row.appendChild(bubble);
+    row.append(avatar, bubble);
     chatContainer.insertBefore(row, typingIndicator);
     scrollToBottom();
 }
 
-function renderQuickReplies() {
-    if (!quickReplies) return;
-    quickReplies.innerHTML = '';
+function clearConversationView() {
+    conversationId = null;
+    chatContainer.querySelectorAll('.message-row, .system-message').forEach((item) => item.remove());
+    document.getElementById('welcome-card').hidden = false;
+}
 
-    const phrases = quickPhrasesByAgent[selectedAgent?.id] || quickPhrasesByAgent.teacher_friend;
-    phrases.forEach((phrase) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.textContent = phrase;
-        button.onclick = () => {
-            textInput.value = phrase;
-            sendText();
-        };
-        quickReplies.appendChild(button);
-    });
+function chooseAgent(agent, announce = true) {
+    selectedAgent = agent;
+    const presentation = presentationFor(agent);
+    setTheme(agent);
+    clearConversationView();
+    document.getElementById('companion-art').src = presentation.image;
+    document.getElementById('companion-art').alt = agent.display_name;
+    document.getElementById('companion-name').textContent = agent.display_name;
+    document.getElementById('mobile-agent-name').textContent = agent.display_name;
+    document.getElementById('companion-description').textContent = agent.description;
+    document.getElementById('welcome-text').textContent = agent.greeting;
+    renderQuickReplies();
+    chooser.hidden = true;
+    conversation.hidden = false;
+    setControlsEnabled(true);
+    setState('ready', 'Готов слушать');
+    if (announce) speakText(agent.greeting);
+}
+
+function showChooser() {
+    if (turnInProgress) return;
+    cancelActiveMedia();
+    conversation.hidden = true;
+    chooser.hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function setControlsEnabled(enabled) {
     textInput.disabled = !enabled;
     sendBtn.disabled = !enabled;
     micBtn.disabled = !enabled;
+    keyboardToggle.disabled = !enabled;
 }
 
-function renderAgentPicker() {
-    agentGrid.replaceChildren();
-    availableAgents.forEach((agent) => {
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = `agent-card ${['blue', 'green', 'purple', 'orange'].includes(agent.color) ? agent.color : ''}`;
-        const icon = document.createElement('span');
-        icon.className = 'agent-card-icon';
-        icon.textContent = agent.icon;
-        const name = document.createElement('span');
-        name.className = 'agent-card-name';
-        name.textContent = agent.display_name;
-        const description = document.createElement('span');
-        description.className = 'agent-card-description';
-        description.textContent = agent.description;
-        card.append(icon, name, description);
-        card.onclick = () => chooseAgent(agent);
-        agentGrid.append(card);
+function setTurnControlsDisabled(disabled) {
+    turnInProgress = disabled;
+    quickReplies.querySelectorAll('button').forEach((button) => {
+        button.disabled = disabled;
     });
-}
-
-function resetConversationView(agent) {
-    conversationId = null;
-    chatContainer.querySelectorAll('.message-row, .system').forEach((element) => element.remove());
-    document.querySelector('#welcome-card .emoji').textContent = agent.icon;
-    document.getElementById('welcome-text').textContent = agent.greeting;
-    addMessage(agent.greeting, 'assistant');
-}
-
-function chooseAgent(agent) {
-    const changed = selectedAgent?.id !== agent.id;
-    selectedAgent = agent;
-    document.getElementById('agent-logo').textContent = agent.icon;
-    document.getElementById('agent-title').textContent = agent.display_name;
-    document.getElementById('agent-subtitle').textContent = agent.description;
-    if (changed) resetConversationView(agent);
-    renderQuickReplies();
-    setControlsEnabled(true);
-    agentPicker.hidden = true;
-    closeAgentPicker.hidden = false;
-    setStatus('Готов к разговору');
-    textInput.focus();
+    sendBtn.disabled = disabled;
+    keyboardToggle.disabled = disabled;
+    document.querySelectorAll('.browser-speech-toggle').forEach((button) => {
+        button.disabled = disabled;
+    });
+    if (!isRecording) micBtn.disabled = disabled;
 }
 
 async function loadAgents() {
     setControlsEnabled(false);
-    setStatus('Загружаю друзей...', 'busy');
     try {
         const response = await fetch('/v1/agents');
-        if (!response.ok) throw new Error('Не удалось загрузить агентов');
+        if (!response.ok) throw new Error('Agent API unavailable');
         const data = await response.json();
         availableAgents = data.items;
-        renderAgentPicker();
-        if (!availableAgents.length) throw new Error('Нет доступных агентов');
-        setStatus('Выбери помощника');
-    } catch (err) {
-        console.error('Agent loading failed:', err);
-        agentGrid.textContent = 'Не получилось позвать друзей. Обнови страницу чуть позже.';
-        setStatus('Нет связи с помощниками', 'error');
+        if (!availableAgents.length) throw new Error('No enabled agents');
+        renderAgentCards();
+        const requestedAgentId = new URLSearchParams(window.location.search).get('agent');
+        const requestedAgent = availableAgents.find((agent) => agent.id === requestedAgentId);
+        if (requestedAgent) chooseAgent(requestedAgent, false);
+    } catch (error) {
+        console.error('Agent loading failed:', error);
+        agentGrid.textContent = 'Друзья скоро вернутся. Обнови страницу чуть позже.';
+        speakText('Друзья сейчас заняты. Попробуй ещё раз чуть позже.');
     }
 }
 
 async function ensureConversation() {
-    if (conversationId) {
-        return conversationId;
-    }
+    if (conversationId) return conversationId;
+    if (!selectedAgent) throw new Error('Agent is not selected');
 
-    try {
-        if (!selectedAgent) {
-            throw new Error('Сначала выбери помощника');
-        }
-        const response = await fetch('/v1/conversations/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agent_id: selectedAgent.id })
-        });
-
-        if (!response.ok) {
-            throw new Error('Не удалось создать диалог');
-        }
-
-        const data = await response.json();
-        conversationId = data.conversation_id;
-        return conversationId;
-    } catch (err) {
-        console.error('Conversation creation failed:', err);
-        addMessage('Не удалось подготовить диалог. Повтори чуть позже.', 'system');
-        throw err;
-    }
+    const response = await fetch('/v1/conversations/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: selectedAgent.id })
+    });
+    if (!response.ok) throw new Error('Conversation creation failed');
+    const data = await response.json();
+    conversationId = data.conversation_id;
+    return conversationId;
 }
 
-async function sendText() {
-    const text = textInput.value.trim();
-    if (!text) return;
-
+async function sendText(forcedText = null) {
+    const text = (forcedText || textInput.value).trim();
+    if (!text || !selectedAgent || turnInProgress) return;
+    setTurnControlsDisabled(true);
     textInput.value = '';
+    document.getElementById('welcome-card').hidden = true;
     addMessage(text, 'child');
-    setStatus('Думаю над ответом...', 'busy');
+    setState('busy', 'Думаю');
     showTyping(true);
 
     try {
         await ensureConversation();
-
         const response = await fetch(`/v1/conversations/${conversationId}/turn`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: 'child', content: text })
         });
-
-        if (!response.ok) {
-            throw new Error('Сервер не принял сообщение');
-        }
-
+        if (!response.ok) throw new Error('Message was rejected');
         const data = await response.json();
         addMessage(data.content, 'assistant');
-        setStatus('Готов к чату');
-    } catch (err) {
-        console.error('Text send failed:', err);
-        addMessage('Ой, что-то сломалось. Попробуй еще раз!', 'system');
-        setStatus('Есть ошибка соединения', 'error');
+        showTyping(false);
+        if (browserSpeechEnabled) {
+            try {
+                await speakAssistantReply(data.content);
+            } catch (voiceError) {
+                console.warn('Agent TTS playback failed, using browser voice:', voiceError);
+                if (!speakText(data.content)) setState('ready', 'Готов слушать');
+            }
+        } else {
+            showSilentResponse();
+        }
+    } catch (error) {
+        console.error('Text turn failed:', error);
+        addMessage('Ой, связь потерялась. Попробуем ещё раз.', 'system');
+        setState('error', 'Нет связи');
+        speakText('Ой, связь потерялась. Попробуем ещё раз.');
     } finally {
         showTyping(false);
+        setTurnControlsDisabled(false);
     }
 }
 
+async function speakAssistantReply(text) {
+    const response = await fetch(`/v1/voice/${conversationId}/synthesize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+    });
+    if (!response.ok) throw new Error('Agent speech synthesis failed');
+    await playAudioBlob(await response.blob());
+}
+
+function playAudioBlob(blob) {
+    return new Promise((resolve, reject) => {
+        currentAudioUrl = URL.createObjectURL(blob);
+        currentAudio = new Audio(currentAudioUrl);
+        const cleanup = () => {
+            if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+            currentAudioUrl = null;
+            currentAudio = null;
+        };
+        currentAudio.onplay = () => setState('speaking', 'Говорю');
+        currentAudio.onended = () => {
+            cleanup();
+            setState('ready', 'Готов слушать');
+            resolve();
+        };
+        currentAudio.onerror = () => {
+            cleanup();
+            setState('error', 'Не получилось ответить');
+            reject(new Error('Audio playback failed'));
+        };
+        currentAudio.play().catch((error) => {
+            cleanup();
+            reject(error);
+        });
+    });
+}
+
+function cancelActiveMedia() {
+    window.speechSynthesis?.cancel();
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
+    if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+        currentAudioUrl = null;
+    }
+    if (isRecording && mediaRecorder) {
+        mediaRecorder.onstop = null;
+        mediaRecorder.stop();
+    }
+    mediaStream?.getTracks().forEach((track) => track.stop());
+    mediaStream = null;
+    isRecording = false;
+    micBtn.classList.remove('recording');
+}
+
 async function startRecording() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('Браузер блокирует микрофон на HTTP.\n\nВключите флаг: chrome://flags/#unsafely-treat-insecure-origin-as-secure и добавьте http://192.168.31.173:8000');
+    if (!navigator.mediaDevices?.getUserMedia) {
+        speakText('Микрофон пока недоступен. Можно выбрать картинку сверху.');
+        setState('error', 'Микрофон недоступен');
         return;
     }
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+        window.speechSynthesis?.cancel();
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(mediaStream);
         audioChunks = [];
-
         mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
+            if (event.data.size) audioChunks.push(event.data);
         };
-
         mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            await sendVoice(audioBlob);
-            stream.getTracks().forEach((track) => track.stop());
+            const mimeType = mediaRecorder.mimeType || 'audio/webm';
+            const audioBlob = new Blob(audioChunks, { type: mimeType });
+            mediaStream?.getTracks().forEach((track) => track.stop());
+            mediaStream = null;
+            await sendVoice(audioBlob, mimeType);
         };
-
         mediaRecorder.start();
         isRecording = true;
         micBtn.classList.add('recording');
-        micBtn.textContent = '🛑';
-        setStatus('Слушаю тебя...', 'busy');
-    } catch (err) {
-        console.error('Error accessing mic:', err);
-        alert('Ошибка доступа к микрофону: ' + err.message);
-        setStatus('Микрофон недоступен', 'error');
+        micBtn.setAttribute('aria-label', 'Закончить голосовое сообщение');
+        setState('listening', 'Слушаю');
+    } catch (error) {
+        console.error('Microphone access failed:', error);
+        setState('error', 'Микрофон недоступен');
+        speakText('Не получилось включить микрофон. Можно выбрать картинку сверху.');
     }
 }
 
-async function sendVoice(audioBlob) {
-    addMessage('🎤 Голосовое сообщение отправлено...', 'child');
-    setStatus('Обрабатываю голос...', 'busy');
-    showTyping(true);
+function stopRecording() {
+    if (!isRecording || !mediaRecorder) return;
+    mediaRecorder.stop();
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    micBtn.setAttribute('aria-label', 'Начать голосовое сообщение');
+    setState('busy', 'Думаю');
+}
 
+async function sendVoice(audioBlob, mimeType) {
+    if (turnInProgress) return;
+    setTurnControlsDisabled(true);
+    document.getElementById('welcome-card').hidden = true;
+    addMessage('🎙', 'child');
+    showTyping(true);
     try {
         await ensureConversation();
-
+        const extension = mimeType.includes('wav') ? 'wav' : 'webm';
         const formData = new FormData();
-        formData.append('file', audioBlob, 'recording.wav');
-
+        formData.append('file', audioBlob, `recording.${extension}`);
         const response = await fetch(`/v1/voice/${conversationId}/turn`, {
             method: 'POST',
             body: formData
         });
-
-        if (!response.ok) {
-            throw new Error('Сервер не смог обработать голос');
-        }
-
-        const audioResponse = await response.blob();
-        const audioUrl = URL.createObjectURL(audioResponse);
-        const audio = new Audio(audioUrl);
-        audio.play();
-        addMessage('🔊 Включаю голосовой ответ', 'assistant');
-        setStatus('Готов к чату');
-    } catch (err) {
-        console.error('Voice send failed:', err);
-        addMessage('Не удалось отправить голос :(', 'system');
-        setStatus('Ошибка голоса', 'error');
+        if (!response.ok) throw new Error('Voice turn failed');
+        addMessage('🔊', 'assistant');
+        showTyping(false);
+        await playAudioBlob(await response.blob());
+    } catch (error) {
+        console.error('Voice turn failed:', error);
+        addMessage('Ой, я не расслышал. Попробуем ещё раз.', 'system');
+        setState('error', 'Не расслышал');
+        speakText('Ой, я не расслышал. Попробуем ещё раз.');
     } finally {
         showTyping(false);
+        setTurnControlsDisabled(false);
     }
 }
 
+document.querySelectorAll('.change-agent').forEach((button) => {
+    button.onclick = showChooser;
+});
+
+document.querySelectorAll('.browser-speech-toggle').forEach((button) => {
+    button.onclick = toggleBrowserSpeech;
+});
+
+keyboardToggle.onclick = () => {
+    const show = textComposer.hidden;
+    textComposer.hidden = !show;
+    keyboardToggle.setAttribute('aria-expanded', String(show));
+    if (show) textInput.focus();
+};
+
 micBtn.onclick = () => {
-    if (isRecording && mediaRecorder) {
-        mediaRecorder.stop();
-        micBtn.classList.remove('recording');
-        micBtn.textContent = '🎤';
-        isRecording = false;
-    } else {
-        startRecording();
-    }
+    if (isRecording) stopRecording();
+    else startRecording();
 };
 
-sendBtn.onclick = sendText;
-textInput.onkeypress = (e) => {
-    if (e.key === 'Enter') {
-        sendText();
-    }
+sendBtn.onclick = () => sendText();
+textInput.onkeydown = (event) => {
+    if (event.key === 'Enter') sendText();
 };
 
-changeAgentBtn.onclick = () => {
-    agentPicker.hidden = false;
-    closeAgentPicker.hidden = !selectedAgent;
-};
-closeAgentPicker.onclick = () => {
-    if (selectedAgent) agentPicker.hidden = true;
-};
-
+window.addEventListener('beforeunload', cancelActiveMedia);
+renderBrowserSpeechToggles();
 loadAgents();

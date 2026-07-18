@@ -120,6 +120,25 @@ async def test_voice_service_preserves_recording_metadata() -> None:
 
 
 @pytest.mark.anyio
+async def test_voice_service_synthesizes_text_with_conversation_agent_voice() -> None:
+    provider = AsyncMock()
+    provider.synthesize_speech.return_value = SpeechResponse(audio_content=b"wav")
+    conversation_service = Mock()
+    conversation_service.get_conversation_agent.return_value = SimpleNamespace(
+        tts_voice="noura"
+    )
+    service = VoiceService(provider, conversation_service)
+    conversation_id = uuid.uuid4()
+
+    response = await service.synthesize_text(conversation_id, "  Привет!  ")
+
+    assert response.audio_content == b"wav"
+    provider.synthesize_speech.assert_awaited_once_with(
+        SpeechRequest(text="Привет!", voice="noura")
+    )
+
+
+@pytest.mark.anyio
 async def test_voice_endpoint_returns_provider_content_type(
     app: FastAPI,
     client: AsyncClient,
@@ -147,6 +166,33 @@ async def test_voice_endpoint_returns_provider_content_type(
         filename="recording.webm",
         content_type="audio/webm",
         language="ru",
+    )
+
+
+@pytest.mark.anyio
+async def test_synthesize_endpoint_returns_agent_audio(
+    app: FastAPI,
+    client: AsyncClient,
+) -> None:
+    voice_service = AsyncMock()
+    voice_service.synthesize_text.return_value = SpeechResponse(
+        audio_content=b"agent-voice",
+        content_type="audio/wav",
+    )
+    app.dependency_overrides[get_voice_service] = lambda: voice_service
+    conversation_id = uuid.uuid4()
+
+    response = await client.post(
+        f"/v1/voice/{conversation_id}/synthesize",
+        json={"text": "Привет, Лера!"},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"agent-voice"
+    assert response.headers["content-type"] == "audio/wav"
+    voice_service.synthesize_text.assert_awaited_once_with(
+        conversation_id,
+        "Привет, Лера!",
     )
 
 

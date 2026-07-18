@@ -39,6 +39,31 @@ async def test_agent_manifest_exposes_only_child_safe_metadata(
 
 
 @pytest.mark.anyio
+async def test_child_interface_serves_visual_first_agent_assets(
+    client: AsyncClient,
+) -> None:
+    page = await client.get("/")
+
+    assert page.status_code == 200
+    assert "Клуб любопытных" in page.text
+    assert 'id="mic-btn"' in page.text
+    assert "browser-speech-toggle" in page.text
+    assert 'src="/static/app.js?v=9"' in page.text
+    assert 'data-state="ready"' in page.text
+
+    for filename in (
+        "teacher-friend.webp",
+        "scientist.webp",
+        "storyteller.webp",
+        "socrates.webp",
+    ):
+        asset = await client.get(f"/static/assets/characters/{filename}")
+        assert asset.status_code == 200
+        assert asset.headers["content-type"] == "image/webp"
+        assert len(asset.content) > 10_000
+
+
+@pytest.mark.anyio
 async def test_selected_agent_and_revision_are_bound_to_new_conversation(
     client: AsyncClient,
     db_session: Session,

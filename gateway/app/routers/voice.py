@@ -9,6 +9,7 @@ from fastapi.responses import Response
 
 from gateway.app.config import Settings, get_settings
 from gateway.app.dependencies import get_voice_service
+from gateway.app.schemas.voice import SynthesizeTextRequest
 from gateway.app.services.voice_service import VoiceInputError, VoiceService
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,14 @@ SUPPORTED_AUDIO_TYPES = {
     "audio/webm": "webm",
     "video/webm": "webm",
 }
+
+
+def _speech_response(speech) -> Response:
+    return Response(
+        content=speech.audio_content,
+        media_type=speech.content_type,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/{conversation_id}/turn", response_class=Response)
@@ -78,8 +87,26 @@ async def voice_turn(
             detail="Voice provider is temporarily unavailable",
         ) from exc
 
-    return Response(
-        content=speech.audio_content,
-        media_type=speech.content_type,
-        headers={"Cache-Control": "no-store"},
-    )
+    return _speech_response(speech)
+
+
+@router.post("/{conversation_id}/synthesize", response_class=Response)
+async def synthesize_text(
+    conversation_id: UUID,
+    payload: SynthesizeTextRequest,
+    voice_service: VoiceService = Depends(get_voice_service),
+) -> Response:
+    """Speak an existing assistant reply with the conversation agent's voice."""
+
+    try:
+        speech = await voice_service.synthesize_text(conversation_id, payload.text)
+    except Exception as exc:
+        logger.exception(
+            "voice_synthesis_failed",
+            extra={"conversation_id": str(conversation_id)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Voice provider is temporarily unavailable",
+        ) from exc
+    return _speech_response(speech)

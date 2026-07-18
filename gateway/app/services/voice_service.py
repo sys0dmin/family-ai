@@ -69,3 +69,15 @@ class VoiceService:
             extra={"audio_bytes": len(speech.audio_content)},
         )
         return speech
+
+    async def synthesize_text(
+        self,
+        conversation_id: UUID,
+        text: str,
+    ) -> SpeechResponse:
+        """Speak existing assistant text with the agent bound to the conversation."""
+
+        active_agent = self._conversation_service.get_conversation_agent(conversation_id)
+        return await self._ai_provider.synthesize_speech(
+            SpeechRequest(text=text.strip(), voice=active_agent.tts_voice)
+        )
