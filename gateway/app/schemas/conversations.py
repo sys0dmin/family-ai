@@ -51,3 +51,12 @@ class MessageResponse(BaseModel):
     media: list[MessageMediaResponse] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
+
+
+class ConversationHistoryResponse(BaseModel):
+    """Most recent retained transcript for one agent."""
+
+    conversation_id: uuid.UUID | None
+    agent_id: str
+    messages: list[MessageResponse] = Field(default_factory=list)
+    history_truncated: bool = False

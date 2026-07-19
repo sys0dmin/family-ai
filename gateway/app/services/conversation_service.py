@@ -1,8 +1,10 @@
 """Conversation persistence logic."""
 
 import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from gateway.app.agents import ActiveAgent, build_agent_system_message
@@ -37,6 +39,17 @@ SUPERVISED_OUTDOOR_CONTEXT = (
     "Отвечай обычным текстом без Markdown."
 )
 
+MAX_RESUMED_MESSAGES = 100
+
+
+@dataclass(frozen=True)
+class ConversationHistory:
+    """A bounded transcript used to resume one agent conversation."""
+
+    conversation: Conversation | None
+    messages: tuple[Message, ...] = ()
+    truncated: bool = False
+
 
 class ConversationService:
     """Create conversations and store transcript lines."""
@@ -49,6 +62,7 @@ class ConversationService:
         agents: AgentService | None = None,
         visual_media: VisualMediaService | None = None,
         default_agent_id: str = "teacher_friend",
+        retention_days: int = 10,
     ) -> None:
         self._session = session
         self._provider = provider
@@ -56,6 +70,7 @@ class ConversationService:
         self._agents = agents
         self._visual_media = visual_media
         self._default_agent_id = default_agent_id
+        self._retention_days = retention_days
 
     def create_message(
         self,
@@ -78,6 +93,7 @@ class ConversationService:
             conversation_id=conversation.id,
             role=role_value,
             content=content,
+            created_at=datetime.now(UTC),
         )
         self._session.add(message)
         self._session.flush()
@@ -231,9 +247,12 @@ class ConversationService:
             msg = "Child profile is not initialized"
             raise RuntimeError(msg)
 
+        created_at = datetime.now(UTC)
         conversation = Conversation(
             id=conversation_id,
             child_profile_id=LERA_PROFILE_ID,
+            started_at=created_at,
+            created_at=created_at,
             **self._agent_binding(self._default_agent_id),
         )
         self._session.add(conversation)
@@ -247,9 +266,12 @@ class ConversationService:
         if profile is None:
             raise RuntimeError("Child profile is not initialized")
 
+        created_at = datetime.now(UTC)
         conversation = Conversation(
             id=uuid.uuid4(),
             child_profile_id=LERA_PROFILE_ID,
+            started_at=created_at,
+            created_at=created_at,
             **self._agent_binding(agent_id or self._default_agent_id),
         )
         self._session.add(conversation)
@@ -294,6 +316,57 @@ class ConversationService:
                 msg.role = MessageRole(msg.role)
 
         return messages
+
+    def get_latest_history_for_agent(
+        self,
+        agent_id: str,
+        *,
+        now: datetime | None = None,
+        message_limit: int = MAX_RESUMED_MESSAGES,
+    ) -> ConversationHistory:
+        """Return the newest retained conversation without mixing agent contexts."""
+
+        if self._agents is None:
+            raise RuntimeError("Agent service is not configured")
+        self._agents.get_active(agent_id)
+
+        cutoff = (now or datetime.now(UTC)) - timedelta(days=self._retention_days)
+        latest_activity = func.coalesce(func.max(Message.created_at), Conversation.created_at)
+        conversation_id = self._session.scalar(
+            select(Conversation.id)
+            .outerjoin(Message, Message.conversation_id == Conversation.id)
+            .where(
+                Conversation.child_profile_id == LERA_PROFILE_ID,
+                Conversation.agent_id == agent_id,
+            )
+            .group_by(Conversation.id, Conversation.created_at)
+            .having(latest_activity >= cutoff)
+            .order_by(latest_activity.desc(), Conversation.created_at.desc())
+            .limit(1)
+        )
+        if conversation_id is None:
+            return ConversationHistory(conversation=None)
+
+        newest_first = list(
+            self._session.scalars(
+                select(Message)
+                .where(Message.conversation_id == conversation_id)
+                .order_by(Message.created_at.desc(), Message.id.desc())
+                .limit(message_limit + 1)
+            )
+        )
+        truncated = len(newest_first) > message_limit
+        messages = newest_first[:message_limit]
+        messages.reverse()
+        for message in messages:
+            if isinstance(message.role, str):
+                message.role = MessageRole(message.role)
+
+        return ConversationHistory(
+            conversation=self._session.get(Conversation, conversation_id),
+            messages=tuple(messages),
+            truncated=truncated,
+        )
 
     def get_message(self, conversation_id: uuid.UUID, message_id: uuid.UUID) -> Message | None:
         """Return one message only when it belongs to the requested conversation."""

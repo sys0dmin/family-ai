@@ -284,8 +284,8 @@
     .page-heading h2 { margin: 5px 0 7px; font-size: clamp(1.65rem, 3vw, 2.45rem); }
     .page-heading p { max-width: 720px; margin-bottom: 0; color: var(--muted); line-height: 1.55; }
 
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .grid > .field { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 14px; }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .settings-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .settings-layout .wide { grid-column: 1 / -1; }
     .config-panel, .section-panel, .metric, .conversation, .safety-card, .action-bar {
@@ -308,8 +308,11 @@
     .config-symbol.violet { color: #c5b6ff; border-color: rgba(155,124,255,.2); background: rgba(155,124,255,.1); }
     .config-symbol.amber { color: var(--amber); border-color: rgba(255,189,89,.2); background: rgba(255,189,89,.08); }
     .config-head h3 { margin: 0 0 3px; font-size: 1.1rem; }
-    .field { display: flex; flex-direction: column; gap: 8px; }
+    .field { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
     .field + .field { margin-top: 15px; }
+    .grid > .field, .grid > .field + .field { margin-top: 0; }
+    fieldset.field { margin: 0; padding: 0; border: 0; }
+    fieldset.field legend { padding: 0; }
     label { color: var(--muted-strong); font-size: .78rem; font-weight: 650; letter-spacing: .01em; }
     input, select, textarea {
       width: 100%;
@@ -330,6 +333,34 @@
     }
     textarea { min-height: 150px; resize: vertical; line-height: 1.55; }
     select { cursor: pointer; }
+    .option-group { gap: 9px; }
+    .option-group legend { margin-bottom: 2px; color: var(--muted-strong); font-size: .78rem; font-weight: 650; }
+    .option-row {
+      min-height: 48px;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      align-items: start;
+      gap: 10px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 500;
+      line-height: 1.45;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255,255,255,.022);
+    }
+    .option-row:hover { color: var(--muted-strong); border-color: var(--line-strong); background: rgba(255,255,255,.038); }
+    .option-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      min-height: 18px;
+      margin: 2px 0 0;
+      padding: 0;
+      accent-color: var(--violet);
+      box-shadow: none;
+    }
     .secret-field { position: relative; }
     .secret-field input { padding-right: 44px; }
     .field-hint { color: #69748f; font-size: .72rem; line-height: 1.4; }
@@ -390,7 +421,6 @@
     .section-intro p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.55; }
     .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .settings-grid .wide { grid-column: 1 / -1; }
-    .data-panel { grid-column: 1 / -1; }
     .panel-head { margin-bottom: 22px; display: flex; align-items: center; gap: 13px; }
     .panel-head h2, .panel-head h3 { margin: 3px 0 0; }
     .panel-head > button, .panel-head > #conversation-total { margin-left: auto; }
@@ -464,7 +494,7 @@
     }
     .agent-list-button strong { display: block; margin-bottom: 3px; }
     .agent-form { display: flex; flex-direction: column; gap: 18px; }
-    .agent-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    .agent-editor-head { margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
     .safety-card { margin-bottom: 18px; padding: 17px 20px; border-radius: 17px; }
     .safety-card summary { cursor: pointer; color: var(--muted-strong); font-weight: 700; }
     .safety-baseline { max-height: 210px; margin-top: 14px; padding: 14px; overflow: auto; white-space: pre-wrap; color: #bdc7df; border: 1px solid var(--line); border-radius: 13px; background: rgba(4,7,13,.62); font: .76rem/1.55 "Cascadia Code", Consolas, monospace; }
@@ -719,7 +749,7 @@
               <label class="field"><span>Голос</span><select id="tts_voice"><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option><option value="__custom__">Другой…</option></select></label>
               <label class="field"><span>Формат</span><select id="tts_response_format"><option value="wav">WAV</option><option value="mp3">MP3</option></select></label>
             </div>
-            <input id="tts_voice_custom" placeholder="ID другого голоса" style="display:none">
+            <label class="field" id="tts_voice_custom_field" hidden><span>ID другого голоса</span><input id="tts_voice_custom" placeholder="Например: custom-voice-id"></label>
             <label class="field"><span>Speech API-ключ <small>оставьте пустым, чтобы не менять</small></span><input id="speech_api_key" type="password" autocomplete="new-password"></label>
           </article>
 
@@ -727,6 +757,15 @@
             <div class="panel-head"><div class="panel-icon amber">◇</div><div><div class="card-kicker">Data policy</div><h2>Хранение</h2></div></div>
             <label class="field"><span>Хранить историю, дней</span><input id="message_retention_days" type="number" min="1" max="365"></label>
             <div class="retention-visual"><div><strong>Автоочистка включена</strong><span>Старые сообщения удаляются по расписанию</span></div><span class="retention-ring">10d</span></div>
+          </article>
+
+          <article class="config-panel visual-panel">
+            <div class="panel-head"><div class="panel-icon violet">▧</div><div><div class="card-kicker">Visual answers</div><h2>Иллюстрации</h2></div><span class="live-badge" id="image-provider-badge"><i class="signal-dot"></i><span>Выключено</span></span></div>
+            <p class="muted">Лицензированные изображения добавляются только агентам с разрешённым визуальным поиском.</p>
+            <div class="grid">
+              <label class="field"><span>Провайдер</span><select id="image_search_provider"><option value="disabled">Выключено</option><option value="openverse">Openverse</option></select></label>
+              <label class="field"><span>Таймаут, секунд</span><input id="image_search_timeout_seconds" type="number" min="1" max="30" step="0.5"></label>
+            </div>
           </article>
 
           <article class="config-panel wide">
@@ -758,7 +797,7 @@
               <div class="grid three"><label class="field"><span>Голос</span><select id="agent-voice"><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option></select></label><label class="field"><span>Порядок</span><input id="agent-order" type="number"></label><label class="field"><span>Статус</span><select id="agent-enabled"><option value="true">Доступен</option><option value="false">Отключён</option></select></label></div>
               <label class="field"><span>Описание</span><textarea id="agent-description" rows="3"></textarea></label>
               <label class="field"><span>Приветствие</span><textarea id="agent-greeting" rows="3"></textarea></label>
-              <label class="field"><span>Инструменты и разрешения</span><span class="muted"><input id="agent-tool-music" type="checkbox"> Музыкальный слух — отправлять голосовые записи сервису распознавания мелодий</span><span class="muted"><input id="agent-tool-web-search" type="checkbox"> Веб-поиск — проверять факты и названия во внешнем поиске</span><span class="muted"><input id="agent-permission-outdoor" type="checkbox"> Походная безопасность — обсуждать огонь и нож с обязательным участием родителей</span></label>
+              <fieldset class="field option-group"><legend>Инструменты и разрешения</legend><label class="option-row"><input id="agent-tool-music" type="checkbox"><span>Музыкальный слух — отправлять голосовые записи сервису распознавания мелодий</span></label><label class="option-row"><input id="agent-tool-web-search" type="checkbox"><span>Веб-поиск — проверять факты и названия во внешнем поиске</span></label><label class="option-row"><input id="agent-tool-image-search" type="checkbox"><span>Иллюстрации — добавлять к подходящим ответам лицензированные изображения</span></label><label class="option-row"><input id="agent-permission-outdoor" type="checkbox"><span>Походная безопасность — обсуждать огонь и нож с обязательным участием родителей</span></label></fieldset>
               <div class="prompt-studio"><div class="panel-head"><div><div class="card-kicker">Prompt studio</div><h3>Новая версия поведения</h3></div><button id="agent-create-revision" class="secondary">Создать версию</button></div><textarea id="agent-new-prompt" rows="12"></textarea></div>
               <div><h3 class="section-title">История версий</h3><div id="agent-revisions" class="revision-list"></div></div>
             </div>
@@ -853,16 +892,17 @@
 
     function applyTtsVoice(value) {
       const customInput = document.getElementById("tts_voice_custom");
+      const customField = document.getElementById("tts_voice_custom_field");
       if (knownTtsVoices.has(value)) {
         setValue("tts_voice", value);
         setValue("tts_voice_custom", "");
-        customInput.style.display = "none";
+        customField.hidden = true;
         return;
       }
 
       setValue("tts_voice", "__custom__");
       setValue("tts_voice_custom", value);
-      customInput.style.display = "block";
+      customField.hidden = false;
     }
 
     function getTtsVoice() {
@@ -956,6 +996,7 @@
       setValue("agent-greeting", agent.greeting);
       document.getElementById("agent-tool-music").checked = (agent.tools || []).includes("music_recognition");
       document.getElementById("agent-tool-web-search").checked = (agent.tools || []).includes("web_search");
+      document.getElementById("agent-tool-image-search").checked = (agent.tools || []).includes("image_search");
       document.getElementById("agent-permission-outdoor").checked = (agent.permissions || []).includes("supervised_outdoor_safety");
       setValue("agent-new-prompt", agent.revisions[0]?.system_prompt || "");
 
@@ -1291,6 +1332,8 @@
       setValue("openai_model", data.openai_model);
       setValue("openai_base_url", data.openai_base_url || "");
       setValue("web_search_tool_type", data.web_search_tool_type || "disabled");
+      setValue("image_search_provider", data.image_search_provider || "disabled");
+      setValue("image_search_timeout_seconds", data.image_search_timeout_seconds || 6);
       setValue("speech_base_url", data.speech_base_url || "");
       setValue("stt_model", data.stt_model);
       setValue("tts_model", data.tts_model);
@@ -1307,8 +1350,11 @@
       const musicBadge = document.getElementById("music-provider-badge");
       musicBadge.querySelector("span").textContent = data.music_recognition_provider === "acrcloud" ? "ACRCloud" : "Выключено";
       musicBadge.querySelector("i").className = `signal-dot ${data.music_recognition_provider === "acrcloud" ? "cyan" : ""}`;
+      const imageBadge = document.getElementById("image-provider-badge");
+      imageBadge.querySelector("span").textContent = data.image_search_provider === "openverse" ? "Openverse" : "Выключено";
+      imageBadge.querySelector("i").className = `signal-dot ${data.image_search_provider === "openverse" ? "cyan" : ""}`;
 
-      summary.textContent = `env=${data.environment}, LLM key=${data.openai_api_key_preview || "(empty)"}, speech key=${data.speech_api_key_preview || "(empty)"}, melody=${data.music_recognition_provider || "disabled"}`;
+      summary.textContent = `env=${data.environment}, LLM key=${data.openai_api_key_preview || "(empty)"}, speech key=${data.speech_api_key_preview || "(empty)"}, images=${data.image_search_provider || "disabled"}, melody=${data.music_recognition_provider || "disabled"}`;
       document.getElementById("environment-label").textContent = data.environment;
       document.querySelector(".retention-ring").textContent = `${data.message_retention_days}d`;
     }
@@ -1393,7 +1439,8 @@
         tts_voice: getValue("agent-voice") || null,
         tools: [
           ...(document.getElementById("agent-tool-music").checked ? ["music_recognition"] : []),
-          ...(document.getElementById("agent-tool-web-search").checked ? ["web_search"] : [])
+          ...(document.getElementById("agent-tool-web-search").checked ? ["web_search"] : []),
+          ...(document.getElementById("agent-tool-image-search").checked ? ["image_search"] : [])
         ],
         permissions: document.getElementById("agent-permission-outdoor").checked ? ["supervised_outdoor_safety"] : [],
         enabled: getValue("agent-enabled") === "true",
@@ -1449,8 +1496,9 @@
 
     document.getElementById("tts_voice").onchange = () => {
       const customInput = document.getElementById("tts_voice_custom");
-      customInput.style.display = getValue("tts_voice") === "__custom__" ? "block" : "none";
-      if (customInput.style.display === "block") {
+      const customField = document.getElementById("tts_voice_custom_field");
+      customField.hidden = getValue("tts_voice") !== "__custom__";
+      if (!customField.hidden) {
         customInput.focus();
       }
     };
@@ -1490,6 +1538,8 @@
           openai_model: getValue("openai_model").trim(),
           openai_base_url: getValue("openai_base_url").trim() || null,
           web_search_tool_type: getValue("web_search_tool_type"),
+          image_search_provider: getValue("image_search_provider"),
+          image_search_timeout_seconds: Number(getValue("image_search_timeout_seconds")),
           speech_base_url: getValue("speech_base_url").trim() || null,
           stt_model: getValue("stt_model").trim(),
           tts_model: getValue("tts_model").trim(),

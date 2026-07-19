@@ -8,6 +8,8 @@ let isRecording = false;
 let turnInProgress = false;
 let availableAgents = [];
 let selectedAgent = null;
+let agentSelectionVersion = 0;
+let newConversationConfirmationTimer = null;
 let browserSpeechEnabled = loadBrowserSpeechPreference();
 
 const chooser = document.getElementById('chooser');
@@ -333,9 +335,25 @@ function clearConversationView() {
     document.getElementById('welcome-card').hidden = false;
 }
 
-function chooseAgent(agent, announce = true) {
+function resetNewConversationConfirmation() {
+    if (newConversationConfirmationTimer) {
+        window.clearTimeout(newConversationConfirmationTimer);
+        newConversationConfirmationTimer = null;
+    }
+    document.querySelectorAll('.new-conversation').forEach((button) => {
+        button.classList.remove('confirming');
+        button.setAttribute('aria-label', 'Начать новый разговор');
+        button.title = 'Начать новый разговор';
+        button.querySelector('.new-conversation-symbol').textContent = '↻';
+    });
+}
+
+async function chooseAgent(agent, announce = true) {
+    const selectionVersion = ++agentSelectionVersion;
     selectedAgent = agent;
     const presentation = presentationFor(agent);
+    resetNewConversationConfirmation();
+    cancelActiveMedia();
     setTheme(agent);
     clearConversationView();
     document.getElementById('companion-art').src = presentation.image;
@@ -347,13 +365,40 @@ function chooseAgent(agent, announce = true) {
     renderQuickReplies();
     chooser.hidden = true;
     conversation.hidden = false;
-    setControlsEnabled(true);
-    setState('ready', 'Готов слушать');
-    if (announce) speakText(agent.greeting);
+    setControlsEnabled(false);
+    setState('busy', 'Вспоминаю');
+
+    try {
+        const response = await fetch(
+            `/v1/conversations/latest?agent_id=${encodeURIComponent(agent.id)}`
+        );
+        if (!response.ok) throw new Error('Conversation history unavailable');
+        const data = await response.json();
+        if (selectionVersion !== agentSelectionVersion) return;
+
+        conversationId = data.conversation_id;
+        for (const message of data.messages) {
+            addMessage(message.content, message.role, message.media || []);
+        }
+        const hasMessages = data.messages.length > 0;
+        document.getElementById('welcome-card').hidden = hasMessages;
+        setState('ready', 'Готов слушать');
+        if (announce && !hasMessages) speakText(agent.greeting);
+    } catch (error) {
+        if (selectionVersion !== agentSelectionVersion) return;
+        console.error('Conversation history loading failed:', error);
+        conversationId = null;
+        setState('error', 'Не вспомнил');
+        if (announce) speakText(agent.greeting);
+    } finally {
+        if (selectionVersion === agentSelectionVersion) setControlsEnabled(true);
+    }
 }
 
 function showChooser() {
     if (turnInProgress) return;
+    agentSelectionVersion += 1;
+    resetNewConversationConfirmation();
     cancelActiveMedia();
     conversation.hidden = true;
     chooser.hidden = false;
@@ -365,6 +410,12 @@ function setControlsEnabled(enabled) {
     sendBtn.disabled = !enabled;
     micBtn.disabled = !enabled;
     keyboardToggle.disabled = !enabled;
+    quickReplies.querySelectorAll('button').forEach((button) => {
+        button.disabled = !enabled;
+    });
+    document.querySelectorAll('.new-conversation').forEach((button) => {
+        button.disabled = !enabled;
+    });
 }
 
 function setTurnControlsDisabled(disabled) {
@@ -375,6 +426,9 @@ function setTurnControlsDisabled(disabled) {
     sendBtn.disabled = disabled;
     keyboardToggle.disabled = disabled;
     document.querySelectorAll('.browser-speech-toggle').forEach((button) => {
+        button.disabled = disabled;
+    });
+    document.querySelectorAll('.new-conversation').forEach((button) => {
         button.disabled = disabled;
     });
     if (!isRecording) micBtn.disabled = disabled;
@@ -412,6 +466,57 @@ async function ensureConversation() {
     const data = await response.json();
     conversationId = data.conversation_id;
     return conversationId;
+}
+
+function requestNewConversation() {
+    if (turnInProgress || !selectedAgent) return;
+    const isConfirmed = document.querySelector('.new-conversation')
+        ?.classList.contains('confirming');
+    if (!isConfirmed) {
+        document.querySelectorAll('.new-conversation').forEach((button) => {
+            button.classList.add('confirming');
+            button.setAttribute('aria-label', 'Подтвердить новый разговор');
+            button.title = 'Нажать ещё раз для подтверждения';
+            button.querySelector('.new-conversation-symbol').textContent = '✓';
+        });
+        speakText('Нажми ещё раз, чтобы начать новый разговор.');
+        newConversationConfirmationTimer = window.setTimeout(
+            resetNewConversationConfirmation,
+            3500
+        );
+        return;
+    }
+    resetNewConversationConfirmation();
+    void startNewConversation();
+}
+
+async function startNewConversation() {
+    const agent = selectedAgent;
+    const selectionVersion = ++agentSelectionVersion;
+    cancelActiveMedia();
+    clearConversationView();
+    setTurnControlsDisabled(true);
+    setState('busy', 'Начинаю');
+    try {
+        const response = await fetch('/v1/conversations/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_id: agent.id })
+        });
+        if (!response.ok) throw new Error('Conversation creation failed');
+        const data = await response.json();
+        if (selectionVersion !== agentSelectionVersion) return;
+        conversationId = data.conversation_id;
+        setState('ready', 'Готов слушать');
+        speakText(agent.greeting);
+    } catch (error) {
+        if (selectionVersion !== agentSelectionVersion) return;
+        console.error('New conversation creation failed:', error);
+        addMessage('Ой, новый разговор пока не начался. Попробуем ещё раз.', 'system');
+        setState('error', 'Нет связи');
+    } finally {
+        if (selectionVersion === agentSelectionVersion) setTurnControlsDisabled(false);
+    }
 }
 
 async function sendText(forcedText = null) {
@@ -602,6 +707,10 @@ async function sendVoice(audioBlob, mimeType) {
 
 document.querySelectorAll('.change-agent').forEach((button) => {
     button.onclick = showChooser;
+});
+
+document.querySelectorAll('.new-conversation').forEach((button) => {
+    button.onclick = requestNewConversation;
 });
 
 document.querySelectorAll('.browser-speech-toggle').forEach((button) => {

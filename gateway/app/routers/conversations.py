@@ -1,9 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from gateway.app.dependencies import get_conversation_service
 from gateway.app.schemas.conversations import (
+    ConversationHistoryResponse,
     CreateConversationRequest,
     CreateConversationResponse,
     CreateMessageRequest,
@@ -21,6 +22,32 @@ def normalize_role(role_str: str) -> str:
     raise ValueError(f"Invalid role: {role_str}")
 
 router = APIRouter(prefix="/v1/conversations", tags=["conversations"])
+
+
+@router.get(
+    "/latest",
+    response_model=ConversationHistoryResponse,
+    summary="Resume the latest retained conversation for one agent",
+)
+def get_latest_conversation(
+    agent_id: str = Query(min_length=1, max_length=50),
+    service: ConversationService = Depends(get_conversation_service),
+) -> ConversationHistoryResponse:
+    """Return only this agent's recent session for the child interface."""
+
+    try:
+        history = service.get_latest_history_for_agent(agent_id)
+    except AgentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent is unavailable",
+        ) from exc
+    return ConversationHistoryResponse(
+        conversation_id=history.conversation.id if history.conversation else None,
+        agent_id=agent_id,
+        messages=[MessageResponse.model_validate(message) for message in history.messages],
+        history_truncated=history.truncated,
+    )
 
 
 @router.get(

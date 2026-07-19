@@ -34,6 +34,8 @@ class SettingsResponse(BaseModel):
     tts_voice: str
     tts_response_format: Literal["mp3", "wav"]
     web_search_tool_type: Literal["disabled", "browser_search"]
+    image_search_provider: Literal["disabled", "openverse"]
+    image_search_timeout_seconds: float
     has_openai_api_key: bool
     openai_api_key_preview: str
     has_speech_api_key: bool
@@ -58,6 +60,8 @@ class SettingsUpdateRequest(BaseModel):
     tts_voice: str = Field(min_length=1, max_length=200)
     tts_response_format: Literal["mp3", "wav"]
     web_search_tool_type: Literal["disabled", "browser_search"] = "disabled"
+    image_search_provider: Literal["disabled", "openverse"] = "disabled"
+    image_search_timeout_seconds: float = Field(default=6.0, ge=1, le=30)
     openai_api_key: str | None = Field(default=None, max_length=500)
     speech_api_key: str | None = Field(default=None, max_length=500)
     music_recognition_provider: Literal["disabled", "acrcloud"] = "disabled"
@@ -161,6 +165,8 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
         tts_voice=settings.tts_voice,
         tts_response_format=settings.tts_response_format,
         web_search_tool_type=settings.web_search_tool_type,
+        image_search_provider=settings.image_search_provider,
+        image_search_timeout_seconds=settings.image_search_timeout_seconds,
         has_openai_api_key=api_key not in {"", "sk-placeholder"},
         openai_api_key_preview=_mask_secret(api_key),
         has_speech_api_key=bool(speech_api_key),
@@ -224,6 +230,8 @@ def update_runtime_settings(
         "FAMILY_AI_TTS_VOICE": payload.tts_voice.strip(),
         "FAMILY_AI_TTS_RESPONSE_FORMAT": payload.tts_response_format,
         "FAMILY_AI_WEB_SEARCH_TOOL_TYPE": payload.web_search_tool_type,
+        "FAMILY_AI_IMAGE_SEARCH_PROVIDER": payload.image_search_provider,
+        "FAMILY_AI_IMAGE_SEARCH_TIMEOUT_SECONDS": str(payload.image_search_timeout_seconds),
         "FAMILY_AI_MUSIC_RECOGNITION_PROVIDER": payload.music_recognition_provider,
         "FAMILY_AI_ACRCLOUD_HOST": (payload.acrcloud_host or "").strip(),
         "FAMILY_AI_MUSIC_RECOGNITION_TIMEOUT_SECONDS": str(
@@ -260,6 +268,8 @@ def update_runtime_settings(
         tts_voice=refreshed.tts_voice,
         tts_response_format=refreshed.tts_response_format,
         web_search_tool_type=refreshed.web_search_tool_type,
+        image_search_provider=refreshed.image_search_provider,
+        image_search_timeout_seconds=refreshed.image_search_timeout_seconds,
         has_openai_api_key=api_key not in {"", "sk-placeholder"},
         openai_api_key_preview=_mask_secret(api_key),
         has_speech_api_key=bool(speech_api_key),

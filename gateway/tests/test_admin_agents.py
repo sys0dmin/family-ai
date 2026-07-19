@@ -6,10 +6,28 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.orm import Session
 
+from gateway.admin.agent_schemas import AgentUpdateRequest
 from gateway.admin.agents_router import get_agent_admin_session
 from gateway.admin.auth import verify_admin
 from gateway.admin.main import app as admin_app
 from gateway.app.models import Agent, AgentRevision
+
+
+def test_agent_update_accepts_visual_search_capability() -> None:
+    payload = AgentUpdateRequest(
+        display_name="Байтик",
+        description="Объясняет технологии",
+        icon="🦝",
+        color="navy",
+        greeting="Давай разберёмся вместе!",
+        tts_voice="fahad",
+        tools=["web_search", "image_search"],
+        permissions=[],
+        enabled=True,
+        sort_order=70,
+    )
+
+    assert payload.tools == ["web_search", "image_search"]
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from gateway.app.agents import SqlAlchemyAgentRepository
-from gateway.app.config import Settings
+from gateway.app.config import Settings, get_settings
 from gateway.app.db.session import get_db_session
 from gateway.app.images import ImageSearchProvider, OpenverseImageSearchProvider
 from gateway.app.music import MusicRecognitionProvider
@@ -108,9 +108,9 @@ def get_conversation_service(
     safety: SafetyService = Depends(get_safety_service),
     agents: AgentService = Depends(get_agent_service),
     visual_media: VisualMediaService = Depends(get_visual_media_service),
+    settings: Settings = Depends(get_settings),
 ) -> ConversationService:
     """Return a conversation service with injected dependencies."""
-    settings = Settings()
     return ConversationService(
         session,
         provider,
@@ -118,6 +118,7 @@ def get_conversation_service(
         agents,
         visual_media,
         default_agent_id=settings.default_agent_id,
+        retention_days=settings.message_retention_days,
     )
 
 

@@ -223,6 +223,7 @@
     .companion-panel::after { width: 190px; height: 190px; bottom: -80px; left: -70px; }
 
     .companion-top { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center; }
+    .companion-actions { display: flex; gap: 9px; }
     .icon-button {
       display: inline-grid;
       place-items: center;
@@ -238,6 +239,13 @@
     }
     .switch-symbol { display: grid; grid-template-columns: repeat(2, 7px); gap: 4px; }
     .switch-symbol span { width: 7px; height: 7px; border-radius: 3px; background: currentColor; }
+    .new-conversation-symbol { font-size: 1.45rem; font-weight: 800; line-height: 1; }
+    .new-conversation.confirming {
+      color: #fff;
+      border-color: #d87831;
+      background: #d87831;
+      transform: scale(1.04);
+    }
 
     .visual-status {
       display: inline-flex;
@@ -478,7 +486,7 @@
       .companion-art { width: 220px; height: 25dvh; min-height: 170px; }
       .companion-copy { display: none; }
       .dialog-panel { flex: 1; min-height: 0; }
-      .mobile-header { display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; align-items: center; gap: 9px; padding: 10px 14px 0; background: var(--paper); }
+      .mobile-header { display: grid; grid-template-columns: 42px 42px minmax(0, 1fr) 32px; align-items: center; gap: 7px; padding: 10px 14px 0; background: var(--paper); }
       .mobile-agent { display: flex; align-items: center; gap: 9px; min-width: 0; }
       .mobile-agent strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .mobile-header .icon-button { width: 42px; height: 42px; border-radius: 14px; background: var(--theme-soft); }
@@ -539,9 +547,14 @@
     <section id="conversation" class="conversation" data-state="ready" hidden>
       <aside class="companion-panel">
         <div class="companion-top">
-          <button class="icon-button change-agent" type="button" aria-label="Выбрать другого друга" title="Выбрать другого друга">
-            <span class="switch-symbol" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-          </button>
+          <div class="companion-actions">
+            <button class="icon-button change-agent" type="button" aria-label="Выбрать другого друга" title="Выбрать другого друга">
+              <span class="switch-symbol" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+            </button>
+            <button class="icon-button new-conversation" type="button" aria-label="Начать новый разговор" title="Начать новый разговор">
+              <span class="new-conversation-symbol" aria-hidden="true">↻</span>
+            </button>
+          </div>
           <div class="visual-status" role="status"><span class="status-dot"></span><span class="status-text">Готов слушать</span></div>
         </div>
         <div class="companion-stage">
@@ -558,6 +571,9 @@
         <header class="mobile-header">
           <button class="icon-button change-agent" type="button" aria-label="Выбрать другого друга">
             <span class="switch-symbol" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+          </button>
+          <button class="icon-button new-conversation" type="button" aria-label="Начать новый разговор" title="Начать новый разговор">
+            <span class="new-conversation-symbol" aria-hidden="true">↻</span>
           </button>
           <div class="mobile-agent"><strong id="mobile-agent-name"></strong></div>
           <div class="visual-status" role="status"><span class="status-dot"></span><span class="status-text">Готов слушать</span></div>
@@ -592,6 +608,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js?v=14"></script>
+  <script src="/static/app.js?v=15"></script>
 </body>
 </html>
