@@ -1,8 +1,10 @@
 """CPU model adapters isolated from the HTTP layer."""
 
 import io
+import math
 import wave
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from family_ai_speech.config import SpeechSettings
@@ -15,6 +17,31 @@ VOICE_ALIASES = {
     "fahad": "aidar",
     "alloy": "xenia",
 }
+
+
+@dataclass(frozen=True)
+class TranscriptionSegment:
+    """Provider-neutral timing and confidence data for one STT segment."""
+
+    id: int
+    start: float
+    end: float
+    text: str
+    avg_logprob: float
+    no_speech_probability: float
+
+
+@dataclass(frozen=True)
+class TranscriptionResult:
+    """Text plus privacy-safe diagnostics produced by local STT."""
+
+    text: str
+    language: str
+    duration_seconds: float
+    speech_duration_seconds: float
+    confidence: float | None
+    no_speech_probability: float | None
+    segments: tuple[TranscriptionSegment, ...]
 
 
 def resolve_voice(voice: str | None, default_voice: str) -> str:
@@ -40,7 +67,22 @@ def pcm16_to_wav(pcm: bytes, sample_rate: int) -> bytes:
 class SpeechToTextBackend(Protocol):
     """Minimal speech recognition contract used by orchestration."""
 
-    def transcribe(self, audio: bytes, language: str) -> str: ...
+    def transcribe(
+        self,
+        audio: bytes,
+        language: str,
+        prompt: str | None = None,
+    ) -> TranscriptionResult: ...
+
+    def transcribe_with_options(
+        self,
+        audio: bytes,
+        language: str,
+        prompt: str | None,
+        *,
+        beam_size: int,
+        vad_filter: bool,
+    ) -> TranscriptionResult: ...
 
 
 class TextToSpeechBackend(Protocol):
@@ -65,20 +107,110 @@ class FasterWhisperBackend:
         )
         self._beam_size = settings.stt_beam_size
         self._vad_filter = settings.stt_vad_filter
+        self._initial_prompt = settings.stt_initial_prompt
+        self._min_speech_seconds = settings.stt_min_speech_seconds
+        self._min_confidence = settings.stt_min_confidence
+        self._max_no_speech_probability = settings.stt_max_no_speech_probability
 
-    def transcribe(self, audio: bytes, language: str) -> str:
-        segments, _info = self._model.transcribe(
-            io.BytesIO(audio),
-            language=language,
+    def transcribe(
+        self,
+        audio: bytes,
+        language: str,
+        prompt: str | None = None,
+    ) -> TranscriptionResult:
+        return self.transcribe_with_options(
+            audio,
+            language,
+            prompt,
             beam_size=self._beam_size,
             vad_filter=self._vad_filter,
-            condition_on_previous_text=False,
         )
-        return _join_segments(segments)
+
+    def transcribe_with_options(
+        self,
+        audio: bytes,
+        language: str,
+        prompt: str | None,
+        *,
+        beam_size: int,
+        vad_filter: bool,
+    ) -> TranscriptionResult:
+        """Run the loaded model with explicit benchmark options."""
+
+        raw_segments, info = self._model.transcribe(
+            io.BytesIO(audio),
+            language=language,
+            beam_size=beam_size,
+            vad_filter=vad_filter,
+            condition_on_previous_text=False,
+            initial_prompt=(prompt or self._initial_prompt).strip() or None,
+        )
+        segments = tuple(
+            TranscriptionSegment(
+                id=index,
+                start=float(segment.start),
+                end=float(segment.end),
+                text=segment.text.strip(),
+                avg_logprob=float(segment.avg_logprob),
+                no_speech_probability=float(segment.no_speech_prob),
+            )
+            for index, segment in enumerate(raw_segments)
+            if segment.text.strip()
+        )
+        confidence = _weighted_confidence(segments)
+        no_speech_probability = _weighted_no_speech_probability(segments)
+        speech_duration = float(getattr(info, "duration_after_vad", 0.0) or 0.0)
+        contains_speech = (
+            bool(segments)
+            and speech_duration >= self._min_speech_seconds
+            and (confidence is None or confidence >= self._min_confidence)
+            and (
+                no_speech_probability is None
+                or no_speech_probability <= self._max_no_speech_probability
+            )
+        )
+        return TranscriptionResult(
+            text=_join_segments(segments) if contains_speech else "",
+            language=str(getattr(info, "language", language) or language),
+            duration_seconds=float(getattr(info, "duration", 0.0) or 0.0),
+            speech_duration_seconds=speech_duration,
+            confidence=confidence,
+            no_speech_probability=no_speech_probability,
+            segments=segments,
+        )
 
 
 def _join_segments(segments: Iterable[Any]) -> str:
     return " ".join(segment.text.strip() for segment in segments if segment.text.strip()).strip()
+
+
+def _segment_weight(segment: TranscriptionSegment) -> float:
+    return max(0.01, segment.end - segment.start)
+
+
+def _weighted_confidence(
+    segments: tuple[TranscriptionSegment, ...],
+) -> float | None:
+    if not segments:
+        return None
+    total_weight = sum(_segment_weight(segment) for segment in segments)
+    average_logprob = sum(
+        segment.avg_logprob * _segment_weight(segment) for segment in segments
+    ) / total_weight
+    return round(min(1.0, max(0.0, math.exp(average_logprob))), 4)
+
+
+def _weighted_no_speech_probability(
+    segments: tuple[TranscriptionSegment, ...],
+) -> float | None:
+    if not segments:
+        return None
+    total_weight = sum(_segment_weight(segment) for segment in segments)
+    probability = sum(
+        segment.no_speech_probability * _segment_weight(segment)
+        for segment in segments
+    ) / total_weight
+    return round(min(1.0, max(0.0, probability)), 4)
 
 
 class SileroBackend:

@@ -19,11 +19,13 @@ class VoiceSessionException implements Exception {
 class RecordedVoice {
   const RecordedVoice({
     required this.bytes,
+    required this.duration,
     this.filename = 'lera-voice.wav',
     this.contentType = 'audio/wav',
   });
 
   final Uint8List bytes;
+  final Duration duration;
   final String filename;
   final String contentType;
 }
@@ -50,6 +52,7 @@ class DeviceVoiceSession implements VoiceSession {
   final AudioRecorder _recorder;
   final AudioPlayer _player;
   String? _recordingPath;
+  DateTime? _recordingStartedAt;
   String? _playbackPath;
 
   @override
@@ -77,12 +80,15 @@ class DeviceVoiceSession implements VoiceSession {
       path: path,
     );
     _recordingPath = path;
+    _recordingStartedAt = DateTime.now();
   }
 
   @override
   Future<RecordedVoice> stopRecording() async {
     final path = await _recorder.stop() ?? _recordingPath;
+    final startedAt = _recordingStartedAt;
     _recordingPath = null;
+    _recordingStartedAt = null;
     if (path == null) {
       throw const VoiceSessionException('Запись не получилась.');
     }
@@ -93,7 +99,12 @@ class DeviceVoiceSession implements VoiceSession {
       if (bytes.isEmpty) {
         throw const VoiceSessionException('Запись получилась пустой.');
       }
-      return RecordedVoice(bytes: bytes);
+      return RecordedVoice(
+        bytes: bytes,
+        duration: startedAt == null
+            ? Duration.zero
+            : DateTime.now().difference(startedAt),
+      );
     } finally {
       if (await file.exists()) {
         await file.delete();
@@ -106,6 +117,7 @@ class DeviceVoiceSession implements VoiceSession {
     await _recorder.cancel();
     final path = _recordingPath;
     _recordingPath = null;
+    _recordingStartedAt = null;
     if (path == null) return;
     final file = File(path);
     if (await file.exists()) {

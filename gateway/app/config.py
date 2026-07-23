@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     speech_base_url: str | None = None
     stt_model: str = "gpt-4o-transcribe"
     stt_temperature: float = 0.0
+    stt_initial_prompt: str = (
+        "Лера, Family AI, Учитель-друг, Почемучка, Сказочник, "
+        "Подумай сама, Нотка, Мурка, Байтик."
+    )
     tts_model: str = "tts-1"
     tts_voice: str = "alloy"
     tts_response_format: Literal["mp3", "wav"] = "mp3"
@@ -32,6 +36,8 @@ class Settings(BaseSettings):
     image_search_timeout_seconds: float = 6.0
     voice_language: str = "ru"
     voice_max_audio_bytes: int = 10 * 1024 * 1024
+    calibration_request_timeout_seconds: float = 30.0
+    calibration_voice: str = "xenia"
 
     # Optional music recognition tool for capable agents
     music_recognition_provider: Literal["disabled", "acrcloud"] = "disabled"
@@ -45,12 +51,14 @@ class Settings(BaseSettings):
     admin_password: SecretStr = SecretStr("change-me")
     admin_force_password_change: bool = True
     admin_env_file: str = ".env"
+    admin_session_ttl_hours: int = 12
 
     # Project infrastructure monitoring (node_exporter endpoints)
     gateway_node_metrics_url: str | None = None
     database_node_metrics_url: str | None = None
     speech_node_metrics_url: str | None = None
     monitoring_request_timeout_seconds: float = 2.0
+    gateway_voice_metrics_url: str | None = "http://127.0.0.1:8000/internal/voice-metrics"
 
     model_config = SettingsConfigDict(
         env_prefix="FAMILY_AI_",

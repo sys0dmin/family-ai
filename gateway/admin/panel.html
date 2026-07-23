@@ -676,6 +676,40 @@
       .action-row, .safety-actions, .section-intro { align-items: stretch; flex-direction: column; }
       .action-row button, .safety-actions button, #gateway-restart { width: 100%; }
     }
+    .studio-grid { display:grid; grid-template-columns:minmax(0, .85fr) minmax(0, 1.15fr); gap:18px; }
+    .studio-controls, .studio-output { padding:24px; }
+    .studio-actions {
+      width: 100%;
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      clear: both;
+    }
+    .studio-controls > .grid + .studio-actions { margin-top: 22px; }
+    .studio-results { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
+    .studio-result { min-height:210px; padding:16px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.55); white-space:pre-wrap; overflow-wrap:anywhere; }
+    .studio-result strong { display:block; margin-bottom:10px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+    .studio-meta { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+    .studio-audio { width:100%; margin-top:12px; }
+    .pipeline-panel { margin-top:18px; padding:22px; }
+    .pipeline-grid { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:10px; margin-top:16px; }
+    .pipeline-stage { padding:14px; border-radius:15px; background:var(--surface-soft); border:1px solid var(--line); }
+    .pipeline-stage span { display:block; color:var(--muted); font-size:12px; }
+    .pipeline-stage strong { display:block; margin-top:5px; font-size:22px; }
+    .queue-strip { display:flex; gap:16px; flex-wrap:wrap; margin-top:14px; color:var(--muted); }
+    .calibration-progress { height:12px; margin:16px 0; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.06); }
+    .calibration-progress > span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--violet),var(--cyan)); transition:width .3s ease; }
+    .calibration-results { width:100%; margin-top:16px; border-collapse:collapse; }
+    .calibration-results th, .calibration-results td { padding:10px 8px; text-align:left; border-bottom:1px solid var(--line); }
+    .calibration-results th { color:var(--muted); font-size:12px; }
+    .calibration-guide { margin-top:18px; padding:16px; border:1px solid var(--line); border-radius:15px; background:rgba(255,255,255,.025); }
+    .calibration-guide li { margin:8px 0; color:var(--muted); line-height:1.5; }
+    @media (max-width: 900px) {
+      .studio-grid, .studio-results { grid-template-columns:1fr; }
+      .pipeline-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    }
   </style>
 </head>
 <body>
@@ -711,6 +745,7 @@
       <nav class="tabs" id="main-nav" aria-label="Разделы админки">
         <button class="tab-button active" id="settings-tab" aria-selected="true"><span class="nav-icon">⌁</span><span>Настройки</span></button>
         <button class="tab-button" id="agents-tab" aria-selected="false"><span class="nav-icon">✦</span><span>Агенты</span></button>
+        <button class="tab-button" id="studio-tab" aria-selected="false"><span class="nav-icon">▶</span><span>Тест-студия</span></button>
         <button class="tab-button" id="infrastructure-tab" aria-selected="false"><span class="nav-icon">◉</span><span>Инфраструктура</span></button>
         <button class="tab-button" id="history-tab" aria-selected="false"><span class="nav-icon">▥</span><span>Аналитика</span></button>
       </nav>
@@ -757,6 +792,7 @@
               <label class="field"><span>STT-модель</span><input id="stt_model"></label>
               <label class="field"><span>TTS-модель</span><input id="tts_model"></label>
             </div>
+            <label class="field"><span>Словарь для детской речи</span><textarea id="stt_initial_prompt" rows="3" placeholder="Лера, Мурка, Байтик…"></textarea></label>
             <div class="grid">
               <label class="field"><span>Голос</span><select id="tts_voice"><optgroup label="Локальные · Silero"><option value="xenia">Xenia</option><option value="baya">Baya</option><option value="kseniya">Kseniya</option><option value="aidar">Aidar</option><option value="eugene">Eugene</option></optgroup><optgroup label="Облачные"><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option></optgroup><option value="__custom__">Другой…</option></select></label>
               <label class="field"><span>Формат</span><select id="tts_response_format"><option value="wav">WAV</option><option value="mp3">MP3</option></select></label>
@@ -817,6 +853,54 @@
         </div>
       </section>
 
+      <section id="studio-card" style="display:none">
+        <div class="section-intro"><p>Проверка реального prompt-контура без сохранения теста в историю Леры.</p><span id="studio-status"></span></div>
+        <div class="studio-grid">
+          <article class="panel studio-controls">
+            <div class="panel-head"><div><div class="card-kicker">Input lab</div><h2>Проверить агента</h2></div></div>
+            <label class="field"><span>Агент</span><select id="studio-agent"></select></label>
+            <label class="field"><span>Вопрос Леры</span><textarea id="studio-prompt" rows="7" placeholder="Расскажи мне что-нибудь интересное"></textarea></label>
+            <div class="studio-actions"><button id="studio-run" class="primary">Запустить проверку</button><span class="muted">Диалог и сообщение не создаются</span></div>
+          </article>
+          <article class="panel studio-output">
+            <div class="panel-head"><div><div class="card-kicker">Safety inspector</div><h2>Результат конвейера</h2></div></div>
+            <div class="studio-meta"><span id="studio-safety" class="health-pill">Не запускалось</span><span id="studio-timing" class="muted"></span><span id="studio-rule" class="muted"></span></div>
+            <div class="studio-results">
+              <div class="studio-result"><strong>Сырой ответ модели</strong><span id="studio-raw">—</span></div>
+              <div class="studio-result"><strong>Итог после safety</strong><span id="studio-final">—</span></div>
+            </div>
+          </article>
+        </div>
+        <article class="panel studio-controls" style="margin-top:18px">
+          <div class="panel-head"><div><div class="card-kicker">Voice bench</div><h2>Послушать голос</h2></div></div>
+          <div class="grid">
+            <label class="field"><span>Голос</span><select id="studio-voice"><option value="xenia">Xenia</option><option value="baya">Baya</option><option value="kseniya">Kseniya</option><option value="aidar">Aidar</option><option value="eugene">Eugene</option><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option></select></label>
+            <label class="field"><span>Быстрая проверка</span><select id="studio-voice-preset"><option value="">Не менять текст</option><option value="Привет, Лера! Давай сегодня узнаем что-нибудь удивительное.">Приветствие</option><option value="Раз, два, три, четыре, пять — начинаем мы играть!">Числа и ритм</option><option value="Мурка и Байтик отправились в добрый поход.">Имена агентов</option></select></label>
+            <label class="field"><span>Текст для озвучки</span><textarea id="studio-speech-text" rows="3" placeholder="Сюда автоматически попадёт итоговый ответ"></textarea></label>
+          </div>
+          <div class="studio-actions"><button id="studio-speak" class="secondary">▶ Синтезировать и слушать</button></div>
+          <audio id="studio-audio" class="studio-audio" controls></audio>
+        </article>
+        <article class="panel studio-controls" style="margin-top:18px">
+          <div class="panel-head"><div><div class="card-kicker">Child speech lab</div><h2>Калибровка речи Леры</h2></div><span id="calibration-state" class="health-pill">Не запускалась</span></div>
+          <p class="muted">15 локальных образцов: 12 фраз и 3 проверки тишины. WAV автоматически удаляются после сравнения VAD и beam size.</p>
+          <div class="calibration-progress"><span id="calibration-progress-bar"></span></div>
+          <div class="queue-strip"><span>Образцы: <strong id="calibration-samples">0 / 15</strong></span><span>Анализ: <strong id="calibration-trials">0 / 90</strong></span><span id="calibration-recommendation"></span></div>
+          <div class="studio-actions"><button id="calibration-start" class="primary">Начать калибровку</button><button id="calibration-cancel" class="secondary" hidden>Отменить и удалить записи</button><span id="calibration-status"></span></div>
+          <details class="calibration-guide">
+            <summary>Как пройти калибровку</summary>
+            <ol>
+              <li>Нажмите «Начать калибровку» и откройте обновлённое Android-приложение.</li>
+              <li>Передайте телефон Лере. Приложение само произнесёт каждое задание.</li>
+              <li>После задания Лера нажимает большую кнопку, повторяет фразу и нажимает её ещё раз. Проверки тишины записываются автоматически.</li>
+              <li>После 15 заданий анализ запустится сам. Speech Service будет загружен примерно 15–25 минут.</li>
+              <li>Вернитесь сюда за рекомендацией. WAV удалятся при завершении, ошибке, отмене или через 24 часа.</li>
+            </ol>
+          </details>
+          <div style="overflow-x:auto"><table class="calibration-results"><thead><tr><th>VAD</th><th>Beam</th><th>Точность</th><th>Тишина</th><th>Среднее</th><th>P95</th></tr></thead><tbody id="calibration-results"></tbody></table></div>
+        </article>
+      </section>
+
       <section id="infrastructure-card" style="display:none">
         <div class="section-intro"><p>Текущая телеметрия трёх серверов проекта и состояние PostgreSQL. Автообновление каждые 15 секунд.</p><div class="row"><span id="infrastructure-status"></span><button id="infrastructure-refresh" class="secondary">↻ Обновить</button></div></div>
         <div class="ops-overview">
@@ -850,6 +934,17 @@
           <div class="database-stat"><span>Database size</span><strong id="database-size">—</strong></div>
           <div class="database-stat"><span>Connections</span><strong id="database-connections">—</strong></div>
         </article>
+        <article class="panel pipeline-panel">
+          <div class="panel-head"><div><div class="card-kicker">Voice pipeline</div><h2>Где ждёт Лера</h2></div><span id="pipeline-health" class="health-pill">Собираем…</span></div>
+          <div class="pipeline-grid">
+            <div class="pipeline-stage"><span>Запись</span><strong id="pipeline-recording">—</strong></div>
+            <div class="pipeline-stage"><span>STT</span><strong id="pipeline-stt">—</strong></div>
+            <div class="pipeline-stage"><span>LLM</span><strong id="pipeline-llm">—</strong></div>
+            <div class="pipeline-stage"><span>TTS</span><strong id="pipeline-tts">—</strong></div>
+            <div class="pipeline-stage"><span>Всего</span><strong id="pipeline-total">—</strong></div>
+          </div>
+          <div class="queue-strip"><span>Очередь Speech: <strong id="speech-queue">—</strong></span><span>Сейчас: <strong id="speech-active">—</strong></span><span>Ошибки Gateway: <strong id="pipeline-errors">—</strong></span><span>STT confidence: <strong id="pipeline-confidence">—</strong></span></div>
+        </article>
         <div class="ops-footnote" id="infrastructure-checked">Ожидаем первый снимок</div>
       </section>
 
@@ -876,6 +971,7 @@
     const mainNav = document.getElementById("main-nav");
     const settingsCard = document.getElementById("settings-card");
     const agentsCard = document.getElementById("agents-card");
+    const studioCard = document.getElementById("studio-card");
     const infrastructureCard = document.getElementById("infrastructure-card");
     const historyCard = document.getElementById("history-card");
     const authStatus = document.getElementById("auth-status");
@@ -888,6 +984,7 @@
     let agents = [];
     let selectedAgentId = null;
     let infrastructureTimer = null;
+    let calibrationTimer = null;
     const infrastructureHistory = { gateway: [], database: [], speech: [] };
 
     function setStatus(el, text, mode) {
@@ -943,14 +1040,16 @@
       const pageCopy = {
         settings: ["Настройки", "System configuration"],
         agents: ["Агенты", "Agent studio"],
+        studio: ["Тест-студия", "Prompt & voice laboratory"],
         infrastructure: ["Инфраструктура", "Project operations"],
         history: ["Аналитика", "Conversation intelligence"]
       };
       settingsCard.style.display = tab === "settings" ? "block" : "none";
       agentsCard.style.display = tab === "agents" ? "block" : "none";
+      studioCard.style.display = tab === "studio" ? "block" : "none";
       infrastructureCard.style.display = tab === "infrastructure" ? "block" : "none";
       historyCard.style.display = tab === "history" ? "block" : "none";
-      for (const name of ["settings", "agents", "infrastructure", "history"]) {
+      for (const name of ["settings", "agents", "studio", "infrastructure", "history"]) {
         const tabButton = document.getElementById(`${name}-tab`);
         tabButton.classList.toggle("active", tab === name);
         tabButton.setAttribute("aria-selected", String(tab === name));
@@ -958,8 +1057,17 @@
       document.getElementById("page-title").textContent = pageCopy[tab][0];
       document.getElementById("page-kicker").textContent = pageCopy[tab][1];
       if (tab === "agents") loadAgents();
+      if (tab === "studio") {
+        loadStudio();
+        loadCalibrationStatus();
+      }
       clearInterval(infrastructureTimer);
       infrastructureTimer = null;
+      clearInterval(calibrationTimer);
+      calibrationTimer = null;
+      if (tab === "studio") {
+        calibrationTimer = setInterval(loadCalibrationStatus, 5000);
+      }
       if (tab === "infrastructure") {
         loadInfrastructure();
         infrastructureTimer = setInterval(loadInfrastructure, 15000);
@@ -1059,9 +1167,211 @@
         }
         renderAgentList();
         renderAgentEditor();
+        populateStudioAgents();
         setStatus(status, "Обновлено", "ok");
       } catch (error) {
         setStatus(status, `Ошибка: ${error.message}`, "err");
+      }
+    }
+
+    function populateStudioAgents() {
+      const select = document.getElementById("studio-agent");
+      const previous = select.value;
+      select.replaceChildren();
+      for (const agent of agents.filter(item => item.enabled)) {
+        const option = document.createElement("option");
+        option.value = agent.id;
+        option.textContent = `${agent.icon} ${agent.display_name}`;
+        select.append(option);
+      }
+      if ([...select.options].some(option => option.value === previous)) {
+        select.value = previous;
+      }
+      syncStudioVoice();
+    }
+
+    function syncStudioVoice() {
+      const agent = agents.find(item => item.id === getValue("studio-agent"));
+      if (agent?.tts_voice && knownTtsVoices.has(agent.tts_voice)) {
+        setValue("studio-voice", agent.tts_voice);
+      }
+    }
+
+    async function loadStudio() {
+      if (!agents.length) await loadAgents();
+      populateStudioAgents();
+    }
+
+    async function runStudioTest() {
+      const status = document.getElementById("studio-status");
+      const button = document.getElementById("studio-run");
+      const prompt = getValue("studio-prompt").trim();
+      if (!prompt) {
+        setStatus(status, "Напиши тестовый вопрос", "warn");
+        return;
+      }
+      button.disabled = true;
+      setStatus(status, "Модель думает…", "warn");
+      try {
+        const result = await api("/api/studio/agent-test", {
+          method: "POST",
+          body: JSON.stringify({ agent_id: getValue("studio-agent"), prompt })
+        });
+        document.getElementById("studio-raw").textContent = result.raw_response || "Модель не вызывалась";
+        document.getElementById("studio-final").textContent = result.final_response || "—";
+        document.getElementById("studio-safety").textContent =
+          result.safety_status === "passed" ? "Safety passed" :
+          result.safety_status === "guardrail" ? "Guardrail" : "Blocked";
+        document.getElementById("studio-timing").textContent =
+          result.llm_duration_ms == null ? "LLM не вызывалась" : `LLM ${result.llm_duration_ms} мс`;
+        document.getElementById("studio-rule").textContent =
+          result.safety_rule_id ? `${result.safety_rule_id}: ${result.safety_reason || ""}` : "";
+        setValue("studio-speech-text", result.final_response || "");
+        setStatus(status, "Проверка завершена", result.safety_status === "blocked" ? "warn" : "ok");
+      } catch (error) {
+        setStatus(status, `Ошибка: ${error.message}`, "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function speakStudioText() {
+      const status = document.getElementById("studio-status");
+      const button = document.getElementById("studio-speak");
+      const text = getValue("studio-speech-text").trim();
+      if (!text) {
+        setStatus(status, "Нет текста для озвучки", "warn");
+        return;
+      }
+      button.disabled = true;
+      setStatus(status, "Синтезируем речь…", "warn");
+      try {
+        const response = await fetch("/api/studio/speech", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            ...(authHeader ? { "Authorization": authHeader } : {}),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ text, voice: getValue("studio-voice") })
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const audio = document.getElementById("studio-audio");
+        if (audio.dataset.objectUrl) URL.revokeObjectURL(audio.dataset.objectUrl);
+        const objectUrl = URL.createObjectURL(await response.blob());
+        audio.dataset.objectUrl = objectUrl;
+        audio.src = objectUrl;
+        await audio.play();
+        setStatus(status, "Голос готов", "ok");
+      } catch (error) {
+        setStatus(status, `Ошибка TTS: ${error.message}`, "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function renderCalibration(state) {
+      const stateLabel = document.getElementById("calibration-state");
+      const startButton = document.getElementById("calibration-start");
+      const cancelButton = document.getElementById("calibration-cancel");
+      const results = document.getElementById("calibration-results");
+      results.replaceChildren();
+      if (!state) {
+        stateLabel.textContent = "Не запускалась";
+        startButton.disabled = false;
+        cancelButton.hidden = true;
+        document.getElementById("calibration-samples").textContent = "0 / 15";
+        document.getElementById("calibration-trials").textContent = "0 / 90";
+        document.getElementById("calibration-progress-bar").style.width = "0%";
+        document.getElementById("calibration-recommendation").textContent = "";
+        return;
+      }
+      const labels = {
+        collecting: "Ждём Леру",
+        running: "Идёт анализ",
+        completed: "Готово",
+        failed: "Ошибка",
+        cancelled: "Отменено"
+      };
+      stateLabel.textContent = labels[state.status] || state.status;
+      startButton.disabled = ["collecting", "running"].includes(state.status);
+      cancelButton.hidden = !["collecting", "running"].includes(state.status);
+      cancelButton.dataset.sessionId = state.id;
+      document.getElementById("calibration-samples").textContent =
+        `${state.samples_collected} / ${state.prompts_total}`;
+      document.getElementById("calibration-trials").textContent =
+        `${state.current_trial} / ${state.total_trials}`;
+      const progress = state.status === "collecting"
+        ? state.samples_collected / Math.max(1, state.prompts_total)
+        : state.current_trial / Math.max(1, state.total_trials);
+      document.getElementById("calibration-progress-bar").style.width =
+        `${Math.round(progress * 100)}%`;
+      document.getElementById("calibration-recommendation").textContent =
+        state.recommended_beam_size == null
+          ? (state.error || "")
+          : `Рекомендация: VAD ${state.recommended_vad_filter ? "вкл." : "выкл."}, beam ${state.recommended_beam_size}`;
+      for (const item of state.results || []) {
+        const row = document.createElement("tr");
+        for (const value of [
+          item.vad_filter ? "Вкл." : "Выкл.",
+          item.beam_size,
+          `${item.spoken_accuracy_percent}%`,
+          `${item.silence_rejection_percent}%`,
+          formatPipelineMs(item.average_processing_ms),
+          formatPipelineMs(item.p95_processing_ms)
+        ]) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          row.append(cell);
+        }
+        results.append(row);
+      }
+    }
+
+    async function loadCalibrationStatus() {
+      try {
+        const state = await api("/api/stt-calibration/status", { method: "GET" });
+        renderCalibration(state);
+      } catch (error) {
+        setStatus(
+          document.getElementById("calibration-status"),
+          `Недоступно: ${error.message}`,
+          "err"
+        );
+      }
+    }
+
+    async function startCalibration() {
+      if (!confirm("Начать локальную калибровку? После этого откройте Android-приложение и передайте телефон Лере.")) return;
+      const button = document.getElementById("calibration-start");
+      button.disabled = true;
+      try {
+        const state = await api("/api/stt-calibration/start", { method: "POST" });
+        renderCalibration(state);
+        setStatus(
+          document.getElementById("calibration-status"),
+          "Сессия готова. Откройте приложение.",
+          "ok"
+        );
+      } catch (error) {
+        setStatus(document.getElementById("calibration-status"), `Ошибка: ${error.message}`, "err");
+        button.disabled = false;
+      }
+    }
+
+    async function cancelCalibration() {
+      const button = document.getElementById("calibration-cancel");
+      const sessionId = button.dataset.sessionId;
+      if (!sessionId || !confirm("Отменить калибровку и удалить записанные WAV?")) return;
+      try {
+        const state = await api(
+          `/api/stt-calibration/${encodeURIComponent(sessionId)}`,
+          { method: "DELETE" }
+        );
+        renderCalibration(state);
+        setStatus(document.getElementById("calibration-status"), "Записи удалены", "ok");
+      } catch (error) {
+        setStatus(document.getElementById("calibration-status"), `Ошибка: ${error.message}`, "err");
       }
     }
 
@@ -1370,6 +1680,11 @@
       try {
         const data = await api("/api/infrastructure", { method: "GET" });
         renderInfrastructure(data);
+        try {
+          await loadVoiceObservability();
+        } catch (voiceError) {
+          document.getElementById("pipeline-health").textContent = "Недоступно";
+        }
         setStatus(status, "Live · 15 sec", data.status === "healthy" ? "ok" : "warn");
       } catch (error) {
         setStatus(status, `Ошибка: ${error.message}`, "err");
@@ -1377,11 +1692,38 @@
       }
     }
 
+    function formatPipelineMs(value) {
+      return value == null ? "—" : value >= 1000 ? `${(value / 1000).toFixed(1)} с` : `${value} мс`;
+    }
+
+    async function loadVoiceObservability() {
+      const data = await api("/api/voice-observability", { method: "GET" });
+      const gateway = data.gateway.data;
+      const speech = data.speech.data;
+      const healthy = data.gateway.status === "healthy" && data.speech.status === "healthy";
+      const health = document.getElementById("pipeline-health");
+      health.textContent = healthy ? "Live" : "Недоступно";
+      const stages = gateway?.stages || {};
+      document.getElementById("pipeline-recording").textContent = formatPipelineMs(stages.recording?.last_ms);
+      document.getElementById("pipeline-stt").textContent = formatPipelineMs(stages.stt?.last_ms);
+      document.getElementById("pipeline-llm").textContent = formatPipelineMs(stages.llm?.last_ms);
+      document.getElementById("pipeline-tts").textContent = formatPipelineMs(stages.tts?.last_ms);
+      document.getElementById("pipeline-total").textContent = formatPipelineMs(stages.total?.last_ms);
+      document.getElementById("speech-queue").textContent = speech?.queue_depth ?? "—";
+      document.getElementById("speech-active").textContent = speech?.active_stage || "свободен";
+      document.getElementById("pipeline-errors").textContent = gateway?.errors ?? "—";
+      const recent = gateway?.recent || [];
+      const confidence = recent.length ? recent[recent.length - 1].stt_confidence : null;
+      document.getElementById("pipeline-confidence").textContent =
+        confidence == null ? "—" : `${Math.round(confidence * 100)}%`;
+    }
+
     async function api(path, options = {}) {
       const response = await fetch(path, {
         ...options,
+        credentials: "same-origin",
         headers: {
-          "Authorization": authHeader,
+          ...(authHeader ? { "Authorization": authHeader } : {}),
           "Content-Type": "application/json",
           ...(options.headers || {})
         }
@@ -1403,6 +1745,7 @@
       setValue("image_search_timeout_seconds", data.image_search_timeout_seconds || 6);
       setValue("speech_base_url", data.speech_base_url || "");
       setValue("stt_model", data.stt_model);
+      setValue("stt_initial_prompt", data.stt_initial_prompt);
       setValue("tts_model", data.tts_model);
       applyTtsVoice(data.tts_voice);
       setValue("tts_response_format", data.tts_response_format);
@@ -1436,6 +1779,7 @@
         mainNav.style.display = "none";
         settingsCard.style.display = "none";
         agentsCard.style.display = "none";
+        studioCard.style.display = "none";
         infrastructureCard.style.display = "none";
         historyCard.style.display = "none";
         setStatus(passwordStatus, "Требуется сменить пароль", "warn");
@@ -1450,15 +1794,28 @@
     async function login() {
       const username = getValue("username").trim();
       const password = getValue("password");
-      authHeader = "Basic " + btoa(`${username}:${password}`);
 
       authStatus.textContent = "Проверка доступа...";
       try {
+        await createBrowserSession(username, password);
         await loadSettings();
         authStatus.textContent = "";
       } catch (error) {
         document.body.classList.remove("authenticated");
         authStatus.textContent = `Ошибка авторизации: ${error.message}`;
+      }
+    }
+
+    async function createBrowserSession(username, password) {
+      authHeader = "Basic " + btoa(`${username}:${password}`);
+      const response = await fetch("/api/session", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Authorization": authHeader }
+      });
+      authHeader = "";
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
     }
 
@@ -1469,10 +1826,17 @@
       });
     }
 
-    document.getElementById("logout-btn").onclick = () => {
+    document.getElementById("logout-btn").onclick = async () => {
+      try {
+        await fetch("/api/session", { method: "DELETE", credentials: "same-origin" });
+      } catch (_) {
+        // Локальное состояние всё равно сбрасывается.
+      }
       authHeader = "";
       clearInterval(infrastructureTimer);
       infrastructureTimer = null;
+      clearInterval(calibrationTimer);
+      calibrationTimer = null;
       setValue("password", "");
       document.body.classList.remove("authenticated");
       authCard.style.display = "block";
@@ -1491,11 +1855,20 @@
 
     document.getElementById("settings-tab").onclick = () => switchTab("settings");
     document.getElementById("agents-tab").onclick = () => switchTab("agents");
+    document.getElementById("studio-tab").onclick = () => switchTab("studio");
     document.getElementById("infrastructure-tab").onclick = () => switchTab("infrastructure");
     document.getElementById("history-tab").onclick = () => switchTab("history");
     document.getElementById("infrastructure-refresh").onclick = loadInfrastructure;
     document.getElementById("safety-baseline-save").onclick = saveSafetyBaseline;
     document.getElementById("gateway-restart").onclick = restartGateway;
+    document.getElementById("studio-agent").onchange = syncStudioVoice;
+    document.getElementById("studio-voice-preset").onchange = event => {
+      if (event.target.value) setValue("studio-speech-text", event.target.value);
+    };
+    document.getElementById("studio-run").onclick = runStudioTest;
+    document.getElementById("studio-speak").onclick = speakStudioText;
+    document.getElementById("calibration-start").onclick = startCalibration;
+    document.getElementById("calibration-cancel").onclick = cancelCalibration;
     document.getElementById("agent-save").onclick = async () => {
       const agent = selectedAgent();
       if (!agent) return;
@@ -1595,6 +1968,7 @@
         setValue("new_admin_password", "");
         setValue("new_admin_password_confirm", "");
         setStatus(passwordStatus, "Пароль изменён", "ok");
+        await createBrowserSession(getValue("username").trim(), password);
         await loadSettings();
       } catch (error) {
         setStatus(passwordStatus, `Ошибка смены пароля: ${error.message}`, "err");
@@ -1611,6 +1985,7 @@
           image_search_timeout_seconds: Number(getValue("image_search_timeout_seconds")),
           speech_base_url: getValue("speech_base_url").trim() || null,
           stt_model: getValue("stt_model").trim(),
+          stt_initial_prompt: getValue("stt_initial_prompt").trim(),
           tts_model: getValue("tts_model").trim(),
           tts_voice: getTtsVoice(),
           tts_response_format: getValue("tts_response_format"),
@@ -1635,6 +2010,16 @@
         setSaveStatus(`Ошибка сохранения: ${error.message}`, "err");
       }
     };
+
+    async function restoreBrowserSession() {
+      try {
+        await loadSettings();
+      } catch (_) {
+        // Нет действующей cookie-сессии: остаёмся на форме входа.
+      }
+    }
+
+    restoreBrowserSession();
   </script>
 </body>
 </html>

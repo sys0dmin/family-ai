@@ -7,11 +7,13 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from gateway.app.agents import SqlAlchemyAgentRepository
+from gateway.app.calibration.service import SpeechCalibrationService
 from gateway.app.config import Settings, get_settings
 from gateway.app.db.session import get_db_session
 from gateway.app.images import ImageSearchProvider, OpenverseImageSearchProvider
 from gateway.app.music import MusicRecognitionProvider
 from gateway.app.music.acrcloud import AcrCloudMusicRecognitionProvider
+from gateway.app.observability.voice_metrics import voice_metrics_registry
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.openai import OpenAIProvider
 from gateway.app.services.agent_service import AgentService
@@ -41,11 +43,18 @@ def get_ai_provider() -> AIProvider:
         speech_base_url=settings.speech_base_url,
         stt_model=settings.stt_model,
         stt_temperature=settings.stt_temperature,
+        stt_initial_prompt=settings.stt_initial_prompt,
         tts_model=settings.tts_model,
         tts_voice=settings.tts_voice,
         tts_response_format=settings.tts_response_format,
         web_search_tool_type=settings.web_search_tool_type,
     )
+
+
+def get_speech_calibration_service(
+    settings: Settings = Depends(get_settings),
+) -> SpeechCalibrationService:
+    return SpeechCalibrationService(settings)
 
 
 def get_agent_service(
@@ -128,4 +137,9 @@ def get_voice_service(
     music_recognition: MusicRecognitionService = Depends(get_music_recognition_service),
 ) -> VoiceService:
     """Return a voice service with injected dependencies."""
-    return VoiceService(provider, conversation, music_recognition)
+    return VoiceService(
+        provider,
+        conversation,
+        music_recognition,
+        metrics=voice_metrics_registry,
+    )

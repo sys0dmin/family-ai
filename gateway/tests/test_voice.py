@@ -2,7 +2,7 @@
 
 import uuid
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import ANY, AsyncMock, Mock
 
 import pytest
 from fastapi import FastAPI
@@ -77,9 +77,52 @@ async def test_openai_provider_uses_deterministic_stt_temperature() -> None:
         model="whisper-large-v3-turbo",
         file=("recording.wav", b"wav-audio", "audio/wav"),
         language="ru",
-        response_format="text",
+        response_format="verbose_json",
         temperature=0.0,
     )
+
+
+@pytest.mark.anyio
+async def test_openai_provider_normalizes_verbose_stt_diagnostics() -> None:
+    provider = OpenAIProvider(
+        api_key="test-chat-key",
+        speech_api_key="test-speech-key",
+        stt_initial_prompt="Лера, Мурка, Байтик",
+    )
+    transcription_create = AsyncMock(
+        return_value=SimpleNamespace(
+            text="Привет, Байтик",
+            duration=2.4,
+            segments=[
+                SimpleNamespace(
+                    start=0.2,
+                    end=2.0,
+                    avg_logprob=-0.1,
+                    no_speech_prob=0.02,
+                )
+            ],
+        )
+    )
+    provider._speech_client = SimpleNamespace(
+        audio=SimpleNamespace(
+            transcriptions=SimpleNamespace(create=transcription_create),
+        )
+    )
+
+    response = await provider.transcribe_audio(
+        TranscriptionRequest(
+            audio_content=b"wav-audio",
+            filename="recording.wav",
+            content_type="audio/wav",
+        )
+    )
+
+    assert response.text == "Привет, Байтик"
+    assert response.duration_ms == 2400
+    assert response.speech_duration_ms == 1800
+    assert response.confidence == pytest.approx(0.9048, abs=0.0001)
+    assert response.no_speech_probability == 0.02
+    assert transcription_create.await_args.kwargs["prompt"] == "Лера, Мурка, Байтик"
 
 
 @pytest.mark.anyio
@@ -120,6 +163,7 @@ async def test_voice_service_preserves_recording_metadata() -> None:
         conversation_id=conversation_id,
         text="Привет",
         runtime_context=None,
+        diagnostics=ANY,
     )
     provider.synthesize_speech.assert_awaited_once_with(
         SpeechRequest(text="Привет, Лера!", voice="lulwa")
@@ -162,6 +206,7 @@ async def test_voice_service_uses_melody_context_when_humming_has_no_words() -> 
         conversation_id=conversation_id,
         text="[Лера напела мелодию без слов]",
         runtime_context="Вариант 1: название='Тест'",
+        diagnostics=ANY,
     )
 
 
@@ -204,6 +249,7 @@ async def test_voice_endpoint_returns_provider_content_type(
     response = await client.post(
         f"/v1/voice/{conversation_id}/turn",
         files={"file": ("recording.webm", b"webm-audio", "audio/webm;codecs=opus")},
+        data={"recording_duration_ms": "1250"},
     )
 
     assert response.status_code == 200
@@ -217,6 +263,7 @@ async def test_voice_endpoint_returns_provider_content_type(
         filename="recording.webm",
         content_type="audio/webm",
         language="ru",
+        recording_duration_ms=1250,
     )
 
 

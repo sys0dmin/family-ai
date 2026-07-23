@@ -18,9 +18,14 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'class="admin-shell"' in response.text
     assert 'id="settings-card"' in response.text
     assert 'id="agents-card"' in response.text
+    assert 'id="studio-card"' in response.text
+    assert 'id="studio-run"' in response.text
+    assert 'id="calibration-start"' in response.text
+    assert 'id="calibration-results"' in response.text
     assert 'id="infrastructure-card"' in response.text
     assert 'id="infrastructure-tab"' in response.text
     assert 'id="server-speech"' in response.text
+    assert 'id="pipeline-stt"' in response.text
     assert 'id="history-card"' in response.text
     assert "@media (max-width: 820px)" in response.text
     assert ".grid.three { grid-template-columns: repeat(3" in response.text
@@ -29,6 +34,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="agent-tool-image-search"' in response.text
     assert 'id="safety-baseline-save"' in response.text
     assert 'id="gateway-restart"' in response.text
+    assert 'restoreBrowserSession()' in response.text
     assert "https://cdn" not in response.text
 
 

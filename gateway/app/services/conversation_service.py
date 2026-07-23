@@ -1,6 +1,7 @@
 """Conversation persistence logic."""
 
 import logging
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -15,6 +16,7 @@ from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole, ProviderTool
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.safety_service import SafetyService
+from gateway.app.services.turn_diagnostics import TurnDiagnostics
 from gateway.app.services.visual_media_service import VisualMediaService
 
 logger = logging.getLogger(__name__)
@@ -107,6 +109,7 @@ class ConversationService:
         conversation_id: uuid.UUID,
         text: str,
         runtime_context: str | None = None,
+        diagnostics: TurnDiagnostics | None = None,
     ) -> Message:
         """Store a child message and return the generated assistant response."""
 
@@ -115,12 +118,17 @@ class ConversationService:
             role=MessageRole.CHILD,
             content=text,
         )
-        return await self.generate_ai_response(conversation_id, runtime_context=runtime_context)
+        return await self.generate_ai_response(
+            conversation_id,
+            runtime_context=runtime_context,
+            diagnostics=diagnostics,
+        )
 
     async def generate_ai_response(
         self,
         conversation_id: uuid.UUID,
         runtime_context: str | None = None,
+        diagnostics: TurnDiagnostics | None = None,
     ) -> Message:
         """Generate an AI response based on conversation history with safety checks."""
 
@@ -204,7 +212,14 @@ class ConversationService:
         request = ChatRequest(messages=messages, tools=tools)
 
         # 4. Call AI
-        response = await self._provider.generate_response(request)
+        llm_started_at = time.perf_counter()
+        try:
+            response = await self._provider.generate_response(request)
+        finally:
+            if diagnostics is not None:
+                diagnostics.llm_duration_ms = round(
+                    (time.perf_counter() - llm_started_at) * 1000
+                )
         response_content = response.content.replace('\x00', '')
 
         # 5. Safety check: Outgoing
@@ -227,6 +242,7 @@ class ConversationService:
                     extra={
                         "agent_id": active_agent.id,
                         "conversation_id": str(conversation_id),
+                        "rule_id": safety_result.rule_id,
                         "reason": safety_result.reason,
                     },
                 )

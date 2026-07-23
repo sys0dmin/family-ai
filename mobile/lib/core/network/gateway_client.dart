@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../../features/agents/agent.dart';
+import '../../features/calibration/calibration_models.dart';
 import '../../features/conversations/conversation_models.dart';
+import '../../features/voice/voice_session.dart';
 import '../config/server_address.dart';
 
 class GatewayException implements Exception {
@@ -78,6 +80,72 @@ class GatewayClient {
         .toList(growable: false);
   }
 
+  Future<ActiveCalibration> getActiveCalibration() async {
+    try {
+      final response = await _httpClient
+          .get(serverAddress.resolve('/v1/stt-calibration/active'))
+          .timeout(timeout);
+      if (response.statusCode == 404) {
+        return const ActiveCalibration.inactive();
+      }
+      _requireSuccess(response);
+      return ActiveCalibration.fromJson(_decodeObject(response));
+    } catch (_) {
+      return const ActiveCalibration.inactive();
+    }
+  }
+
+  Future<SpeechAudio> getCalibrationPromptAudio({
+    required String sessionId,
+    required String promptId,
+  }) async {
+    final response = await _get(
+      serverAddress.resolve(
+        '/v1/stt-calibration/$sessionId/prompts/$promptId/audio',
+      ),
+    );
+    return SpeechAudio(
+      audioBytes: response.bodyBytes,
+      contentType: response.headers['content-type'] ?? 'audio/wav',
+    );
+  }
+
+  Future<void> uploadCalibrationSample({
+    required String sessionId,
+    required String promptId,
+    required RecordedVoice recording,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      serverAddress.resolve('/v1/stt-calibration/$sessionId/samples/$promptId'),
+    );
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        recording.bytes,
+        filename: recording.filename,
+        contentType: MediaType.parse(recording.contentType),
+      ),
+    );
+    try {
+      final streamed = await _httpClient.send(request).timeout(voiceTimeout);
+      final response = await http.Response.fromStream(
+        streamed,
+      ).timeout(voiceTimeout);
+      _requireSuccess(response);
+    } catch (error) {
+      if (error is GatewayException) rethrow;
+      throw const GatewayException('Не удалось отправить проверку речи.');
+    }
+  }
+
+  Future<void> completeCalibration(String sessionId) async {
+    await _postJson(
+      serverAddress.resolve('/v1/stt-calibration/$sessionId/complete'),
+      const {},
+    );
+  }
+
   Future<ConversationHistory> getLatestConversation(String agentId) async {
     final response = await _get(
       serverAddress.resolve(
@@ -139,6 +207,7 @@ class GatewayClient {
     required Uint8List audioBytes,
     required String filename,
     required String contentType,
+    required Duration recordingDuration,
   }) async {
     final request = http.MultipartRequest(
       'POST',
@@ -152,6 +221,8 @@ class GatewayClient {
         contentType: MediaType.parse(contentType),
       ),
     );
+    request.fields['recording_duration_ms'] = recordingDuration.inMilliseconds
+        .toString();
 
     try {
       final streamedResponse = await _httpClient

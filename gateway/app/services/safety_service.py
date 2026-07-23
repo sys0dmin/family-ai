@@ -8,6 +8,7 @@ from dataclasses import dataclass
 class SafetyResult:
     """Result of a safety check."""
     is_safe: bool
+    rule_id: str | None = None
     reason: str | None = None
     suggested_response: str | None = None
 
@@ -46,7 +47,7 @@ class SafetyService:
         r"(?:\+7|8)[\s(.-]*\d{3}[\s).-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}\b"
     )
     OUTPUT_SECRET_VALUE_PATTERN = (
-        r"(?:парол|токен|api.{0,5}ключ)\s*(?::|=|—|–|равен|это)\s*\S+"
+        r"(?:парол\w*|токен\w*|api.{0,5}ключ\w*)\s*(?::|=|—|–|равен|это)\s*\S+"
     )
     OUTPUT_DANGEROUS_DIRECTIVE_PATTERN = (
         r"(?:давай|попробуй|можешь|тебе нужно|надо|возьми|достань|"
@@ -106,7 +107,7 @@ class SafetyService:
 
         for pattern in self.SUPERVISED_OUTDOOR_KEYWORDS:
             if re.search(pattern, text_lower) and not outdoor_supervision_allowed:
-                return self._unsafe_result(pattern)
+                return self._unsafe_result(pattern, "input.outdoor_requires_supervision")
 
         for pattern in self.DANGEROUS_KEYWORDS:
             if re.search(pattern, text_lower):
@@ -117,7 +118,7 @@ class SafetyService:
                     ) and not re.search(self.HARMFUL_POISON_INTENT_PATTERN, text_lower)
                     if is_nature_hazard_guidance:
                         continue
-                return self._unsafe_result(pattern)
+                return self._unsafe_result(pattern, "input.dangerous_content")
 
         return SafetyResult(is_safe=True)
 
@@ -130,13 +131,13 @@ class SafetyService:
 
         text_lower = text.lower()
         always_blocked_patterns = (
-            self.PHONE_NUMBER_PATTERN,
-            self.OUTPUT_SECRET_VALUE_PATTERN,
-            self.OUTPUT_CYBER_DIRECTIVE_PATTERN,
+            (self.PHONE_NUMBER_PATTERN, "output.personal_phone"),
+            (self.OUTPUT_SECRET_VALUE_PATTERN, "output.secret_value"),
+            (self.OUTPUT_CYBER_DIRECTIVE_PATTERN, "output.cyber_directive"),
         )
-        for pattern in always_blocked_patterns:
+        for pattern, rule_id in always_blocked_patterns:
             if re.search(pattern, text_lower):
-                return self._unsafe_result(pattern)
+                return self._unsafe_result(pattern, rule_id)
 
         if re.search(self.OUTPUT_DANGEROUS_DIRECTIVE_PATTERN, text_lower):
             supervised_outdoor_answer = (
@@ -144,7 +145,10 @@ class SafetyService:
                 and any(re.search(pattern, text_lower) for pattern in self.PARENT_MARKERS)
             )
             if not supervised_outdoor_answer:
-                return self._unsafe_result(self.OUTPUT_DANGEROUS_DIRECTIVE_PATTERN)
+                return self._unsafe_result(
+                    self.OUTPUT_DANGEROUS_DIRECTIVE_PATTERN,
+                    "output.dangerous_directive",
+                )
 
         return SafetyResult(is_safe=True)
 
@@ -226,9 +230,10 @@ class SafetyService:
         return normalized
 
     @staticmethod
-    def _unsafe_result(pattern: str) -> SafetyResult:
+    def _unsafe_result(pattern: str, rule_id: str) -> SafetyResult:
         return SafetyResult(
             is_safe=False,
+            rule_id=rule_id,
             reason=f"Matched dangerous pattern: {pattern}",
             suggested_response=(
                 "Это очень важный вопрос, но он может быть опасным. "

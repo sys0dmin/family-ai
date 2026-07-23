@@ -1,5 +1,6 @@
 """OpenAI-compatible implementation of the AIProvider interface."""
 
+import math
 from typing import Any, Literal
 
 from openai import AsyncOpenAI
@@ -34,6 +35,7 @@ class OpenAIProvider(AIProvider):
         speech_base_url: str | None = None,
         stt_model: str = "gpt-4o-transcribe",
         stt_temperature: float = 0.0,
+        stt_initial_prompt: str | None = None,
         tts_model: str = "tts-1",
         tts_voice: str = "alloy",
         tts_response_format: Literal["mp3", "wav"] = "mp3",
@@ -54,6 +56,7 @@ class OpenAIProvider(AIProvider):
         self._model = model
         self._stt_model = stt_model
         self._stt_temperature = stt_temperature
+        self._stt_initial_prompt = stt_initial_prompt
         self._tts_model = tts_model
         self._tts_voice = tts_voice
         self._tts_response_format = tts_response_format
@@ -67,14 +70,78 @@ class OpenAIProvider(AIProvider):
 
     async def transcribe_audio(self, request: TranscriptionRequest) -> TranscriptionResponse:
         """Convert speech to text using provider transcription API."""
+        parameters: dict[str, Any] = {
+            "model": self._stt_model,
+            "file": (request.filename, request.audio_content, request.content_type),
+            "language": request.language,
+            "response_format": "verbose_json",
+            "temperature": self._stt_temperature,
+        }
+        if self._stt_initial_prompt:
+            parameters["prompt"] = self._stt_initial_prompt
         response = await self._speech_client.audio.transcriptions.create(
-            model=self._stt_model,
-            file=(request.filename, request.audio_content, request.content_type),
-            language=request.language,
-            response_format="text",
-            temperature=self._stt_temperature,
+            **parameters,
         )
-        return TranscriptionResponse(text=str(response), raw_response=response)
+        if isinstance(response, str):
+            return TranscriptionResponse(text=response, raw_response=response)
+
+        segments = self._value(response, "segments", []) or []
+        duration_seconds = self._number(self._value(response, "duration"))
+        speech_seconds = 0.0
+        weighted_log_probability = 0.0
+        weighted_no_speech = 0.0
+        log_probability_weight = 0.0
+        no_speech_weight = 0.0
+        for segment in segments:
+            start = self._number(self._value(segment, "start"))
+            end = self._number(self._value(segment, "end"))
+            weight = max(0.001, (end or 0.0) - (start or 0.0))
+            speech_seconds += max(0.0, (end or 0.0) - (start or 0.0))
+            average_log_probability = self._number(
+                self._value(segment, "avg_logprob")
+            )
+            no_speech_probability = self._number(
+                self._value(segment, "no_speech_prob")
+            )
+            if average_log_probability is not None:
+                weighted_log_probability += average_log_probability * weight
+                log_probability_weight += weight
+            if no_speech_probability is not None:
+                weighted_no_speech += no_speech_probability * weight
+                no_speech_weight += weight
+
+        confidence = None
+        no_speech_probability = None
+        if log_probability_weight:
+            confidence = max(
+                0.0,
+                min(1.0, math.exp(weighted_log_probability / log_probability_weight)),
+            )
+        if no_speech_weight:
+            no_speech_probability = max(
+                0.0,
+                min(1.0, weighted_no_speech / no_speech_weight),
+            )
+        return TranscriptionResponse(
+            text=str(self._value(response, "text", "")),
+            duration_ms=round(duration_seconds * 1000) if duration_seconds else None,
+            speech_duration_ms=round(speech_seconds * 1000) if segments else None,
+            confidence=confidence,
+            no_speech_probability=no_speech_probability,
+            raw_response=response,
+        )
+
+    @staticmethod
+    def _value(value: Any, key: str, default: Any = None) -> Any:
+        if isinstance(value, dict):
+            return value.get(key, default)
+        return getattr(value, key, default)
+
+    @staticmethod
+    def _number(value: Any) -> float | None:
+        if isinstance(value, int | float):
+            return float(value)
+        return None
 
     async def generate_response(self, request: ChatRequest) -> ChatResponse:
         """Generate a text response using GPT."""

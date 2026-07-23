@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
 
 from gateway.app.config import Settings, get_settings
@@ -42,6 +42,7 @@ def _speech_response(speech, message_id: UUID | None = None) -> Response:
 async def voice_turn(
     conversation_id: UUID,
     file: UploadFile = File(...),
+    recording_duration_ms: int | None = Form(default=None, ge=0, le=3_600_000),
     voice_service: VoiceService = Depends(get_voice_service),
     settings: Settings = Depends(get_settings),
 ) -> Response:
@@ -74,6 +75,7 @@ async def voice_turn(
             filename=filename,
             content_type=content_type,
             language=settings.voice_language,
+            recording_duration_ms=recording_duration_ms,
         )
     except VoiceInputError as exc:
         raise HTTPException(

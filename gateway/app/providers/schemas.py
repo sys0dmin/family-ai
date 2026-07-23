@@ -56,6 +56,10 @@ class TranscriptionRequest:
 class TranscriptionResponse:
     """Response from a speech-to-text (STT) provider."""
     text: str
+    duration_ms: int | None = None
+    speech_duration_ms: int | None = None
+    confidence: float | None = None
+    no_speech_probability: float | None = None
     raw_response: Any = None
 
 

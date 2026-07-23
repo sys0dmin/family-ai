@@ -36,7 +36,10 @@ class _FakeVoiceSession implements VoiceSession {
   @override
   Future<RecordedVoice> stopRecording() async {
     stops += 1;
-    return RecordedVoice(bytes: Uint8List.fromList(<int>[82, 73, 70, 70]));
+    return RecordedVoice(
+      bytes: Uint8List.fromList(<int>[82, 73, 70, 70]),
+      duration: const Duration(milliseconds: 1250),
+    );
   }
 
   @override

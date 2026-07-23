@@ -181,6 +181,7 @@ class _ChatScreenState extends State<ChatScreen> {
         audioBytes: recording.bytes,
         filename: recording.filename,
         contentType: recording.contentType,
+        recordingDuration: recording.duration,
       );
 
       ConversationMessage reply = ConversationMessage(

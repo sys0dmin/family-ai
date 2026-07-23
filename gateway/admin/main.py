@@ -6,20 +6,29 @@ from collections.abc import Generator
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from gateway.admin.agents_router import router as agents_router
-from gateway.admin.auth import verify_admin as _verify_admin
+from gateway.admin.auth import (
+    SESSION_COOKIE,
+    create_session_token,
+)
+from gateway.admin.auth import (
+    verify_admin as _verify_admin,
+)
+from gateway.admin.calibration_router import router as calibration_router
 from gateway.admin.history_schemas import (
     ConversationHistoryResponse,
     HistorySummaryResponse,
 )
 from gateway.admin.history_service import HistoryService
 from gateway.admin.monitoring_router import router as monitoring_router
+from gateway.admin.studio_router import router as studio_router
 from gateway.admin.system_router import router as system_router
+from gateway.admin.voice_observability_router import router as voice_observability_router
 from gateway.app.config import get_settings
 from gateway.app.db.session import get_session_factory
 
@@ -31,6 +40,7 @@ class SettingsResponse(BaseModel):
     openai_base_url: str | None
     speech_base_url: str | None
     stt_model: str
+    stt_initial_prompt: str
     tts_model: str
     tts_voice: str
     tts_response_format: Literal["mp3", "wav"]
@@ -57,6 +67,7 @@ class SettingsUpdateRequest(BaseModel):
     openai_base_url: str | None = Field(default=None, max_length=500)
     speech_base_url: str | None = Field(default=None, max_length=500)
     stt_model: str = Field(min_length=1, max_length=200)
+    stt_initial_prompt: str = Field(min_length=1, max_length=1000)
     tts_model: str = Field(min_length=1, max_length=200)
     tts_voice: str = Field(min_length=1, max_length=200)
     tts_response_format: Literal["mp3", "wav"]
@@ -124,6 +135,9 @@ app = FastAPI(title="Family AI Admin", version="0.1.0")
 app.include_router(agents_router)
 app.include_router(monitoring_router)
 app.include_router(system_router)
+app.include_router(studio_router)
+app.include_router(voice_observability_router)
+app.include_router(calibration_router)
 
 
 def get_history_session() -> Generator[Session]:
@@ -148,6 +162,42 @@ def admin_index() -> str:
     return admin_page.read_text(encoding="utf-8")
 
 
+@app.post("/api/session", status_code=204)
+def create_admin_session(
+    request: Request,
+    response: Response,
+    _user: str = Depends(_verify_admin),
+) -> None:
+    """Exchange Basic credentials for an HttpOnly same-origin browser session."""
+
+    settings = get_settings()
+    max_age = settings.admin_session_ttl_hours * 3600
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=create_session_token(
+            settings.admin_username,
+            settings.admin_password.get_secret_value(),
+        ),
+        max_age=max_age,
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="strict",
+        path="/",
+    )
+
+
+@app.delete("/api/session", status_code=204)
+def delete_admin_session(response: Response) -> None:
+    """Forget the current browser session."""
+
+    response.delete_cookie(
+        key=SESSION_COOKIE,
+        httponly=True,
+        samesite="strict",
+        path="/",
+    )
+
+
 @app.get("/api/settings", response_model=SettingsResponse)
 def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsResponse:
     settings = get_settings()
@@ -163,6 +213,7 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
         openai_base_url=settings.openai_base_url,
         speech_base_url=settings.speech_base_url,
         stt_model=settings.stt_model,
+        stt_initial_prompt=settings.stt_initial_prompt,
         tts_model=settings.tts_model,
         tts_voice=settings.tts_voice,
         tts_response_format=settings.tts_response_format,
@@ -228,6 +279,7 @@ def update_runtime_settings(
         "FAMILY_AI_OPENAI_BASE_URL": (payload.openai_base_url or "").strip(),
         "FAMILY_AI_SPEECH_BASE_URL": (payload.speech_base_url or "").strip(),
         "FAMILY_AI_STT_MODEL": payload.stt_model.strip(),
+        "FAMILY_AI_STT_INITIAL_PROMPT": payload.stt_initial_prompt.strip(),
         "FAMILY_AI_TTS_MODEL": payload.tts_model.strip(),
         "FAMILY_AI_TTS_VOICE": payload.tts_voice.strip(),
         "FAMILY_AI_TTS_RESPONSE_FORMAT": payload.tts_response_format,
@@ -266,6 +318,7 @@ def update_runtime_settings(
         openai_base_url=refreshed.openai_base_url,
         speech_base_url=refreshed.speech_base_url,
         stt_model=refreshed.stt_model,
+        stt_initial_prompt=refreshed.stt_initial_prompt,
         tts_model=refreshed.tts_model,
         tts_voice=refreshed.tts_voice,
         tts_response_format=refreshed.tts_response_format,

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/config/server_address.dart';
 import '../../core/network/gateway_client.dart';
 import '../conversations/chat_screen.dart';
+import '../calibration/calibration_screen.dart';
 import 'agent.dart';
 import 'agent_presentation.dart';
 
@@ -24,11 +27,44 @@ class AgentChooserScreen extends StatefulWidget {
 
 class _AgentChooserScreenState extends State<AgentChooserScreen> {
   late Future<List<Agent>> _agents;
+  Timer? _calibrationTimer;
+  bool _calibrationOpening = false;
 
   @override
   void initState() {
     super.initState();
     _agents = widget.gateway.getAgents();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _openCalibrationIfActive(),
+    );
+    _calibrationTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _openCalibrationIfActive(),
+    );
+  }
+
+  Future<void> _openCalibrationIfActive() async {
+    if (_calibrationOpening) return;
+    final calibration = await widget.gateway.getActiveCalibration();
+    if (!mounted || !calibration.active || calibration.sessionId == null) {
+      return;
+    }
+    _calibrationOpening = true;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CalibrationScreen(
+          gateway: widget.gateway,
+          calibration: calibration,
+        ),
+      ),
+    );
+    _calibrationOpening = false;
+  }
+
+  @override
+  void dispose() {
+    _calibrationTimer?.cancel();
+    super.dispose();
   }
 
   void _reload() => setState(() => _agents = widget.gateway.getAgents());
