@@ -1,4 +1,5 @@
 .venv/
+.tools/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -9,6 +10,13 @@ coverage.xml
 .env.*
 !.env.example
 api.txt
+
+# Mobile build artifacts, machine-local SDK config and signing secrets
+*.apk
+*.aab
+*.jks
+*.keystore
+**/local.properties
 
 # Local runtime data and disposable previews
 *.db

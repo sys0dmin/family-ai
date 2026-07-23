@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from openai import AsyncOpenAI
 
+from gateway.app.audio import finalize_wav_container
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import (
     ChatRequest,
@@ -103,8 +104,11 @@ class OpenAIProvider(AIProvider):
             input=request.text,
             response_format=self._tts_response_format,
         )
+        audio_content = response.content
+        if self._tts_response_format == "wav":
+            audio_content = finalize_wav_container(audio_content)
         return SpeechResponse(
-            audio_content=response.content,
+            audio_content=audio_content,
             content_type=self.TTS_CONTENT_TYPES[self._tts_response_format],
             raw_response=response,
         )
