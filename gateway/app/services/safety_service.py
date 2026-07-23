@@ -45,6 +45,20 @@ class SafetyService:
     PHONE_NUMBER_PATTERN = (
         r"(?:\+7|8)[\s(.-]*\d{3}[\s).-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}\b"
     )
+    OUTPUT_SECRET_VALUE_PATTERN = (
+        r"(?:парол|токен|api.{0,5}ключ)\s*(?::|=|—|–|равен|это)\s*\S+"
+    )
+    OUTPUT_DANGEROUS_DIRECTIVE_PATTERN = (
+        r"(?:давай|попробуй|можешь|тебе нужно|надо|возьми|достань|"
+        r"зажги|подожги|разведи|сунь|вставь|выпей|съешь|прими|"
+        r"сделай|приготовь|порежь|убей).{0,80}"
+        r"(?:спичк|огонь|кост[её]р|нож|розетк|лекарств|таблетк|"
+        r"яд|ядовит|гриб|ягод)"
+    )
+    OUTPUT_CYBER_DIRECTIVE_PATTERN = (
+        r"(?:давай|попробуй|можешь|тебе нужно|надо|сделай|запусти).{0,80}"
+        r"(?:взлом|обойт\w*.{0,15}защит|украст\w*.{0,15}парол|ддос)"
+    )
     SUPERVISED_OUTDOOR_KEYWORDS = [
         r"спичк",
         r"огонь",
@@ -104,6 +118,33 @@ class SafetyService:
                     if is_nature_hazard_guidance:
                         continue
                 return self._unsafe_result(pattern)
+
+        return SafetyResult(is_safe=True)
+
+    def check_response(
+        self,
+        text: str,
+        permissions: tuple[str, ...] = (),
+    ) -> SafetyResult:
+        """Block actionable unsafe output without rejecting educational facts."""
+
+        text_lower = text.lower()
+        always_blocked_patterns = (
+            self.PHONE_NUMBER_PATTERN,
+            self.OUTPUT_SECRET_VALUE_PATTERN,
+            self.OUTPUT_CYBER_DIRECTIVE_PATTERN,
+        )
+        for pattern in always_blocked_patterns:
+            if re.search(pattern, text_lower):
+                return self._unsafe_result(pattern)
+
+        if re.search(self.OUTPUT_DANGEROUS_DIRECTIVE_PATTERN, text_lower):
+            supervised_outdoor_answer = (
+                self.SUPERVISED_OUTDOOR_PERMISSION in permissions
+                and any(re.search(pattern, text_lower) for pattern in self.PARENT_MARKERS)
+            )
+            if not supervised_outdoor_answer:
+                return self._unsafe_result(self.OUTPUT_DANGEROUS_DIRECTIVE_PATTERN)
 
         return SafetyResult(is_safe=True)
 

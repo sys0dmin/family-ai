@@ -71,6 +71,43 @@ async def test_turn_blocks_dangerous_output(app, client: AsyncClient, mock_provi
 
 
 @pytest.mark.anyio
+async def test_turn_allows_benign_educational_hazard_words(
+    app,
+    client: AsyncClient,
+    mock_provider,
+) -> None:
+    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    interesting_fact = "У осьминога три сердца, а его кровь голубого цвета."
+    mock_provider.generate_response.return_value = ChatResponse(content=interesting_fact)
+
+    try:
+        conversation_id = uuid.uuid4()
+        response = await client.post(
+            f"/v1/conversations/{conversation_id}/turn",
+            json={"role": "child", "content": "Расскажи что-нибудь интересное"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["content"] == interesting_fact
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_response_filter_allows_safety_facts_but_blocks_dangerous_directions() -> None:
+    safety = SafetyService()
+
+    fact = safety.check_response(
+        "Некоторые ягоды ядовиты, поэтому их нельзя есть."
+    )
+    direction = safety.check_response(
+        "Давай возьмём спички и разведём огонь."
+    )
+
+    assert fact.is_safe
+    assert not direction.is_safe
+
+
+@pytest.mark.anyio
 async def test_outdoor_guide_answers_fire_question_with_parent_guardrail(
     app,
     client: AsyncClient,

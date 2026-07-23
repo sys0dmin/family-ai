@@ -1,5 +1,6 @@
 """Conversation persistence logic."""
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -15,6 +16,8 @@ from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.visual_media_service import VisualMediaService
+
+logger = logging.getLogger(__name__)
 
 CONTINUING_CONVERSATION_CONTEXT = (
     "Это продолжение уже начатого разговора с Лерой. Не здоровайся заново, не "
@@ -214,11 +217,19 @@ class ConversationService:
                 response_content,
                 active_agent.permissions,
             )
-            safety_result = self._safety.check_text(
+            safety_result = self._safety.check_response(
                 response_content,
                 active_agent.permissions,
             )
             if not safety_result.is_safe:
+                logger.warning(
+                    "unsafe_model_response_blocked",
+                    extra={
+                        "agent_id": active_agent.id,
+                        "conversation_id": str(conversation_id),
+                        "reason": safety_result.reason,
+                    },
+                )
                 return self.create_message(
                     conversation_id=conversation_id,
                     role='assistant',
