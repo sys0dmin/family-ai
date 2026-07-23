@@ -10,7 +10,9 @@ from gateway.admin.agent_schemas import AgentUpdateRequest
 from gateway.admin.agents_router import get_agent_admin_session
 from gateway.admin.auth import verify_admin
 from gateway.admin.main import app as admin_app
+from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.models import Agent, AgentRevision
+from gateway.app.services.agent_service import AgentService
 
 
 def test_agent_update_accepts_visual_search_capability() -> None:
@@ -60,6 +62,7 @@ async def test_admin_can_view_safety_baseline_and_prompt_versions(
     assert response.status_code == 200
     body = response.json()
     assert "шести лет" in body["safety_baseline"]
+    assert body["safety_baseline_version"] == 0
     assert len(body["items"]) == 7
     assert body["items"][0]["revisions"][0]["is_active"] is True
     assert body["items"][0]["revisions"][0]["system_prompt"]
@@ -101,3 +104,33 @@ async def test_new_prompt_revision_is_immutable_until_explicitly_published(
     assert revision is not None
     assert revision.version == 2
     assert revision.created_by == "admin"
+
+
+@pytest.mark.anyio
+async def test_admin_can_publish_a_new_global_safety_baseline(
+    authenticated_admin,
+    db_session: Session,
+) -> None:
+    prompt = (
+        "Ты работаешь только как безопасный детский помощник Леры шести лет. "
+        "Отвечай по-русски, не проси секретов и персональных данных. "
+        "Опасные действия обсуждай только с обязательным участием родителей. "
+        "Поддерживай отдых, движение и живое общение вне экрана."
+    )
+    transport = ASGITransport(app=admin_app)
+
+    async with AsyncClient(transport=transport, base_url="http://admin") as client:
+        updated = await client.put(
+            "/api/agents/safety-baseline",
+            json={"system_prompt": prompt},
+        )
+        listed = await client.get("/api/agents")
+
+    assert updated.status_code == 200
+    assert updated.json()["version"] == 1
+    assert updated.json()["created_by"] == "admin"
+    assert listed.status_code == 200
+    assert listed.json()["safety_baseline"] == prompt
+    assert listed.json()["safety_baseline_version"] == 1
+    agent_service = AgentService(SqlAlchemyAgentRepository(db_session))
+    assert agent_service.get_safety_baseline() == prompt

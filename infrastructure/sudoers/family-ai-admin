@@ -1,0 +1,2 @@
+# Allow the protected admin service to restart only the Family AI Gateway.
+familyai-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart family-ai-gateway.service

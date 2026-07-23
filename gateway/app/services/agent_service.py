@@ -21,6 +21,9 @@ class AgentService:
     def list_available(self) -> list[AgentManifest]:
         return [self._to_manifest(agent) for agent in self._repository.list_enabled()]
 
+    def get_safety_baseline(self) -> str:
+        return self._repository.get_safety_baseline()
+
     def get_active(self, agent_id: str, *, require_enabled: bool = True) -> ActiveAgent:
         agent = self._repository.get(agent_id)
         if agent is None or (require_enabled and not agent.enabled):

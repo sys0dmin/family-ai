@@ -17,9 +17,11 @@ from gateway.admin.monitoring_schemas import (
 )
 from gateway.admin.monitoring_service import (
     DatabaseCollector,
+    InfrastructureMonitoringService,
     NodeExporterCollector,
     parse_prometheus_text,
 )
+from gateway.app.config import Settings
 
 NODE_METRICS = """
 # HELP node_cpu_seconds_total Seconds the CPUs spent in each mode.
@@ -88,6 +90,42 @@ def test_database_collector_supports_development_database(db_session: Session) -
     assert result.status == "healthy"
     assert result.version == "sqlite (development)"
     assert result.latency_ms is not None
+
+
+def test_monitoring_service_collects_all_project_nodes(db_session: Session) -> None:
+    class StubNodeCollector:
+        def __init__(self) -> None:
+            self.node_ids: list[str] = []
+
+        def collect(self, **kwargs) -> NodeStatus:
+            self.node_ids.append(kwargs["node_id"])
+            return NodeStatus(
+                id=kwargs["node_id"],
+                name=kwargs["name"],
+                role=kwargs["role"],
+                status="healthy",
+            )
+
+    class StubDatabaseCollector:
+        def collect(self, _session: Session) -> DatabaseStatus:
+            return DatabaseStatus(status="healthy")
+
+    node_collector = StubNodeCollector()
+    service = InfrastructureMonitoringService(
+        settings=Settings(
+            gateway_node_metrics_url="http://gateway/metrics",
+            database_node_metrics_url="http://database/metrics",
+            speech_node_metrics_url="http://speech/metrics",
+        ),
+        session=db_session,
+        node_collector=node_collector,
+        database_collector=StubDatabaseCollector(),
+    )
+
+    result = service.get_status()
+
+    assert result.status == "healthy"
+    assert node_collector.node_ids == ["gateway", "database", "speech"]
 
 
 @pytest.mark.anyio

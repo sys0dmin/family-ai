@@ -20,12 +20,15 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="agents-card"' in response.text
     assert 'id="infrastructure-card"' in response.text
     assert 'id="infrastructure-tab"' in response.text
+    assert 'id="server-speech"' in response.text
     assert 'id="history-card"' in response.text
     assert "@media (max-width: 820px)" in response.text
     assert ".grid.three { grid-template-columns: repeat(3" in response.text
     assert '.option-row input[type="checkbox"]' in response.text
     assert 'id="image_search_provider"' in response.text
     assert 'id="agent-tool-image-search"' in response.text
+    assert 'id="safety-baseline-save"' in response.text
+    assert 'id="gateway-restart"' in response.text
     assert "https://cdn" not in response.text
 
 

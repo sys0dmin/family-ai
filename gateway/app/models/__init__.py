@@ -5,6 +5,10 @@ from gateway.app.models.child_profile import ChildProfile
 from gateway.app.models.conversation import Conversation
 from gateway.app.models.message import Message, MessageRole
 from gateway.app.models.message_media import MessageMedia
+from gateway.app.models.safety_baseline import (
+    SafetyBaselineConfiguration,
+    SafetyBaselineRevision,
+)
 from gateway.app.models.topic_statistic import TopicStatistic
 
 __all__ = [
@@ -15,5 +19,7 @@ __all__ = [
     "Message",
     "MessageRole",
     "MessageMedia",
+    "SafetyBaselineConfiguration",
+    "SafetyBaselineRevision",
     "TopicStatistic",
 ]

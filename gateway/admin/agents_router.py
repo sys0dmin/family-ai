@@ -12,12 +12,14 @@ from gateway.admin.agent_schemas import (
     AgentRevisionResponse,
     AgentUpdateRequest,
     CreateAgentRevisionRequest,
+    SafetyBaselineRevisionResponse,
+    UpdateSafetyBaselineRequest,
 )
 from gateway.admin.agent_service import AdminAgentNotFoundError, AdminAgentService
 from gateway.admin.auth import verify_admin
 from gateway.app.agents.prompts import CHILD_SAFETY_BASE_PROMPT
 from gateway.app.db.session import get_session_factory
-from gateway.app.models import Agent, AgentRevision
+from gateway.app.models import Agent, AgentRevision, SafetyBaselineRevision
 
 router = APIRouter(prefix="/api/agents", tags=["agent administration"])
 
@@ -76,15 +78,52 @@ def _agent_response(agent: Agent) -> AdminAgentResponse:
     )
 
 
+def _safety_revision_response(
+    revision: SafetyBaselineRevision,
+) -> SafetyBaselineRevisionResponse:
+    return SafetyBaselineRevisionResponse(
+        id=revision.id,
+        version=revision.version,
+        system_prompt=revision.system_prompt,
+        created_by=revision.created_by,
+        created_at=revision.created_at,
+    )
+
+
 @router.get("", response_model=AdminAgentListResponse)
 def list_agents(
     _user: str = Depends(verify_admin),
     service: AdminAgentService = Depends(get_agent_admin_service),
 ) -> AdminAgentListResponse:
+    safety_revision = service.get_active_safety_baseline()
     return AdminAgentListResponse(
-        safety_baseline=CHILD_SAFETY_BASE_PROMPT,
+        safety_baseline=(
+            safety_revision.system_prompt
+            if safety_revision is not None
+            else CHILD_SAFETY_BASE_PROMPT
+        ),
+        safety_baseline_version=safety_revision.version if safety_revision else 0,
+        safety_baseline_updated_by=(
+            safety_revision.created_by if safety_revision else "code fallback"
+        ),
+        safety_baseline_updated_at=(
+            safety_revision.created_at if safety_revision else None
+        ),
         items=[_agent_response(agent) for agent in service.list_agents()],
     )
+
+
+@router.put(
+    "/safety-baseline",
+    response_model=SafetyBaselineRevisionResponse,
+)
+def update_safety_baseline(
+    payload: UpdateSafetyBaselineRequest,
+    _user: str = Depends(verify_admin),
+    service: AdminAgentService = Depends(get_agent_admin_service),
+) -> SafetyBaselineRevisionResponse:
+    revision = service.update_safety_baseline(payload.system_prompt, _user)
+    return _safety_revision_response(revision)
 
 
 @router.patch("/{agent_id}", response_model=AdminAgentResponse)

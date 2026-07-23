@@ -4,8 +4,14 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.pyright/
 .coverage
 coverage.xml
+*.log
+*.pid
+.DS_Store
+Thumbs.db
 .env
 .env.*
 !.env.example
@@ -22,6 +28,11 @@ api.txt
 *.db
 *.db-*
 /tmp/
+
+# Local Speech Service model/runtime data
+/speech/.cache/
+/speech/models/
+/speech/runtime/
 
 # One-off root-level diagnostics and repair helpers
 /check_*

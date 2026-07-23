@@ -6,7 +6,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from gateway.admin.agent_schemas import AgentUpdateRequest
-from gateway.app.models import Agent, AgentRevision
+from gateway.app.models import (
+    Agent,
+    AgentRevision,
+    SafetyBaselineConfiguration,
+    SafetyBaselineRevision,
+)
 
 
 class AdminAgentNotFoundError(LookupError):
@@ -36,6 +41,43 @@ class AdminAgentService:
             setattr(agent, field, value)
         self._session.flush()
         return agent
+
+    def get_active_safety_baseline(self) -> SafetyBaselineRevision | None:
+        configuration = self._session.get(SafetyBaselineConfiguration, 1)
+        if configuration is None or configuration.active_revision_id is None:
+            return None
+        return self._session.get(
+            SafetyBaselineRevision,
+            configuration.active_revision_id,
+        )
+
+    def update_safety_baseline(
+        self,
+        system_prompt: str,
+        created_by: str,
+    ) -> SafetyBaselineRevision:
+        configuration = self._session.scalar(
+            select(SafetyBaselineConfiguration)
+            .where(SafetyBaselineConfiguration.id == 1)
+            .with_for_update()
+        )
+        latest_version = self._session.scalar(
+            select(func.max(SafetyBaselineRevision.version))
+        )
+        revision = SafetyBaselineRevision(
+            id=uuid.uuid4(),
+            version=(latest_version or 0) + 1,
+            system_prompt=system_prompt.strip(),
+            created_by=created_by,
+        )
+        self._session.add(revision)
+        self._session.flush()
+        if configuration is None:
+            configuration = SafetyBaselineConfiguration(id=1)
+            self._session.add(configuration)
+        configuration.active_revision_id = revision.id
+        self._session.flush()
+        return revision
 
     def create_revision(
         self,

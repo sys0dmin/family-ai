@@ -36,6 +36,9 @@ class AdminAgentResponse(BaseModel):
 
 class AdminAgentListResponse(BaseModel):
     safety_baseline: str
+    safety_baseline_version: int
+    safety_baseline_updated_by: str
+    safety_baseline_updated_at: datetime | None
     items: list[AdminAgentResponse]
 
 
@@ -90,3 +93,20 @@ class CreateAgentRevisionRequest(BaseModel):
     @classmethod
     def reject_blank_prompt(cls, value: str) -> str:
         return value.strip()
+
+
+class UpdateSafetyBaselineRequest(BaseModel):
+    system_prompt: str = Field(min_length=100, max_length=20_000)
+
+    @field_validator("system_prompt", mode="before")
+    @classmethod
+    def reject_blank_prompt(cls, value: str) -> str:
+        return value.strip()
+
+
+class SafetyBaselineRevisionResponse(BaseModel):
+    id: uuid.UUID
+    version: int
+    system_prompt: str
+    created_by: str
+    created_at: datetime

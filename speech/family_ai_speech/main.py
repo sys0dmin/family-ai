@@ -1,0 +1,162 @@
+"""OpenAI-compatible HTTP API for local STT and TTS."""
+
+import asyncio
+import logging
+import secrets
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
+from fastapi.responses import PlainTextResponse, Response
+
+from family_ai_speech.backends import build_backends
+from family_ai_speech.config import SpeechSettings
+from family_ai_speech.schemas import SynthesisRequest
+from family_ai_speech.service import LocalSpeechService
+
+logger = logging.getLogger(__name__)
+
+SUPPORTED_AUDIO_TYPES = frozenset(
+    {
+        "audio/flac",
+        "audio/mp4",
+        "audio/mpeg",
+        "audio/ogg",
+        "audio/wav",
+        "audio/webm",
+        "audio/x-m4a",
+        "audio/x-wav",
+    }
+)
+
+
+def _unauthorized() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid API key",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def create_app(
+    settings: SpeechSettings | None = None,
+    service: LocalSpeechService | None = None,
+    backend_factory: Callable = build_backends,
+) -> FastAPI:
+    """Build the application with injectable model adapters for tests."""
+
+    resolved_settings = settings or SpeechSettings()
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        if service is not None:
+            application.state.speech_service = service
+        else:
+            stt, tts = await asyncio.to_thread(backend_factory, resolved_settings)
+            application.state.speech_service = LocalSpeechService(stt, tts)
+        logger.info(
+            "speech_models_loaded",
+            extra={
+                "stt_model": resolved_settings.stt_model,
+                "tts_model": resolved_settings.tts_model,
+            },
+        )
+        yield
+
+    app = FastAPI(
+        title="Family AI Speech",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
+    if service is not None:
+        app.state.speech_service = service
+
+    def authorize(
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> None:
+        expected = resolved_settings.api_key.get_secret_value()
+        if not expected:
+            return
+        scheme, _, token = (authorization or "").partition(" ")
+        if scheme.lower() != "bearer" or not secrets.compare_digest(token, expected):
+            raise _unauthorized()
+
+    def get_service() -> LocalSpeechService:
+        return app.state.speech_service
+
+    @app.get("/healthz")
+    async def health() -> dict[str, str]:
+        return {
+            "status": "ok",
+            "service": "family-ai-speech",
+            "stt_model": resolved_settings.stt_model,
+            "tts_model": resolved_settings.tts_model,
+        }
+
+    @app.post(
+        "/v1/audio/transcriptions",
+        response_class=PlainTextResponse,
+        dependencies=[Depends(authorize)],
+    )
+    async def transcribe(
+        file: Annotated[UploadFile, File()],
+        model: Annotated[str, Form()],
+        language: Annotated[str, Form()] = "ru",
+        response_format: Annotated[str, Form()] = "text",
+        temperature: Annotated[float, Form()] = 0.0,
+        speech_service: LocalSpeechService = Depends(get_service),
+    ) -> PlainTextResponse:
+        del temperature
+        if model != resolved_settings.stt_model:
+            raise HTTPException(status_code=400, detail="Unsupported transcription model")
+        if response_format != "text":
+            raise HTTPException(status_code=400, detail="Only text transcription is supported")
+        if (file.content_type or "").lower() not in SUPPORTED_AUDIO_TYPES:
+            raise HTTPException(status_code=415, detail="Unsupported audio format")
+
+        content = await file.read(resolved_settings.max_audio_bytes + 1)
+        if not content:
+            raise HTTPException(status_code=400, detail="Empty audio file")
+        if len(content) > resolved_settings.max_audio_bytes:
+            raise HTTPException(status_code=413, detail="Audio file is too large")
+
+        try:
+            text = await speech_service.transcribe(content, language)
+        except Exception as exc:
+            logger.exception("local_transcription_failed")
+            raise HTTPException(status_code=502, detail="Local transcription failed") from exc
+        return PlainTextResponse(text)
+
+    @app.post(
+        "/v1/audio/speech",
+        response_class=Response,
+        dependencies=[Depends(authorize)],
+    )
+    async def synthesize(
+        payload: SynthesisRequest,
+        speech_service: LocalSpeechService = Depends(get_service),
+    ) -> Response:
+        if payload.model != resolved_settings.tts_model:
+            raise HTTPException(status_code=400, detail="Unsupported speech model")
+        text = payload.input.strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Speech input is empty")
+        if len(text) > resolved_settings.max_text_characters:
+            raise HTTPException(status_code=413, detail="Speech input is too long")
+
+        try:
+            audio = await speech_service.synthesize(text, payload.voice)
+        except Exception as exc:
+            logger.exception("local_synthesis_failed")
+            raise HTTPException(status_code=502, detail="Local synthesis failed") from exc
+        return Response(
+            content=audio,
+            media_type="audio/wav",
+            headers={"Content-Disposition": 'inline; filename="speech.wav"'},
+        )
+
+    return app
+
+
+app = create_app()

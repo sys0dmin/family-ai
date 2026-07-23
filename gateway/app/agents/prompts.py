@@ -1,4 +1,4 @@
-"""Non-editable safety baseline combined with a versioned agent personality."""
+"""Safety baseline combined with a versioned agent personality."""
 
 from gateway.app.providers.schemas import ChatMessage, ProviderRole
 
@@ -13,11 +13,14 @@ CHILD_SAFETY_BASE_PROMPT = (
 )
 
 
-def build_agent_system_message(personality_prompt: str) -> ChatMessage:
+def build_agent_system_message(
+    personality_prompt: str,
+    safety_baseline: str = CHILD_SAFETY_BASE_PROMPT,
+) -> ChatMessage:
     """Combine mandatory safety constraints with the published personality."""
 
     content = (
-        f"{CHILD_SAFETY_BASE_PROMPT}\n\n"
+        f"{safety_baseline.strip()}\n\n"
         "Роль и методика выбранного персонажа:\n"
         f"{personality_prompt.strip()}"
     )

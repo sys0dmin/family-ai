@@ -19,6 +19,7 @@ from gateway.admin.history_schemas import (
 )
 from gateway.admin.history_service import HistoryService
 from gateway.admin.monitoring_router import router as monitoring_router
+from gateway.admin.system_router import router as system_router
 from gateway.app.config import get_settings
 from gateway.app.db.session import get_session_factory
 
@@ -122,6 +123,7 @@ class ChangePasswordRequest(BaseModel):
 app = FastAPI(title="Family AI Admin", version="0.1.0")
 app.include_router(agents_router)
 app.include_router(monitoring_router)
+app.include_router(system_router)
 
 
 def get_history_session() -> Generator[Session]:

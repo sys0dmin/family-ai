@@ -4,10 +4,11 @@
 
 ## Архитектура (Production/Stage)
 
-Проект развёрнут на двух узлах в домашней сети:
+Проект развёрнут на трёх узлах в домашней сети:
 
 - **Gateway (шлюз):** `192.168.31.173` (Debian 13, Python 3.13, `uv`)
 - **Database (БД):** `192.168.31.163` (PostgreSQL 17)
+- **Speech:** `192.168.31.84` (Debian 13 LXC, локальные faster-whisper и Silero)
 
 ## Переменные окружения
 
@@ -20,8 +21,8 @@
 - `FAMILY_AI_WEB_SEARCH_TOOL_TYPE`: `browser_search` для provider-native поиска Groq GPT-OSS или `disabled`
 - `FAMILY_AI_IMAGE_SEARCH_PROVIDER`: `openverse` для лицензированных визуальных ответов или `disabled`
 - `FAMILY_AI_IMAGE_SEARCH_TIMEOUT_SECONDS`: таймаут поиска и загрузки изображения
-- `FAMILY_AI_SPEECH_API_KEY`: отдельный ключ провайдера STT/TTS
-- `FAMILY_AI_SPEECH_BASE_URL`: API STT/TTS (для OpenAI: `https://api.openai.com/v1`)
+- `FAMILY_AI_SPEECH_API_KEY`: отдельный bearer-токен Speech Service или ключ облачного провайдера
+- `FAMILY_AI_SPEECH_BASE_URL`: API STT/TTS (`http://192.168.31.84:8010/v1` для локального сервиса)
 - `FAMILY_AI_STT_MODEL`: модель распознавания речи
 - `FAMILY_AI_STT_TEMPERATURE`: вариативность распознавания (`0` для стабильного результата)
 - `FAMILY_AI_TTS_MODEL`: модель синтеза речи
@@ -53,6 +54,41 @@ uv run uvicorn gateway.app.main:app --reload
 
 Проверка: `http://127.0.0.1:8000/healthz`
 
+### Local Speech Service (порт 8010)
+
+Speech Service живёт отдельно от Gateway и реализует используемую часть
+OpenAI Audio API. STT работает на `faster-whisper base` INT8, TTS — на русском
+Silero `v5_2_ru`. Исходное и синтезированное аудио сервис не сохраняет.
+
+```bash
+cd speech
+uv sync --frozen --no-dev
+cp .env.example .env
+uv run uvicorn family_ai_speech.main:app --host 0.0.0.0 --port 8010
+```
+
+Для подключения Gateway:
+
+```dotenv
+FAMILY_AI_SPEECH_BASE_URL=http://192.168.31.84:8010/v1
+FAMILY_AI_SPEECH_API_KEY=<тот же случайный bearer-токен>
+FAMILY_AI_STT_MODEL=base
+FAMILY_AI_TTS_MODEL=silero-v5_2-ru
+FAMILY_AI_TTS_VOICE=xenia
+FAMILY_AI_TTS_RESPONSE_FORMAT=wav
+```
+
+Облачный STT/TTS остаётся ручным резервным вариантом: для возврата достаточно
+изменить speech-настройки Gateway. Автоматического fallback нет, чтобы аудио
+ребёнка не уходило во внешний сервис без явного решения родителя.
+
+На текущем Intel J3710 распознавание короткой фразы занимает около 10 секунд и
+на это время закономерно загружает все четыре ядра почти до 100%. Speech Service
+последовательно выполняет STT и TTS, поэтому два тяжёлых inference-процесса не
+конкурируют за CPU и память. При будущем переносе на более современный x86 CPU
+или GPU меняется только реализация/конфигурация Speech Service — Gateway,
+мобильное приложение и история диалогов остаются без изменений.
+
 ### Admin Panel (порт 8001)
 
 ```powershell
@@ -66,31 +102,39 @@ uv run uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001 --reload
 После входа доступны отдельные вкладки:
 
 - «Настройки» — модели, ключи, голос, распознавание мелодий и срок хранения;
-- «Агенты» — карточки персонажей, голоса, инструменты и версионные промпты;
-- «Инфраструктура» — состояние двух LXC, CPU, память, диски, uptime и PostgreSQL;
+- «Агенты» — карточки персонажей, голоса, инструменты, версионные промпты,
+  редактируемый базовый контур безопасности и контролируемый перезапуск Gateway;
+- «Инфраструктура» — состояние Gateway, БД, Speech, CPU, память, диски, uptime и PostgreSQL;
 - «История и аналитика» — недавние диалоги, поиск, активность и частые вопросы.
 
 Промпт личности не редактируется на месте. Админ создаёт новую неизменяемую
 версию и отдельно публикует её. Новая версия применяется только к новым
-диалогам; уже начатые продолжают использовать закреплённую версию. Общие
-правила детской безопасности хранятся в Gateway и не редактируются через UI.
+диалогам; уже начатые продолжают использовать закреплённую версию.
+
+Базовый prompt безопасности редактируется отдельно и применяется ко всем
+агентам сразу. Каждое сохранение создаёт неизменяемую ревизию с автором и
+временем. Детерминированный `SafetyService`, permissions и серверные фильтры
+остаются в коде и не отключаются изменением prompt.
 
 История доступна только через защищённую админку. Исходное аудио не сохраняется,
 а текстовые сообщения автоматически удаляются согласно сроку хранения.
 
 ### Метрики инфраструктуры
 
-На `family-ai-gateway` и `family-ai-db` устанавливается `prometheus-node-exporter`.
+На `family-ai-gateway`, `family-ai-db` и `family-ai-speech` устанавливается
+`prometheus-node-exporter`.
 Админка читает endpoints только на серверной стороне; браузер не обращается к
-exporter напрямую. Для production задаются:
+exporter напрямую. Вкладка отображает все три сервера проекта. Для production
+задаются:
 
 ```dotenv
 FAMILY_AI_GATEWAY_NODE_METRICS_URL=http://127.0.0.1:9100/metrics
 FAMILY_AI_DATABASE_NODE_METRICS_URL=http://192.168.31.163:9100/metrics
+FAMILY_AI_SPEECH_NODE_METRICS_URL=http://192.168.31.84:9100/metrics
 FAMILY_AI_MONITORING_REQUEST_TIMEOUT_SECONDS=2
 ```
 
-Порт `9100` на контейнере БД должен быть доступен только с Gateway
+Порт `9100` на БД и Speech должен быть доступен только с Gateway
 `192.168.31.173`. История мини-графиков хранится только в текущей вкладке браузера.
 
 ## Агенты
@@ -179,12 +223,33 @@ sudo systemctl restart family-ai-admin
 sudo journalctl -u family-ai-admin -n 100 --no-pager
 ```
 
+Для кнопки перезапуска Gateway один раз установить узкое правило `sudoers`:
+
+```bash
+sudo install -o root -g root -m 0440 \
+  infrastructure/sudoers/family-ai-admin \
+  /etc/sudoers.d/family-ai-admin
+sudo visudo -cf /etc/sudoers.d/family-ai-admin
+```
+
+Правило разрешает пользователю `familyai-deploy` только точную команду
+`systemctl restart family-ai-gateway.service`. Произвольные команды и другие
+службы через админку недоступны.
+
 ### Управление Gateway через systemd
 
 ```bash
 sudo systemctl status family-ai-gateway
 sudo systemctl restart family-ai-gateway
 sudo journalctl -u family-ai-gateway -n 100 --no-pager
+```
+
+### Управление Speech Service через systemd
+
+```bash
+sudo systemctl status family-ai-speech
+sudo systemctl restart family-ai-speech
+sudo journalctl -u family-ai-speech -n 100 --no-pager
 ```
 
 ### Автоматическая очистка истории

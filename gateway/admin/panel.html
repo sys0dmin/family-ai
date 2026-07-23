@@ -391,6 +391,17 @@
       border-radius: 12px;
       background: rgba(255,255,255,.045);
     }
+    button.danger {
+      min-height: 42px;
+      padding: 9px 14px;
+      cursor: pointer;
+      color: #ffb0b8;
+      border: 1px solid rgba(255,111,125,.3);
+      border-radius: 12px;
+      background: rgba(255,111,125,.09);
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+    button.danger:hover { color: #fff; border-color: rgba(255,111,125,.55); background: rgba(255,111,125,.18); transform: translateY(-1px); }
     button:disabled { cursor: not-allowed; opacity: .48; transform: none !important; }
     .action-bar {
       position: sticky;
@@ -497,7 +508,8 @@
     .agent-editor-head { margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
     .safety-card { margin-bottom: 18px; padding: 17px 20px; border-radius: 17px; }
     .safety-card summary { cursor: pointer; color: var(--muted-strong); font-weight: 700; }
-    .safety-baseline { max-height: 210px; margin-top: 14px; padding: 14px; overflow: auto; white-space: pre-wrap; color: #bdc7df; border: 1px solid var(--line); border-radius: 13px; background: rgba(4,7,13,.62); font: .76rem/1.55 "Cascadia Code", Consolas, monospace; }
+    .safety-baseline { width: 100%; min-height: 190px; margin-top: 14px; padding: 14px; resize: vertical; white-space: pre-wrap; color: #d7def0; border: 1px solid var(--line); border-radius: 13px; background: rgba(4,7,13,.62); font: .82rem/1.6 "Cascadia Code", Consolas, monospace; }
+    .safety-actions { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .section-title { margin: 0 0 14px; font-size: 1rem; }
     .revision-list { display: flex; flex-direction: column; gap: 10px; }
     .revision { padding: 15px; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,.025); }
@@ -661,8 +673,8 @@
       .server-facts { grid-template-columns: 1fr 1fr; }
       .database-panel { grid-template-columns: 1fr; }
       .database-primary { grid-column: auto; }
-      .action-row { align-items: stretch; flex-direction: column; }
-      .action-row button { width: 100%; }
+      .action-row, .safety-actions, .section-intro { align-items: stretch; flex-direction: column; }
+      .action-row button, .safety-actions button, #gateway-restart { width: 100%; }
     }
   </style>
 </head>
@@ -746,7 +758,7 @@
               <label class="field"><span>TTS-модель</span><input id="tts_model"></label>
             </div>
             <div class="grid">
-              <label class="field"><span>Голос</span><select id="tts_voice"><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option><option value="__custom__">Другой…</option></select></label>
+              <label class="field"><span>Голос</span><select id="tts_voice"><optgroup label="Локальные · Silero"><option value="xenia">Xenia</option><option value="baya">Baya</option><option value="kseniya">Kseniya</option><option value="aidar">Aidar</option><option value="eugene">Eugene</option></optgroup><optgroup label="Облачные"><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option></optgroup><option value="__custom__">Другой…</option></select></label>
               <label class="field"><span>Формат</span><select id="tts_response_format"><option value="wav">WAV</option><option value="mp3">MP3</option></select></label>
             </div>
             <label class="field" id="tts_voice_custom_field" hidden><span>ID другого голоса</span><input id="tts_voice_custom" placeholder="Например: custom-voice-id"></label>
@@ -786,15 +798,15 @@
       </section>
 
       <section id="agents-card" style="display:none">
-        <div class="section-intro"><p>Персонажи — конфигурация, а не код. Настраивайте характер, голос и безопасный системный промпт.</p><span id="agents-status"></span></div>
-        <details class="safety-card"><summary>Базовый контур безопасности</summary><div class="safety-baseline" id="safety-baseline"></div></details>
+        <div class="section-intro"><p>Персонажи — конфигурация, а не код. Настраивайте характер, голос и безопасный системный промпт.</p><div class="row"><span id="agents-status"></span><button id="gateway-restart" class="danger">↻ Перезапустить Gateway</button></div></div>
+        <details class="safety-card"><summary>Базовый контур безопасности</summary><p class="muted">Общий prompt добавляется перед ролью каждого агента. Программные проверки SafetyService редактированием не отключаются.</p><textarea class="safety-baseline" id="safety-baseline" rows="9"></textarea><div class="safety-actions"><span class="muted" id="safety-baseline-meta"></span><button id="safety-baseline-save" class="primary">Сохранить новую версию</button></div></details>
         <div class="agent-workspace">
           <aside class="panel agent-browser"><div class="panel-head"><div><div class="card-kicker">Agent roster</div><h2>Персонажи</h2></div></div><div id="agent-list" class="agent-list"></div></aside>
           <article class="panel" id="agent-editor" style="display:none">
             <div class="agent-editor-head"><div><div class="card-kicker">Agent profile</div><h2>Настройка агента</h2></div><button id="agent-save" class="primary">Сохранить профиль</button></div>
             <div class="agent-form">
               <div class="grid three"><label class="field"><span>Имя</span><input id="agent-name"></label><label class="field"><span>Иконка</span><input id="agent-icon"></label><label class="field"><span>Цвет</span><input id="agent-color"></label></div>
-              <div class="grid three"><label class="field"><span>Голос</span><select id="agent-voice"><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option></select></label><label class="field"><span>Порядок</span><input id="agent-order" type="number"></label><label class="field"><span>Статус</span><select id="agent-enabled"><option value="true">Доступен</option><option value="false">Отключён</option></select></label></div>
+              <div class="grid three"><label class="field"><span>Голос</span><select id="agent-voice"><optgroup label="Локальные · Silero"><option value="xenia">Xenia</option><option value="baya">Baya</option><option value="kseniya">Kseniya</option><option value="aidar">Aidar</option><option value="eugene">Eugene</option></optgroup><optgroup label="Облачные"><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option></optgroup></select></label><label class="field"><span>Порядок</span><input id="agent-order" type="number"></label><label class="field"><span>Статус</span><select id="agent-enabled"><option value="true">Доступен</option><option value="false">Отключён</option></select></label></div>
               <label class="field"><span>Описание</span><textarea id="agent-description" rows="3"></textarea></label>
               <label class="field"><span>Приветствие</span><textarea id="agent-greeting" rows="3"></textarea></label>
               <fieldset class="field option-group"><legend>Инструменты и разрешения</legend><label class="option-row"><input id="agent-tool-music" type="checkbox"><span>Музыкальный слух — отправлять голосовые записи сервису распознавания мелодий</span></label><label class="option-row"><input id="agent-tool-web-search" type="checkbox"><span>Веб-поиск — проверять факты и названия во внешнем поиске</span></label><label class="option-row"><input id="agent-tool-image-search" type="checkbox"><span>Иллюстрации — добавлять к подходящим ответам лицензированные изображения</span></label><label class="option-row"><input id="agent-permission-outdoor" type="checkbox"><span>Походная безопасность — обсуждать огонь и нож с обязательным участием родителей</span></label></fieldset>
@@ -806,9 +818,9 @@
       </section>
 
       <section id="infrastructure-card" style="display:none">
-        <div class="section-intro"><p>Текущая телеметрия двух LXC проекта и состояние PostgreSQL. Автообновление каждые 15 секунд.</p><div class="row"><span id="infrastructure-status"></span><button id="infrastructure-refresh" class="secondary">↻ Обновить</button></div></div>
+        <div class="section-intro"><p>Текущая телеметрия трёх серверов проекта и состояние PostgreSQL. Автообновление каждые 15 секунд.</p><div class="row"><span id="infrastructure-status"></span><button id="infrastructure-refresh" class="secondary">↻ Обновить</button></div></div>
         <div class="ops-overview">
-          <div><div class="card-kicker">Project runtime</div><h2 id="infrastructure-title">Проверяем инфраструктуру…</h2><p id="infrastructure-subtitle">Gateway · Database · PostgreSQL</p></div>
+          <div><div class="card-kicker">Project runtime</div><h2 id="infrastructure-title">Проверяем инфраструктуру…</h2><p id="infrastructure-subtitle">Gateway · Database · Speech · PostgreSQL</p></div>
           <div class="health-orb" id="infrastructure-orb"><strong id="infrastructure-orb-label">Scan</strong></div>
         </div>
         <div class="server-grid">
@@ -820,6 +832,12 @@
           </article>
           <article class="panel server-card" id="server-database">
             <div class="server-head"><div class="server-identity"><div class="server-icon">▤</div><div><h2>family-ai-db</h2><span class="muted">PostgreSQL · History</span></div></div><span class="health-pill" data-field="status">—</span></div>
+            <div class="server-facts"><div class="server-fact"><span>Uptime</span><strong data-field="uptime">—</strong></div><div class="server-fact"><span>Load 1m</span><strong data-field="load">—</strong></div><div class="server-fact"><span>Cores</span><strong data-field="cores">—</strong></div></div>
+            <div class="resource-list"><div class="resource"><div class="resource-head"><span>CPU</span><strong data-field="cpu-value">—</strong></div><div class="resource-track"><div class="resource-fill" data-field="cpu-bar"></div></div></div><div class="resource"><div class="resource-head"><span>Memory</span><strong data-field="memory-value">—</strong></div><div class="resource-track"><div class="resource-fill" data-field="memory-bar"></div></div></div><div class="resource"><div class="resource-head"><span>Root disk</span><strong data-field="disk-value">—</strong></div><div class="resource-track"><div class="resource-fill" data-field="disk-bar"></div></div></div></div>
+            <svg class="sparkline" viewBox="0 0 300 52" preserveAspectRatio="none" aria-hidden="true"><path class="sparkline-line" data-field="sparkline"></path></svg>
+          </article>
+          <article class="panel server-card" id="server-speech">
+            <div class="server-head"><div class="server-identity"><div class="server-icon">≋</div><div><h2>family-ai-speech</h2><span class="muted">Local STT · TTS</span></div></div><span class="health-pill" data-field="status">—</span></div>
             <div class="server-facts"><div class="server-fact"><span>Uptime</span><strong data-field="uptime">—</strong></div><div class="server-fact"><span>Load 1m</span><strong data-field="load">—</strong></div><div class="server-fact"><span>Cores</span><strong data-field="cores">—</strong></div></div>
             <div class="resource-list"><div class="resource"><div class="resource-head"><span>CPU</span><strong data-field="cpu-value">—</strong></div><div class="resource-track"><div class="resource-fill" data-field="cpu-bar"></div></div></div><div class="resource"><div class="resource-head"><span>Memory</span><strong data-field="memory-value">—</strong></div><div class="resource-track"><div class="resource-fill" data-field="memory-bar"></div></div></div><div class="resource"><div class="resource-head"><span>Root disk</span><strong data-field="disk-value">—</strong></div><div class="resource-track"><div class="resource-fill" data-field="disk-bar"></div></div></div></div>
             <svg class="sparkline" viewBox="0 0 300 52" preserveAspectRatio="none" aria-hidden="true"><path class="sparkline-line" data-field="sparkline"></path></svg>
@@ -864,13 +882,13 @@
     const passwordStatus = document.getElementById("password-status");
     const saveStatus = document.getElementById("save-status");
     const summary = document.getElementById("summary");
-    const knownTtsVoices = new Set(["lulwa", "noura", "aisha", "abdullah", "fahad", "sultan"]);
+    const knownTtsVoices = new Set(["xenia", "baya", "kseniya", "aidar", "eugene", "lulwa", "noura", "aisha", "abdullah", "fahad", "sultan"]);
     let historyPage = 1;
     let historyTotalPages = 0;
     let agents = [];
     let selectedAgentId = null;
     let infrastructureTimer = null;
-    const infrastructureHistory = { gateway: [], database: [] };
+    const infrastructureHistory = { gateway: [], database: [], speech: [] };
 
     function setStatus(el, text, mode) {
       el.style.display = "inline-block";
@@ -1032,7 +1050,10 @@
       try {
         const data = await api("/api/agents", { method: "GET" });
         agents = data.items;
-        document.getElementById("safety-baseline").textContent = data.safety_baseline;
+        setValue("safety-baseline", data.safety_baseline);
+        document.getElementById("safety-baseline-meta").textContent = data.safety_baseline_version
+          ? `Версия ${data.safety_baseline_version} · ${data.safety_baseline_updated_by} · ${formatDateTime(data.safety_baseline_updated_at)}`
+          : "Резервная версия из кода";
         if (!selectedAgentId || !agents.some(agent => agent.id === selectedAgentId)) {
           selectedAgentId = agents[0]?.id || null;
         }
@@ -1041,6 +1062,52 @@
         setStatus(status, "Обновлено", "ok");
       } catch (error) {
         setStatus(status, `Ошибка: ${error.message}`, "err");
+      }
+    }
+
+    async function saveSafetyBaseline() {
+      const systemPrompt = getValue("safety-baseline").trim();
+      const status = document.getElementById("agents-status");
+      const button = document.getElementById("safety-baseline-save");
+      if (systemPrompt.length < 100) {
+        setStatus(status, "Базовый контур должен быть не короче 100 символов", "err");
+        return;
+      }
+      if (!confirm("Сохранить и сразу применить новую версию базового контура ко всем агентам?")) return;
+
+      button.disabled = true;
+      try {
+        const revision = await api("/api/agents/safety-baseline", {
+          method: "PUT",
+          body: JSON.stringify({ system_prompt: systemPrompt })
+        });
+        await loadAgents();
+        setStatus(status, `Контур версии ${revision.version} опубликован`, "ok");
+      } catch (error) {
+        setStatus(status, `Ошибка: ${error.message}`, "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function restartGateway() {
+      const status = document.getElementById("agents-status");
+      const button = document.getElementById("gateway-restart");
+      if (!confirm("Перезапустить AI Gateway? Текущий ответ или голосовой запрос может прерваться.")) return;
+
+      button.disabled = true;
+      setStatus(status, "Перезапускаем Gateway…", "warn");
+      try {
+        const result = await api("/api/system/gateway/restart", { method: "POST" });
+        setStatus(
+          status,
+          result.active ? "Gateway перезапущен и работает" : "Команда выполнена, служба ещё запускается",
+          result.active ? "ok" : "warn"
+        );
+      } catch (error) {
+        setStatus(status, `Ошибка перезапуска: ${error.message}`, "err");
+      } finally {
+        button.disabled = false;
       }
     }
 
@@ -1427,6 +1494,8 @@
     document.getElementById("infrastructure-tab").onclick = () => switchTab("infrastructure");
     document.getElementById("history-tab").onclick = () => switchTab("history");
     document.getElementById("infrastructure-refresh").onclick = loadInfrastructure;
+    document.getElementById("safety-baseline-save").onclick = saveSafetyBaseline;
+    document.getElementById("gateway-restart").onclick = restartGateway;
     document.getElementById("agent-save").onclick = async () => {
       const agent = selectedAgent();
       if (!agent) return;

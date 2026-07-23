@@ -300,6 +300,13 @@ class InfrastructureMonitoringService:
                 url=self._settings.database_node_metrics_url,
                 timeout_seconds=timeout,
             ),
+            self._node_collector.collect(
+                node_id="speech",
+                name="family-ai-speech",
+                role="Local STT · TTS",
+                url=self._settings.speech_node_metrics_url,
+                timeout_seconds=timeout,
+            ),
         ]
         database = self._database_collector.collect(self._session)
         statuses = [node.status for node in nodes] + [database.status]

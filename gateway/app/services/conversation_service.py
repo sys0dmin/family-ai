@@ -160,7 +160,12 @@ class ConversationService:
                 )
 
         # 3. Build request for AI
-        messages = [build_agent_system_message(active_agent.system_prompt)]
+        messages = [
+            build_agent_system_message(
+                active_agent.system_prompt,
+                self._agents.get_safety_baseline(),
+            )
+        ]
         if runtime_context:
             messages.append(ChatMessage(role=ProviderRole.SYSTEM, content=runtime_context))
         elif "music_recognition" in active_agent.tools:

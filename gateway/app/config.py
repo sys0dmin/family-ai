@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     # Project infrastructure monitoring (node_exporter endpoints)
     gateway_node_metrics_url: str | None = None
     database_node_metrics_url: str | None = None
+    speech_node_metrics_url: str | None = None
     monitoring_request_timeout_seconds: float = 2.0
 
     model_config = SettingsConfigDict(
