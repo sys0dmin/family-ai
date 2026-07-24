@@ -30,6 +30,10 @@ class SpeechSettings(BaseSettings):
     max_text_characters: int = Field(default=4000, ge=1, le=10000)
     calibration_dir: Path = Path("/var/lib/family-ai-speech/calibration")
     calibration_expiry_hours: int = Field(default=24, ge=1, le=168)
+    runtime_settings_path: Path = Path("/var/lib/family-ai-speech/runtime.env")
+    restart_request_path: Path = Path(
+        "/var/lib/family-ai-speech/restart.request"
+    )
 
     model_config = SettingsConfigDict(
         env_prefix="FAMILY_AI_SPEECH_",

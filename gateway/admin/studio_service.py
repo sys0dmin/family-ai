@@ -13,8 +13,9 @@ from gateway.app.providers.schemas import (
     SpeechRequest,
     SpeechResponse,
 )
+from gateway.app.safety.contracts import PolicyAction, PolicyOutcome
 from gateway.app.services.agent_service import AgentService
-from gateway.app.services.safety_service import SafetyResult, SafetyService
+from gateway.app.services.safety_service import SafetyService
 
 SAFE_FALLBACK = (
     "Ой, я задумался о чём-то не том. "
@@ -37,27 +38,31 @@ class StudioService:
 
     async def test_agent(self, agent_id: str, prompt: str) -> AgentTestResponse:
         agent = self._agents.get_active(agent_id)
-        input_safety = self._safety.check_text(prompt, agent.permissions)
-        if not input_safety.is_safe:
-            return self._blocked_without_model(input_safety)
-
-        supervised_guidance = self._safety.get_supervised_outdoor_guidance(
+        input_outcome = self._safety.evaluate_input(
             prompt,
             agent.permissions,
         )
-        if supervised_guidance:
+        if input_outcome.action is PolicyAction.BLOCK:
+            return self._blocked_without_model(input_outcome)
+        if input_outcome.action is PolicyAction.TRANSFORM:
+            decision = input_outcome.primary_decision
             return AgentTestResponse(
                 raw_response="",
-                final_response=supervised_guidance,
+                final_response=input_outcome.text,
                 safety_status="guardrail",
-                safety_rule_id="input.supervised_guidance",
-                safety_reason="Ответ сформирован проверенным правилом безопасности.",
+                safety_rule_id=decision.rule_id,
+                safety_reason=decision.reason,
                 llm_duration_ms=None,
             )
 
+        tool_outcome = (
+            self._safety.evaluate_tool("web_search", agent.tools)
+            if "web_search" in agent.tools
+            else None
+        )
         tools = (
             (ProviderTool.WEB_SEARCH,)
-            if "web_search" in agent.tools
+            if tool_outcome and tool_outcome.action is PolicyAction.ALLOW
             else ()
         )
         request = ChatRequest(
@@ -74,31 +79,40 @@ class StudioService:
         response = await self._provider.generate_response(request)
         llm_duration_ms = round((time.perf_counter() - started_at) * 1000)
         raw_response = response.content.replace("\x00", "")
-        final_response = self._safety.normalize_outdoor_response(
+        output_outcome = self._safety.evaluate_output(
             raw_response,
             agent.permissions,
         )
-        final_response = self._safety.apply_required_guardrails(
-            final_response,
-            agent.permissions,
-        )
-        output_safety = self._safety.check_response(
-            final_response,
-            agent.permissions,
-        )
-        if not output_safety.is_safe:
+        final_response = output_outcome.text
+        if output_outcome.action is PolicyAction.BLOCK:
+            decision = output_outcome.primary_decision
             return AgentTestResponse(
                 raw_response=raw_response,
-                final_response=SAFE_FALLBACK,
+                final_response=output_outcome.safe_response or SAFE_FALLBACK,
                 safety_status="blocked",
-                safety_rule_id=output_safety.rule_id,
-                safety_reason=output_safety.reason,
+                safety_rule_id=decision.rule_id,
+                safety_reason=decision.reason,
                 llm_duration_ms=llm_duration_ms,
             )
+        decision = output_outcome.primary_decision
         return AgentTestResponse(
             raw_response=raw_response,
             final_response=final_response,
-            safety_status="passed",
+            safety_status=(
+                "guardrail"
+                if output_outcome.action is PolicyAction.TRANSFORM
+                else "passed"
+            ),
+            safety_rule_id=(
+                decision.rule_id
+                if output_outcome.action is PolicyAction.TRANSFORM
+                else None
+            ),
+            safety_reason=(
+                decision.reason
+                if output_outcome.action is PolicyAction.TRANSFORM
+                else None
+            ),
             llm_duration_ms=llm_duration_ms,
         )
 
@@ -108,12 +122,13 @@ class StudioService:
         )
 
     @staticmethod
-    def _blocked_without_model(result: SafetyResult) -> AgentTestResponse:
+    def _blocked_without_model(result: PolicyOutcome) -> AgentTestResponse:
+        decision = result.primary_decision
         return AgentTestResponse(
             raw_response="",
-            final_response=result.suggested_response or SAFE_FALLBACK,
+            final_response=result.safe_response or SAFE_FALLBACK,
             safety_status="blocked",
-            safety_rule_id=result.rule_id,
-            safety_reason=result.reason,
+            safety_rule_id=decision.rule_id,
+            safety_reason=decision.reason,
             llm_duration_ms=None,
         )

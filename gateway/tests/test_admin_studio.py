@@ -51,4 +51,4 @@ async def test_studio_explains_blocked_model_output() -> None:
     assert result.raw_response == "Пароль: secret-value"
     assert result.final_response == SAFE_FALLBACK
     assert result.safety_status == "blocked"
-    assert result.safety_rule_id == "output.secret_value"
+    assert result.safety_rule_id == "output.privacy.secret.block"

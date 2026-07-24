@@ -80,15 +80,26 @@ class FakeSpeechService:
 
 
 def build_client() -> tuple[TestClient, FakeSpeechService]:
+    runtime_dir = Path(mkdtemp(prefix="family-ai-runtime-settings-test-"))
     settings = SpeechSettings(
         api_key=SecretStr("local-secret"),
         stt_model="base",
         tts_model="silero-v5_2-ru",
         max_audio_bytes=1024,
         calibration_dir=Path(mkdtemp(prefix="family-ai-calibration-test-")),
+        runtime_settings_path=runtime_dir / "runtime.env",
     )
     service = FakeSpeechService()
-    return TestClient(create_app(settings=settings, service=service)), service
+    return (
+        TestClient(
+            create_app(
+                settings=settings,
+                service=service,
+                restart_scheduler=lambda: None,
+            )
+        ),
+        service,
+    )
 
 
 def test_health_does_not_require_authentication() -> None:
@@ -148,6 +159,41 @@ def test_calibration_samples_stay_behind_private_authentication() -> None:
     )
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"
+
+
+def test_runtime_settings_are_protected_validated_and_persisted() -> None:
+    client, _service = build_client()
+
+    denied = client.get("/internal/runtime-settings")
+    assert denied.status_code == 401
+
+    invalid = client.post(
+        "/internal/runtime-settings",
+        headers={"Authorization": "Bearer local-secret"},
+        json={"stt_beam_size": 0, "stt_vad_filter": True},
+    )
+    assert invalid.status_code == 422
+
+    accepted = client.post(
+        "/internal/runtime-settings",
+        headers={"Authorization": "Bearer local-secret"},
+        json={"stt_beam_size": 3, "stt_vad_filter": False},
+    )
+    assert accepted.status_code == 202
+    assert accepted.json()["stt_beam_size"] == 3
+    assert accepted.json()["stt_vad_filter"] is False
+    assert accepted.json()["restart_scheduled"] is True
+    assert accepted.json()["instance_id"]
+
+    active = client.get(
+        "/internal/runtime-settings",
+        headers={"Authorization": "Bearer local-secret"},
+    )
+    assert active.status_code == 200
+    assert active.json()["stt_beam_size"] == 5
+    assert active.json()["stt_vad_filter"] is True
+    assert active.json()["restart_scheduled"] is False
+    assert active.json()["instance_id"] == accepted.json()["instance_id"]
 
 
 def test_transcription_matches_openai_text_contract() -> None:

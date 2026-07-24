@@ -97,3 +97,15 @@ class CalibrationStateResponse(BaseModel):
     recommended_beam_size: int | None = None
     recommended_vad_filter: bool | None = None
     error: str | None = None
+
+
+class RuntimeSettingsUpdateRequest(BaseModel):
+    stt_beam_size: int = Field(ge=1, le=10)
+    stt_vad_filter: bool
+
+
+class RuntimeSettingsResponse(BaseModel):
+    stt_beam_size: int
+    stt_vad_filter: bool
+    restart_scheduled: bool = False
+    instance_id: str

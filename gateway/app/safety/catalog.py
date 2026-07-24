@@ -1,0 +1,206 @@
+"""Auditable registry of stable safety rules."""
+
+from gateway.app.safety.contracts import (
+    PolicyAction,
+    PolicyCategory,
+    PolicyPhase,
+    PolicyRuleDescriptor,
+)
+
+
+def _rule(
+    rule_id: str,
+    phase: PolicyPhase,
+    category: PolicyCategory,
+    action: PolicyAction,
+    title: str,
+) -> PolicyRuleDescriptor:
+    return PolicyRuleDescriptor(rule_id, phase, category, action, title)
+
+
+RULE_CATALOG = (
+    _rule(
+        "input.default.allow",
+        PolicyPhase.INPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.ALLOW,
+        "Безопасный вход разрешён",
+    ),
+    _rule(
+        "input.privacy.personal_contact.block",
+        PolicyPhase.INPUT,
+        PolicyCategory.PRIVACY,
+        PolicyAction.BLOCK,
+        "Запрос домашнего адреса или телефона",
+    ),
+    _rule(
+        "input.privacy.secret_request.block",
+        PolicyPhase.INPUT,
+        PolicyCategory.PRIVACY,
+        PolicyAction.BLOCK,
+        "Запрос пароля, токена или инфраструктурного секрета",
+    ),
+    _rule(
+        "input.cyber.abuse.block",
+        PolicyPhase.INPUT,
+        PolicyCategory.CYBER_SAFETY,
+        PolicyAction.BLOCK,
+        "Практический запрос на взлом или обход защиты",
+    ),
+    _rule(
+        "input.physical.poison_creation.block",
+        PolicyPhase.INPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.BLOCK,
+        "Создание или применение яда",
+    ),
+    _rule(
+        "input.physical.hazardous_instruction.block",
+        PolicyPhase.INPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.BLOCK,
+        "Опасная практическая инструкция",
+    ),
+    _rule(
+        "input.outdoor.fire.safe_guidance",
+        PolicyPhase.INPUT,
+        PolicyCategory.OUTDOOR_SAFETY,
+        PolicyAction.TRANSFORM,
+        "Проверенная памятка о костре",
+    ),
+    _rule(
+        "input.outdoor.sharpening.safe_guidance",
+        PolicyPhase.INPUT,
+        PolicyCategory.OUTDOOR_SAFETY,
+        PolicyAction.TRANSFORM,
+        "Проверенная памятка о заточке ножа",
+    ),
+    _rule(
+        "input.outdoor.mushroom.safe_guidance",
+        PolicyPhase.INPUT,
+        PolicyCategory.OUTDOOR_SAFETY,
+        PolicyAction.TRANSFORM,
+        "Проверенная памятка о неизвестных грибах",
+    ),
+    _rule(
+        "input.outdoor.berry.safe_guidance",
+        PolicyPhase.INPUT,
+        PolicyCategory.OUTDOOR_SAFETY,
+        PolicyAction.TRANSFORM,
+        "Проверенная памятка о неизвестных ягодах",
+    ),
+    _rule(
+        "permission.outdoor_guidance.required",
+        PolicyPhase.PERMISSION,
+        PolicyCategory.OUTDOOR_SAFETY,
+        PolicyAction.BLOCK,
+        "Походные опасности доступны только специальному агенту",
+    ),
+    _rule(
+        "permission.outdoor_guidance.allow",
+        PolicyPhase.PERMISSION,
+        PolicyCategory.OUTDOOR_SAFETY,
+        PolicyAction.ALLOW,
+        "Агенту разрешена походная безопасность",
+    ),
+    _rule(
+        "output.default.allow",
+        PolicyPhase.OUTPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.ALLOW,
+        "Безопасный ответ разрешён",
+    ),
+    _rule(
+        "output.privacy.phone.block",
+        PolicyPhase.OUTPUT,
+        PolicyCategory.PRIVACY,
+        PolicyAction.BLOCK,
+        "Ответ содержит номер телефона",
+    ),
+    _rule(
+        "output.privacy.secret.block",
+        PolicyPhase.OUTPUT,
+        PolicyCategory.PRIVACY,
+        PolicyAction.BLOCK,
+        "Ответ раскрывает секрет",
+    ),
+    _rule(
+        "output.cyber.directive.block",
+        PolicyPhase.OUTPUT,
+        PolicyCategory.CYBER_SAFETY,
+        PolicyAction.BLOCK,
+        "Ответ даёт инструкцию по компьютерному злоупотреблению",
+    ),
+    _rule(
+        "output.physical.directive.block",
+        PolicyPhase.OUTPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.BLOCK,
+        "Ответ адресует ребёнку опасное действие",
+    ),
+    _rule(
+        "output.outdoor.presentation.transform",
+        PolicyPhase.OUTPUT,
+        PolicyCategory.PRESENTATION,
+        PolicyAction.TRANSFORM,
+        "Убраны Markdown и параметры заточки",
+    ),
+    _rule(
+        "output.outdoor.supervision.transform",
+        PolicyPhase.OUTPUT,
+        PolicyCategory.OUTDOOR_SAFETY,
+        PolicyAction.TRANSFORM,
+        "Добавлено обязательное участие родителей",
+    ),
+    _rule(
+        "tool.web_search.allow",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.ALLOW,
+        "Агенту разрешён веб-поиск",
+    ),
+    _rule(
+        "tool.web_search.block",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.BLOCK,
+        "Веб-поиск не разрешён агенту",
+    ),
+    _rule(
+        "tool.music_recognition.allow",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.ALLOW,
+        "Агенту разрешено распознавание музыки",
+    ),
+    _rule(
+        "tool.music_recognition.block",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.BLOCK,
+        "Распознавание музыки не разрешено агенту",
+    ),
+    _rule(
+        "tool.image_search.allow",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.ALLOW,
+        "Агенту разрешён поиск изображений",
+    ),
+    _rule(
+        "tool.image_search.block",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.BLOCK,
+        "Поиск изображений не разрешён агенту",
+    ),
+    _rule(
+        "tool.unknown.block",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.BLOCK,
+        "Неизвестный инструмент запрещён",
+    ),
+)
+
+RULES_BY_ID = {rule.rule_id: rule for rule in RULE_CATALOG}

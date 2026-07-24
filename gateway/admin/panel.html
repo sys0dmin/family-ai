@@ -706,8 +706,29 @@
     .calibration-results th { color:var(--muted); font-size:12px; }
     .calibration-guide { margin-top:18px; padding:16px; border:1px solid var(--line); border-radius:15px; background:rgba(255,255,255,.025); }
     .calibration-guide li { margin:8px 0; color:var(--muted); line-height:1.5; }
+    .safety-overview { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .safety-metric { min-height:126px; padding:18px; border:1px solid var(--line); border-radius:18px; background:linear-gradient(145deg,rgba(22,27,43,.9),rgba(13,17,28,.92)); }
+    .safety-metric span { display:block; color:var(--muted); font-size:12px; }
+    .safety-metric strong { display:block; margin-top:9px; font-size:28px; }
+    .safety-layout { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr); gap:18px; }
+    .safety-table-wrap { overflow-x:auto; }
+    .safety-table { width:100%; border-collapse:collapse; }
+    .safety-table th, .safety-table td { padding:12px 10px; text-align:left; border-bottom:1px solid var(--line); vertical-align:middle; }
+    .safety-table th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+    .rule-id { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12px; overflow-wrap:anywhere; }
+    .policy-badge { display:inline-flex; padding:5px 8px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.04em; }
+    .policy-badge.allow { color:var(--green); background:rgba(84,223,168,.09); }
+    .policy-badge.transform { color:var(--amber); background:rgba(255,189,89,.09); }
+    .policy-badge.block { color:var(--red); background:rgba(255,111,125,.09); }
+    .scenario-list { display:flex; flex-direction:column; gap:9px; margin-top:16px; }
+    .scenario-row { padding:11px 12px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; border:1px solid var(--line); border-radius:13px; background:rgba(255,255,255,.025); }
+    .scenario-row strong { font-size:12px; overflow-wrap:anywhere; }
+    .scenario-row span { color:var(--muted); font-size:11px; white-space:nowrap; }
+    .scenario-row.failed { border-color:rgba(255,111,125,.35); }
+    .safety-note { margin-top:16px; padding:14px; border:1px solid rgba(66,216,237,.18); border-radius:14px; background:rgba(66,216,237,.055); color:var(--muted); line-height:1.5; }
     @media (max-width: 900px) {
-      .studio-grid, .studio-results { grid-template-columns:1fr; }
+      .studio-grid, .studio-results, .safety-layout { grid-template-columns:1fr; }
+      .safety-overview { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .pipeline-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
     }
   </style>
@@ -746,6 +767,7 @@
         <button class="tab-button active" id="settings-tab" aria-selected="true"><span class="nav-icon">⌁</span><span>Настройки</span></button>
         <button class="tab-button" id="agents-tab" aria-selected="false"><span class="nav-icon">✦</span><span>Агенты</span></button>
         <button class="tab-button" id="studio-tab" aria-selected="false"><span class="nav-icon">▶</span><span>Тест-студия</span></button>
+        <button class="tab-button" id="safety-tab" aria-selected="false"><span class="nav-icon">◇</span><span>Safety</span></button>
         <button class="tab-button" id="infrastructure-tab" aria-selected="false"><span class="nav-icon">◉</span><span>Инфраструктура</span></button>
         <button class="tab-button" id="history-tab" aria-selected="false"><span class="nav-icon">▥</span><span>Аналитика</span></button>
       </nav>
@@ -883,6 +905,12 @@
         </article>
         <article class="panel studio-controls" style="margin-top:18px">
           <div class="panel-head"><div><div class="card-kicker">Child speech lab</div><h2>Калибровка речи Леры</h2></div><span id="calibration-state" class="health-pill">Не запускалась</span></div>
+          <div class="grid three">
+            <label class="field"><span>Beam size</span><select id="speech-runtime-beam"><option value="1">1 · быстрее</option><option value="2">2</option><option value="3">3 · баланс</option><option value="4">4</option><option value="5">5 · калибровано</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10 · точнее/медленнее</option></select></label>
+            <label class="option-row"><input id="speech-runtime-vad" type="checkbox"><span><strong>VAD</strong><small>Отбрасывать тишину до распознавания</small></span></label>
+            <div class="field"><span>Активная конфигурация</span><strong id="speech-runtime-state">Загружаем…</strong></div>
+          </div>
+          <div class="studio-actions"><button id="speech-runtime-apply" class="danger">Сохранить и перезапустить Speech</button><span id="speech-runtime-status"></span></div>
           <p class="muted">15 локальных образцов: 12 фраз и 3 проверки тишины. WAV автоматически удаляются после сравнения VAD и beam size.</p>
           <div class="calibration-progress"><span id="calibration-progress-bar"></span></div>
           <div class="queue-strip"><span>Образцы: <strong id="calibration-samples">0 / 15</strong></span><span>Анализ: <strong id="calibration-trials">0 / 90</strong></span><span id="calibration-recommendation"></span></div>
@@ -899,6 +927,34 @@
           </details>
           <div style="overflow-x:auto"><table class="calibration-results"><thead><tr><th>VAD</th><th>Beam</th><th>Точность</th><th>Тишина</th><th>Среднее</th><th>P95</th></tr></thead><tbody id="calibration-results"></tbody></table></div>
         </article>
+      </section>
+
+      <section id="safety-policy-card" style="display:none">
+        <div class="section-intro">
+          <p>Формальный контур защиты до и после модели. Здесь нет текстов Леры: только обязательные правила, агрегированные срабатывания и локальная проверочная матрица.</p>
+          <div class="row"><span id="safety-policy-status"></span><button id="safety-policy-refresh" class="secondary">↻ Обновить</button></div>
+        </div>
+        <div class="safety-overview">
+          <article class="safety-metric"><span>Правил</span><strong id="safety-rule-count">—</strong></article>
+          <article class="safety-metric"><span>Решений</span><strong id="safety-decision-count">—</strong></article>
+          <article class="safety-metric"><span>BLOCK</span><strong id="safety-block-count">—</strong></article>
+          <article class="safety-metric"><span>TRANSFORM</span><strong id="safety-transform-count">—</strong></article>
+          <article class="safety-metric"><span>Сценарии</span><strong id="safety-scenario-state">Не запускались</strong></article>
+        </div>
+        <div class="safety-layout">
+          <article class="panel">
+            <div class="panel-head"><div><div class="card-kicker">Policy catalog</div><h2>Обязательные правила</h2></div><span id="safety-metrics-started" class="muted"></span></div>
+            <div class="safety-table-wrap"><table class="safety-table"><thead><tr><th>Правило</th><th>Фаза</th><th>Категория</th><th>Действие</th><th>Срабатывания</th></tr></thead><tbody id="safety-rule-list"></tbody></table></div>
+          </article>
+          <aside class="panel">
+            <div class="panel-head"><div><div class="card-kicker">Regression control</div><h2>Контрольная матрица</h2></div></div>
+            <p class="muted">Без обращения к LLM прогоняет безопасные, опасные и пограничные формулировки через тот же Policy Engine.</p>
+            <div class="studio-actions"><button id="safety-run-scenarios" class="primary">Запустить сценарии</button><button id="safety-reset-metrics" class="secondary">Сбросить счётчики</button></div>
+            <div id="safety-scenario-list" class="scenario-list"><span class="muted">Матрица ещё не запускалась.</span></div>
+            <div class="safety-note">Отключить обязательное правило из админки нельзя. Разрешения на специальные возможности, например походные инструкции и инструменты, настраиваются в профиле конкретного агента.</div>
+            <div class="studio-actions"><button id="safety-open-agents" class="secondary">Открыть разрешения агентов →</button></div>
+          </aside>
+        </div>
       </section>
 
       <section id="infrastructure-card" style="display:none">
@@ -972,6 +1028,7 @@
     const settingsCard = document.getElementById("settings-card");
     const agentsCard = document.getElementById("agents-card");
     const studioCard = document.getElementById("studio-card");
+    const safetyPolicyCard = document.getElementById("safety-policy-card");
     const infrastructureCard = document.getElementById("infrastructure-card");
     const historyCard = document.getElementById("history-card");
     const authStatus = document.getElementById("auth-status");
@@ -1041,15 +1098,17 @@
         settings: ["Настройки", "System configuration"],
         agents: ["Агенты", "Agent studio"],
         studio: ["Тест-студия", "Prompt & voice laboratory"],
+        safety: ["Safety Policy", "Child safety control"],
         infrastructure: ["Инфраструктура", "Project operations"],
         history: ["Аналитика", "Conversation intelligence"]
       };
       settingsCard.style.display = tab === "settings" ? "block" : "none";
       agentsCard.style.display = tab === "agents" ? "block" : "none";
       studioCard.style.display = tab === "studio" ? "block" : "none";
+      safetyPolicyCard.style.display = tab === "safety" ? "block" : "none";
       infrastructureCard.style.display = tab === "infrastructure" ? "block" : "none";
       historyCard.style.display = tab === "history" ? "block" : "none";
-      for (const name of ["settings", "agents", "studio", "infrastructure", "history"]) {
+      for (const name of ["settings", "agents", "studio", "safety", "infrastructure", "history"]) {
         const tabButton = document.getElementById(`${name}-tab`);
         tabButton.classList.toggle("active", tab === name);
         tabButton.setAttribute("aria-selected", String(tab === name));
@@ -1060,7 +1119,9 @@
       if (tab === "studio") {
         loadStudio();
         loadCalibrationStatus();
+        loadSpeechRuntimeSettings();
       }
+      if (tab === "safety") loadSafetyPolicy();
       clearInterval(infrastructureTimer);
       infrastructureTimer = null;
       clearInterval(calibrationTimer);
@@ -1077,6 +1138,93 @@
 
     function selectedAgent() {
       return agents.find(agent => agent.id === selectedAgentId) || null;
+    }
+
+    function renderSafetyPolicy(data) {
+      const rules = data.rules || [];
+      const countByAction = action => rules
+        .filter(rule => rule.action === action)
+        .reduce((total, rule) => total + rule.count, 0);
+      document.getElementById("safety-rule-count").textContent = rules.length;
+      document.getElementById("safety-decision-count").textContent = rules.reduce((total, rule) => total + rule.count, 0);
+      document.getElementById("safety-block-count").textContent = countByAction("BLOCK");
+      document.getElementById("safety-transform-count").textContent = countByAction("TRANSFORM");
+      document.getElementById("safety-metrics-started").textContent = `Счётчики с ${formatDateTime(data.metrics_started_at)}`;
+      const body = document.getElementById("safety-rule-list");
+      body.replaceChildren();
+      for (const rule of rules) {
+        const row = document.createElement("tr");
+        const identity = document.createElement("td");
+        const title = document.createElement("strong");
+        title.textContent = rule.title;
+        const id = document.createElement("div");
+        id.className = "rule-id muted";
+        id.textContent = rule.rule_id;
+        identity.append(title, id);
+        const phase = document.createElement("td");
+        phase.textContent = rule.phase;
+        const category = document.createElement("td");
+        category.textContent = rule.category;
+        const actionCell = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = `policy-badge ${rule.action.toLowerCase()}`;
+        badge.textContent = rule.action;
+        actionCell.appendChild(badge);
+        const count = document.createElement("td");
+        count.textContent = rule.count;
+        row.append(identity, phase, category, actionCell, count);
+        body.appendChild(row);
+      }
+    }
+
+    async function loadSafetyPolicy() {
+      const status = document.getElementById("safety-policy-status");
+      try {
+        const data = await api("/api/safety-policy", { method: "GET" });
+        renderSafetyPolicy(data);
+        setStatus(status, "Policy Engine доступен", "ok");
+      } catch (error) {
+        setStatus(status, `Ошибка: ${error.message}`, "err");
+      }
+    }
+
+    async function runSafetyScenarios() {
+      const status = document.getElementById("safety-policy-status");
+      const button = document.getElementById("safety-run-scenarios");
+      button.disabled = true;
+      try {
+        const report = await api("/api/safety-policy/scenarios", { method: "POST" });
+        document.getElementById("safety-scenario-state").textContent = `${report.passed} / ${report.total}`;
+        const list = document.getElementById("safety-scenario-list");
+        list.replaceChildren();
+        for (const result of report.results) {
+          const row = document.createElement("div");
+          row.className = `scenario-row${result.passed ? "" : " failed"}`;
+          const name = document.createElement("strong");
+          name.textContent = result.scenario_id;
+          const state = document.createElement("span");
+          state.textContent = result.passed ? "Пройден" : `${result.actual_action} · ${result.actual_rule_id}`;
+          row.append(name, state);
+          list.appendChild(row);
+        }
+        setStatus(status, report.failed ? `Есть ошибки: ${report.failed}` : "Все сценарии пройдены", report.failed ? "err" : "ok");
+      } catch (error) {
+        setStatus(status, `Ошибка: ${error.message}`, "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function resetSafetyMetrics() {
+      if (!confirm("Сбросить агрегированные счётчики Safety Policy? Правила и настройки не изменятся.")) return;
+      const status = document.getElementById("safety-policy-status");
+      try {
+        const data = await api("/api/safety-policy/metrics", { method: "DELETE" });
+        renderSafetyPolicy(data);
+        setStatus(status, "Счётчики сброшены", "ok");
+      } catch (error) {
+        setStatus(status, `Ошибка: ${error.message}`, "err");
+      }
     }
 
     function renderAgentList() {
@@ -1325,6 +1473,58 @@
           row.append(cell);
         }
         results.append(row);
+      }
+    }
+
+    async function loadSpeechRuntimeSettings() {
+      const status = document.getElementById("speech-runtime-status");
+      try {
+        const settings = await api("/api/speech/runtime-settings", { method: "GET" });
+        setValue("speech-runtime-beam", settings.stt_beam_size);
+        document.getElementById("speech-runtime-vad").checked = settings.stt_vad_filter;
+        document.getElementById("speech-runtime-state").textContent =
+          `beam ${settings.stt_beam_size} · VAD ${settings.stt_vad_filter ? "вкл." : "выкл."}`;
+        setStatus(status, "Значения загружены из Speech", "ok");
+      } catch (error) {
+        document.getElementById("speech-runtime-state").textContent = "Недоступно";
+        setStatus(status, `Ошибка: ${error.message}`, "err");
+      }
+    }
+
+    async function applySpeechRuntimeSettings() {
+      const button = document.getElementById("speech-runtime-apply");
+      const beam = Number.parseInt(getValue("speech-runtime-beam"), 10);
+      const vad = document.getElementById("speech-runtime-vad").checked;
+      if (!confirm(`Применить beam ${beam}, VAD ${vad ? "вкл." : "выкл."} и перезапустить Speech? Голос будет недоступен около 15 секунд.`)) return;
+      button.disabled = true;
+      setStatus(
+        document.getElementById("speech-runtime-status"),
+        "Сохраняем и ждём новый процесс Speech…",
+        ""
+      );
+      try {
+        const settings = await api("/api/speech/runtime-settings", {
+          method: "PUT",
+          body: JSON.stringify({
+            stt_beam_size: beam,
+            stt_vad_filter: vad
+          })
+        });
+        document.getElementById("speech-runtime-state").textContent =
+          `beam ${settings.stt_beam_size} · VAD ${settings.stt_vad_filter ? "вкл." : "выкл."}`;
+        setStatus(
+          document.getElementById("speech-runtime-status"),
+          "Speech перезапущен, настройки подтверждены",
+          "ok"
+        );
+      } catch (error) {
+        setStatus(
+          document.getElementById("speech-runtime-status"),
+          `Ошибка: ${error.message}`,
+          "err"
+        );
+      } finally {
+        button.disabled = false;
       }
     }
 
@@ -1780,6 +1980,7 @@
         settingsCard.style.display = "none";
         agentsCard.style.display = "none";
         studioCard.style.display = "none";
+        safetyPolicyCard.style.display = "none";
         infrastructureCard.style.display = "none";
         historyCard.style.display = "none";
         setStatus(passwordStatus, "Требуется сменить пароль", "warn");
@@ -1856,6 +2057,7 @@
     document.getElementById("settings-tab").onclick = () => switchTab("settings");
     document.getElementById("agents-tab").onclick = () => switchTab("agents");
     document.getElementById("studio-tab").onclick = () => switchTab("studio");
+    document.getElementById("safety-tab").onclick = () => switchTab("safety");
     document.getElementById("infrastructure-tab").onclick = () => switchTab("infrastructure");
     document.getElementById("history-tab").onclick = () => switchTab("history");
     document.getElementById("infrastructure-refresh").onclick = loadInfrastructure;
@@ -1869,6 +2071,11 @@
     document.getElementById("studio-speak").onclick = speakStudioText;
     document.getElementById("calibration-start").onclick = startCalibration;
     document.getElementById("calibration-cancel").onclick = cancelCalibration;
+    document.getElementById("speech-runtime-apply").onclick = applySpeechRuntimeSettings;
+    document.getElementById("safety-policy-refresh").onclick = loadSafetyPolicy;
+    document.getElementById("safety-run-scenarios").onclick = runSafetyScenarios;
+    document.getElementById("safety-reset-metrics").onclick = resetSafetyMetrics;
+    document.getElementById("safety-open-agents").onclick = () => switchTab("agents");
     document.getElementById("agent-save").onclick = async () => {
       const agent = selectedAgent();
       if (!agent) return;

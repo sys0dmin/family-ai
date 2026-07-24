@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from gateway.app.agents import ActiveAgent
 from gateway.app.images import ImageSearchProvider
 from gateway.app.models import Message, MessageMedia
+from gateway.app.safety.contracts import PolicyAction
+from gateway.app.services.safety_service import SafetyService
 
 logger = logging.getLogger(__name__)
 
@@ -90,10 +92,12 @@ class VisualMediaService:
         session: Session,
         provider: ImageSearchProvider | None,
         timeout_seconds: float = 6.0,
+        safety: SafetyService | None = None,
     ) -> None:
         self._session = session
         self._provider = provider
         self._timeout_seconds = timeout_seconds
+        self._safety = safety
 
     async def attach_for_turn(
         self,
@@ -103,7 +107,16 @@ class VisualMediaService:
     ) -> None:
         """Attach at most one relevant image when the agent and request allow it."""
 
-        if self._provider is None or "image_search" not in agent.tools:
+        policy = (
+            self._safety.evaluate_tool("image_search", agent.tools)
+            if self._safety
+            else None
+        )
+        if policy is not None and policy.action is PolicyAction.BLOCK:
+            return
+        if self._provider is None or (
+            policy is None and "image_search" not in agent.tools
+        ):
             return
         if not VISUAL_INTENT_PATTERN.search(child_text):
             return

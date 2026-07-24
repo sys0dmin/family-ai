@@ -16,12 +16,15 @@ from gateway.app.music.acrcloud import AcrCloudMusicRecognitionProvider
 from gateway.app.observability.voice_metrics import voice_metrics_registry
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.openai import OpenAIProvider
+from gateway.app.safety.engine import SafetyPolicyEngine
+from gateway.app.safety.metrics import safety_metrics_registry
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.music_recognition_service import MusicRecognitionService
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.visual_media_service import VisualMediaService
 from gateway.app.services.voice_service import VoiceService
+from gateway.app.speech_runtime.service import SpeechRuntimeService
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,7 @@ logger = logging.getLogger(__name__)
 @lru_cache
 def get_safety_service() -> SafetyService:
     """Return the safety service singleton."""
-    return SafetyService()
+    return SafetyService(SafetyPolicyEngine(safety_metrics_registry))
 
 
 def get_ai_provider() -> AIProvider:
@@ -55,6 +58,12 @@ def get_speech_calibration_service(
     settings: Settings = Depends(get_settings),
 ) -> SpeechCalibrationService:
     return SpeechCalibrationService(settings)
+
+
+def get_speech_runtime_service(
+    settings: Settings = Depends(get_settings),
+) -> SpeechRuntimeService:
+    return SpeechRuntimeService(settings)
 
 
 def get_agent_service(
@@ -90,8 +99,9 @@ def get_music_recognition_provider() -> MusicRecognitionProvider | None:
 
 def get_music_recognition_service(
     provider: MusicRecognitionProvider | None = Depends(get_music_recognition_provider),
+    safety: SafetyService = Depends(get_safety_service),
 ) -> MusicRecognitionService:
-    return MusicRecognitionService(provider)
+    return MusicRecognitionService(provider, safety)
 
 
 def get_image_search_provider() -> ImageSearchProvider | None:
@@ -106,9 +116,15 @@ def get_image_search_provider() -> ImageSearchProvider | None:
 def get_visual_media_service(
     session: Session = Depends(get_db_session),
     provider: ImageSearchProvider | None = Depends(get_image_search_provider),
+    safety: SafetyService = Depends(get_safety_service),
 ) -> VisualMediaService:
     settings = Settings()
-    return VisualMediaService(session, provider, settings.image_search_timeout_seconds)
+    return VisualMediaService(
+        session,
+        provider,
+        settings.image_search_timeout_seconds,
+        safety,
+    )
 
 
 def get_conversation_service(

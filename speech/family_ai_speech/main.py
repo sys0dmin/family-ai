@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import secrets
+import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -17,9 +18,15 @@ from family_ai_speech.calibration import (
     CalibrationNotFoundError,
 )
 from family_ai_speech.config import SpeechSettings
+from family_ai_speech.runtime_settings import (
+    RuntimeSettingsApplyError,
+    SpeechRuntimeSettingsManager,
+)
 from family_ai_speech.schemas import (
     CalibrationStartRequest,
     CalibrationStateResponse,
+    RuntimeSettingsResponse,
+    RuntimeSettingsUpdateRequest,
     SpeechRuntimeMetricsResponse,
     SynthesisRequest,
     TranscriptionSegmentResponse,
@@ -55,10 +62,12 @@ def create_app(
     settings: SpeechSettings | None = None,
     service: LocalSpeechService | None = None,
     backend_factory: Callable = build_backends,
+    restart_scheduler: Callable[[], None] | None = None,
 ) -> FastAPI:
     """Build the application with injectable model adapters for tests."""
 
     resolved_settings = settings or SpeechSettings()
+    instance_id = str(uuid.uuid4())
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
@@ -71,6 +80,11 @@ def create_app(
             resolved_settings.calibration_dir,
             resolved_settings.calibration_expiry_hours,
             application.state.speech_service,
+        )
+        application.state.runtime_settings_manager = SpeechRuntimeSettingsManager(
+            resolved_settings.runtime_settings_path,
+            resolved_settings.restart_request_path,
+            restart_scheduler,
         )
         application.state.calibration_manager.start_housekeeping()
         logger.info(
@@ -97,6 +111,11 @@ def create_app(
             resolved_settings.calibration_expiry_hours,
             service,
         )
+        app.state.runtime_settings_manager = SpeechRuntimeSettingsManager(
+            resolved_settings.runtime_settings_path,
+            resolved_settings.restart_request_path,
+            restart_scheduler,
+        )
 
     def authorize(
         authorization: Annotated[str | None, Header()] = None,
@@ -113,6 +132,9 @@ def create_app(
 
     def get_calibration_manager() -> CalibrationManager:
         return app.state.calibration_manager
+
+    def get_runtime_settings_manager() -> SpeechRuntimeSettingsManager:
+        return app.state.runtime_settings_manager
 
     @app.get("/healthz")
     async def health() -> dict[str, str]:
@@ -211,6 +233,48 @@ def create_app(
             content=audio,
             media_type="audio/wav",
             headers={"Content-Disposition": 'inline; filename="speech.wav"'},
+        )
+
+    @app.post(
+        "/internal/runtime-settings",
+        response_model=RuntimeSettingsResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+        dependencies=[Depends(authorize)],
+    )
+    async def update_runtime_settings(
+        payload: RuntimeSettingsUpdateRequest,
+        manager: SpeechRuntimeSettingsManager = Depends(
+            get_runtime_settings_manager
+        ),
+    ) -> RuntimeSettingsResponse:
+        try:
+            manager.apply(
+                beam_size=payload.stt_beam_size,
+                vad_filter=payload.stt_vad_filter,
+            )
+        except (OSError, RuntimeSettingsApplyError) as exc:
+            logger.exception("speech_runtime_settings_apply_failed")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Speech runtime settings could not be applied",
+            ) from exc
+        return RuntimeSettingsResponse(
+            stt_beam_size=payload.stt_beam_size,
+            stt_vad_filter=payload.stt_vad_filter,
+            restart_scheduled=True,
+            instance_id=instance_id,
+        )
+
+    @app.get(
+        "/internal/runtime-settings",
+        response_model=RuntimeSettingsResponse,
+        dependencies=[Depends(authorize)],
+    )
+    async def runtime_settings() -> RuntimeSettingsResponse:
+        return RuntimeSettingsResponse(
+            stt_beam_size=resolved_settings.stt_beam_size,
+            stt_vad_filter=resolved_settings.stt_vad_filter,
+            instance_id=instance_id,
         )
 
     @app.post(

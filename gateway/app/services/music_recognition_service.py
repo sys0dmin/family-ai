@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from gateway.app.agents import ActiveAgent
 from gateway.app.music import MusicRecognitionProvider, MusicRecognitionRequest
+from gateway.app.safety.contracts import PolicyAction
+from gateway.app.services.safety_service import SafetyService
 
 
 @dataclass(frozen=True)
@@ -18,8 +20,13 @@ class MusicRecognitionService:
 
     TOOL_NAME = "music_recognition"
 
-    def __init__(self, provider: MusicRecognitionProvider | None) -> None:
+    def __init__(
+        self,
+        provider: MusicRecognitionProvider | None,
+        safety: SafetyService | None = None,
+    ) -> None:
         self._provider = provider
+        self._safety = safety
 
     async def recognize_for_agent(
         self,
@@ -29,7 +36,14 @@ class MusicRecognitionService:
         filename: str,
         content_type: str,
     ) -> MusicRecognitionContext | None:
-        if self.TOOL_NAME not in agent.tools:
+        policy = (
+            self._safety.evaluate_tool(self.TOOL_NAME, agent.tools)
+            if self._safety
+            else None
+        )
+        if policy is not None and policy.action is PolicyAction.BLOCK:
+            return None
+        if policy is None and self.TOOL_NAME not in agent.tools:
             return None
         if self._provider is None:
             return MusicRecognitionContext(

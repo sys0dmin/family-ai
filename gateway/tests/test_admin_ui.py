@@ -22,6 +22,12 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="studio-run"' in response.text
     assert 'id="calibration-start"' in response.text
     assert 'id="calibration-results"' in response.text
+    assert 'id="speech-runtime-beam"' in response.text
+    assert 'id="speech-runtime-vad"' in response.text
+    assert 'id="speech-runtime-apply"' in response.text
+    assert 'id="safety-policy-card"' in response.text
+    assert 'id="safety-run-scenarios"' in response.text
+    assert 'id="safety-reset-metrics"' in response.text
     assert 'id="infrastructure-card"' in response.text
     assert 'id="infrastructure-tab"' in response.text
     assert 'id="server-speech"' in response.text

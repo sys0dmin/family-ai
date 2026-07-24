@@ -14,6 +14,7 @@ from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.models import ChildProfile, Conversation, Message, MessageRole
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole, ProviderTool
+from gateway.app.safety.contracts import PolicyAction
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.turn_diagnostics import TurnDiagnostics
@@ -145,29 +146,24 @@ class ConversationService:
 
         # 2. Safety check: Incoming
         if self._safety and last_child_msg:
-            safety_result = self._safety.check_text(
+            input_outcome = self._safety.evaluate_input(
                 last_child_msg.content,
                 active_agent.permissions,
             )
-            if not safety_result.is_safe:
+            if input_outcome.action is PolicyAction.BLOCK:
                 return self.create_message(
                     conversation_id=conversation_id,
                     role='assistant',
                     content=(
-                        safety_result.suggested_response
+                        input_outcome.safe_response
                         or "Давай поговорим о чём-нибудь другом?"
                     ),
                 )
-
-            supervised_guidance = self._safety.get_supervised_outdoor_guidance(
-                last_child_msg.content,
-                active_agent.permissions,
-            )
-            if supervised_guidance:
+            if input_outcome.action is PolicyAction.TRANSFORM:
                 return self.create_message(
                     conversation_id=conversation_id,
                     role='assistant',
-                    content=supervised_guidance,
+                    content=input_outcome.text,
                 )
 
         # 3. Build request for AI
@@ -186,7 +182,16 @@ class ConversationService:
                     content=UNVERIFIED_MUSIC_TEXT_CONTEXT,
                 )
             )
-        if "supervised_outdoor_safety" in active_agent.permissions:
+        outdoor_permission = None
+        if (
+            self._safety
+            and "supervised_outdoor_safety" in active_agent.permissions
+        ):
+            outdoor_permission = self._safety.evaluate_permission(
+                "supervised_outdoor_safety",
+                active_agent.permissions,
+            )
+        if outdoor_permission and outdoor_permission.action is PolicyAction.ALLOW:
             messages.append(
                 ChatMessage(
                     role=ProviderRole.SYSTEM,
@@ -204,9 +209,15 @@ class ConversationService:
             role = ProviderRole.USER if msg.role == 'child' else ProviderRole.ASSISTANT
             messages.append(ChatMessage(role=role, content=msg.content))
 
+        web_search_policy = None
+        if self._safety and "web_search" in active_agent.tools:
+            web_search_policy = self._safety.evaluate_tool(
+                "web_search",
+                active_agent.tools,
+            )
         tools = (
             (ProviderTool.WEB_SEARCH,)
-            if "web_search" in active_agent.tools
+            if web_search_policy and web_search_policy.action is PolicyAction.ALLOW
             else ()
         )
         request = ChatRequest(messages=messages, tools=tools)
@@ -224,35 +235,26 @@ class ConversationService:
 
         # 5. Safety check: Outgoing
         if self._safety:
-            response_content = self._safety.normalize_outdoor_response(
+            output_outcome = self._safety.evaluate_output(
                 response_content,
                 active_agent.permissions,
             )
-            response_content = self._safety.apply_required_guardrails(
-                response_content,
-                active_agent.permissions,
-            )
-            safety_result = self._safety.check_response(
-                response_content,
-                active_agent.permissions,
-            )
-            if not safety_result.is_safe:
+            response_content = output_outcome.text
+            if output_outcome.action is PolicyAction.BLOCK:
+                primary = output_outcome.primary_decision
                 logger.warning(
                     "unsafe_model_response_blocked",
                     extra={
                         "agent_id": active_agent.id,
                         "conversation_id": str(conversation_id),
-                        "rule_id": safety_result.rule_id,
-                        "reason": safety_result.reason,
+                        "rule_id": primary.rule_id,
+                        "reason": primary.reason,
                     },
                 )
                 return self.create_message(
                     conversation_id=conversation_id,
                     role='assistant',
-                    content=(
-                        "Ой, я задумался о чём-то не том. "
-                        "Давай лучше поиграем или спросим у мамы?"
-                    ),
+                    content=output_outcome.safe_response or "Давай сменим тему?",
                 )
 
         # 6. Store and return response

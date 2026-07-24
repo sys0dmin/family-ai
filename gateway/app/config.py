@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     voice_max_audio_bytes: int = 10 * 1024 * 1024
     calibration_request_timeout_seconds: float = 30.0
     calibration_voice: str = "xenia"
+    speech_restart_timeout_seconds: float = 60.0
 
     # Optional music recognition tool for capable agents
     music_recognition_provider: Literal["disabled", "acrcloud"] = "disabled"
@@ -59,6 +60,9 @@ class Settings(BaseSettings):
     speech_node_metrics_url: str | None = None
     monitoring_request_timeout_seconds: float = 2.0
     gateway_voice_metrics_url: str | None = "http://127.0.0.1:8000/internal/voice-metrics"
+    gateway_safety_policy_url: str | None = (
+        "http://127.0.0.1:8000/internal/safety-policy"
+    )
 
     model_config = SettingsConfigDict(
         env_prefix="FAMILY_AI_",
