@@ -13,7 +13,7 @@ class SpeechSettings(BaseSettings):
     stt_model: str = "base"
     stt_compute_type: str = "int8"
     stt_cpu_threads: int = Field(default=4, ge=1, le=32)
-    stt_beam_size: int = Field(default=1, ge=1, le=10)
+    stt_beam_size: int = Field(default=5, ge=1, le=10)
     stt_vad_filter: bool = True
     stt_initial_prompt: str = (
         "Лера, Family AI, Учитель-друг, Почемучка, Сказочник, "
