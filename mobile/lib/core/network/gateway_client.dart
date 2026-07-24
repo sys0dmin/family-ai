@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart';
 import '../../features/agents/agent.dart';
 import '../../features/calibration/calibration_models.dart';
 import '../../features/conversations/conversation_models.dart';
+import '../../features/conversations/conversation_gateway.dart';
 import '../../features/voice/voice_session.dart';
 import '../config/server_address.dart';
 
@@ -19,18 +20,6 @@ class GatewayException implements Exception {
   String toString() => message;
 }
 
-class VoiceTurnResponse {
-  const VoiceTurnResponse({
-    required this.audioBytes,
-    required this.contentType,
-    required this.messageId,
-  });
-
-  final Uint8List audioBytes;
-  final String contentType;
-  final String? messageId;
-}
-
 class SpeechAudio {
   const SpeechAudio({required this.audioBytes, required this.contentType});
 
@@ -38,7 +27,7 @@ class SpeechAudio {
   final String contentType;
 }
 
-class GatewayClient {
+class GatewayClient implements ConversationGateway {
   factory GatewayClient({
     required ServerAddress serverAddress,
     required http.Client httpClient,
@@ -146,6 +135,7 @@ class GatewayClient {
     );
   }
 
+  @override
   Future<ConversationHistory> getLatestConversation(String agentId) async {
     final response = await _get(
       serverAddress.resolve(
@@ -170,6 +160,7 @@ class GatewayClient {
     );
   }
 
+  @override
   Future<String> createConversation(String agentId) async {
     final response = await _postJson(
       serverAddress.resolve('/v1/conversations/'),
@@ -179,6 +170,7 @@ class GatewayClient {
     return body['conversation_id'] as String;
   }
 
+  @override
   Future<ConversationMessage> sendTextTurn(
     String conversationId,
     String text,
@@ -190,6 +182,7 @@ class GatewayClient {
     return ConversationMessage.fromJson(_decodeObject(response));
   }
 
+  @override
   Future<ConversationMessage> getMessage(
     String conversationId,
     String messageId,
@@ -202,7 +195,8 @@ class GatewayClient {
     return ConversationMessage.fromJson(_decodeObject(response));
   }
 
-  Future<VoiceTurnResponse> sendVoiceTurn({
+  @override
+  Future<VoiceTurnAudio> sendVoiceTurn({
     required String conversationId,
     required Uint8List audioBytes,
     required String filename,
@@ -245,7 +239,7 @@ class GatewayClient {
       if (response.bodyBytes.isEmpty) {
         throw const GatewayException('Сервер не вернул голосовой ответ.');
       }
-      return VoiceTurnResponse(
+      return VoiceTurnAudio(
         audioBytes: response.bodyBytes,
         contentType:
             response.headers['content-type'] ?? 'application/octet-stream',
@@ -258,7 +252,8 @@ class GatewayClient {
     }
   }
 
-  Future<SpeechAudio> synthesizeText({
+  @override
+  Future<SynthesizedAudio> synthesizeText({
     required String conversationId,
     required String text,
   }) async {
@@ -274,7 +269,7 @@ class GatewayClient {
       if (response.bodyBytes.isEmpty) {
         throw const GatewayException('Сервер не вернул голосовой ответ.');
       }
-      return SpeechAudio(
+      return SynthesizedAudio(
         audioBytes: response.bodyBytes,
         contentType:
             response.headers['content-type'] ?? 'application/octet-stream',
@@ -286,6 +281,7 @@ class GatewayClient {
     }
   }
 
+  @override
   Uri resolveMediaUrl(String contentUrl) {
     final uri = Uri.parse(contentUrl);
     return uri.hasScheme ? uri : serverAddress.uri.resolveUri(uri);

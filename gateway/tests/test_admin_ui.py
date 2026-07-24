@@ -33,15 +33,39 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="server-speech"' in response.text
     assert 'id="pipeline-stt"' in response.text
     assert 'id="history-card"' in response.text
-    assert "@media (max-width: 820px)" in response.text
-    assert ".grid.three { grid-template-columns: repeat(3" in response.text
-    assert '.option-row input[type="checkbox"]' in response.text
+    assert 'href="/admin-assets/admin.css"' in response.text
+    assert 'type="module" src="/admin-assets/js/app.js"' in response.text
     assert 'id="image_search_provider"' in response.text
     assert 'id="agent-tool-image-search"' in response.text
     assert 'id="safety-baseline-save"' in response.text
     assert 'id="gateway-restart"' in response.text
-    assert 'restoreBrowserSession()' in response.text
     assert "https://cdn" not in response.text
+
+
+@pytest.mark.anyio
+async def test_admin_assets_are_local_modular_components() -> None:
+    transport = ASGITransport(app=admin_app)
+    async with AsyncClient(transport=transport, base_url="http://admin") as client:
+        css = await client.get("/admin-assets/admin.css")
+        app = await client.get("/admin-assets/js/app.js")
+        navigation = await client.get("/admin-assets/js/navigation.js")
+        safety = await client.get("/admin-assets/js/safety-policy-screen.js")
+        history = await client.get("/admin-assets/js/history-screen.js")
+        infrastructure = await client.get(
+            "/admin-assets/js/infrastructure-screen.js"
+        )
+
+    assert css.status_code == 200
+    assert "@media (max-width: 820px)" in css.text
+    assert ".grid.three { grid-template-columns: repeat(3" in css.text
+    assert '.option-row input[type="checkbox"]' in css.text
+    assert app.status_code == 200
+    assert 'from "./api-client.js"' in app.text
+    assert "restoreBrowserSession()" in app.text
+    assert navigation.status_code == 200
+    assert safety.status_code == 200
+    assert history.status_code == 200
+    assert infrastructure.status_code == 200
 
 
 @pytest.mark.anyio

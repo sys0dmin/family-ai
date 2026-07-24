@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -27,6 +28,7 @@ class _FakeVoiceSession implements VoiceSession {
   int plays = 0;
   Uint8List? playedBytes;
   String? playedContentType;
+  Completer<void>? playGate;
 
   @override
   Future<void> startRecording() async {
@@ -47,6 +49,7 @@ class _FakeVoiceSession implements VoiceSession {
     plays += 1;
     playedBytes = audioBytes;
     playedContentType = contentType;
+    await playGate?.future;
   }
 
   @override
@@ -187,6 +190,38 @@ GatewayClient _historyGateway({required VoidCallback onSynthesize}) {
   );
 }
 
+GatewayClient _pendingVoiceGateway(Completer<http.Response> voiceResponse) {
+  return GatewayClient(
+    serverAddress: ServerAddress.parse('http://server.local'),
+    httpClient: MockClient((request) async {
+      if (request.method == 'GET' &&
+          request.url.path == '/v1/conversations/latest') {
+        return http.Response(
+          jsonEncode({
+            'conversation_id': null,
+            'agent_id': 'teacher',
+            'messages': <Object>[],
+            'history_truncated': false,
+          }),
+          200,
+        );
+      }
+      if (request.method == 'POST' &&
+          request.url.path == '/v1/conversations/') {
+        return http.Response(
+          jsonEncode({'conversation_id': 'conversation-1'}),
+          200,
+        );
+      }
+      if (request.method == 'POST' &&
+          request.url.path == '/v1/voice/conversation-1/turn') {
+        return voiceResponse.future;
+      }
+      return http.Response('Not found', 404);
+    }),
+  );
+}
+
 void main() {
   testWidgets('records, sends and plays a voice turn', (tester) async {
     final voice = _FakeVoiceSession();
@@ -249,5 +284,84 @@ void main() {
     expect(synthesizeCalls, 1);
     expect(voice.plays, 1);
     expect(cache.entries, hasLength(1));
+  });
+
+  testWidgets('shows voice stages and ignores a cancelled pending reply', (
+    tester,
+  ) async {
+    final voice = _FakeVoiceSession();
+    final response = Completer<http.Response>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChatScreen(
+          agent: _agent,
+          gateway: _pendingVoiceGateway(response),
+          voiceSession: voice,
+          voiceReplyCache: _FakeVoiceReplyCache(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('voice-button')));
+    await tester.pump();
+    expect(find.text('Слушаю…'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('voice-button')));
+    await tester.pump();
+    expect(find.text('Понимаю…'), findsOneWidget);
+    expect(find.byKey(const Key('cancel-voice-turn')), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Думаю…'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('cancel-voice-turn')));
+    await tester.pump();
+    expect(find.byKey(const Key('cancel-voice-turn')), findsNothing);
+
+    response.complete(
+      http.Response.bytes(
+        <int>[10, 20, 30],
+        200,
+        headers: {
+          'content-type': 'audio/wav',
+          'x-family-ai-message-id': 'cancelled-message',
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(voice.plays, 0);
+    expect(find.byKey(const Key('replay-cancelled-message')), findsNothing);
+  });
+
+  testWidgets('shows the speaking stage while audio is playing', (
+    tester,
+  ) async {
+    final voice = _FakeVoiceSession()..playGate = Completer<void>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChatScreen(
+          agent: _agent,
+          gateway: _voiceGateway(),
+          voiceSession: voice,
+          voiceReplyCache: _FakeVoiceReplyCache(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('voice-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('voice-button')));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+
+    expect(find.text('Отвечаю…'), findsOneWidget);
+    expect(find.byKey(const Key('cancel-voice-turn')), findsOneWidget);
+
+    voice.playGate!.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Напиши сообщение…'), findsOneWidget);
   });
 }

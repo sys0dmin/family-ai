@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -134,6 +135,11 @@ class ChangePasswordRequest(BaseModel):
 
 
 app = FastAPI(title="Family AI Admin", version="0.1.0")
+app.mount(
+    "/admin-assets",
+    StaticFiles(directory=Path(__file__).with_name("static")),
+    name="admin-assets",
+)
 app.include_router(agents_router)
 app.include_router(monitoring_router)
 app.include_router(system_router)
