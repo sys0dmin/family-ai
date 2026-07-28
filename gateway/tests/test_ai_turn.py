@@ -8,8 +8,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from gateway.app.dependencies import get_ai_provider
-from gateway.app.providers.openai import OpenAIProvider
+from gateway.app.dependencies import get_chat_provider
+from gateway.app.providers.openai_chat import OpenAIChatProvider
 from gateway.app.providers.schemas import (
     ChatMessage,
     ChatRequest,
@@ -36,7 +36,7 @@ async def test_process_turn_generates_ai_response(
     mock_provider,
 ) -> None:
     # Override the dependency on the app instance provided by the fixture
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
 
     conversation_id = uuid.uuid4()
     payload = {"role": "child", "content": "Привет, расскажи сказку"}
@@ -62,7 +62,7 @@ async def test_process_turn_removes_provider_nul_bytes_before_persistence(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     mock_provider.generate_response.return_value = ChatResponse(
         content="Сказка\x00 готова.\x00",
     )
@@ -83,7 +83,7 @@ async def test_follow_up_turn_is_marked_as_same_conversation(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     conversation = await client.post(
         "/v1/conversations/",
         json={"agent_id": "musician"},
@@ -115,7 +115,7 @@ async def test_outdoor_guide_can_use_web_search_for_nature_facts(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     conversation = await client.post(
         "/v1/conversations/",
         json={"agent_id": "outdoor_guide"},
@@ -136,7 +136,7 @@ async def test_tech_guide_can_use_web_search_for_current_it_facts(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     conversation = await client.post(
         "/v1/conversations/",
         json={"agent_id": "tech_guide"},
@@ -153,7 +153,7 @@ async def test_tech_guide_can_use_web_search_for_current_it_facts(
 
 @pytest.mark.anyio
 async def test_openai_provider_maps_generic_web_search_tool() -> None:
-    provider = OpenAIProvider(
+    provider = OpenAIChatProvider(
         api_key="test-key",
         model="openai/gpt-oss-120b",
         base_url="https://api.groq.com/openai/v1",
@@ -164,7 +164,7 @@ async def test_openai_provider_maps_generic_web_search_tool() -> None:
             choices=[SimpleNamespace(message=SimpleNamespace(content="Найдено"))]
         )
     )
-    provider._chat_client = SimpleNamespace(
+    provider._client = SimpleNamespace(
         chat=SimpleNamespace(completions=SimpleNamespace(create=create))
     )
 

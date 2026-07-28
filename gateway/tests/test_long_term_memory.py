@@ -207,7 +207,7 @@ async def test_confirmed_memory_is_injected_into_real_turn(
     client: AsyncClient,
     db_session: Session,
 ) -> None:
-    from gateway.app.dependencies import get_ai_provider
+    from gateway.app.dependencies import get_chat_provider
 
     MemoryService(SqlAlchemyMemoryRepository(db_session)).create(
         LERA_PROFILE_ID,
@@ -217,14 +217,14 @@ async def test_confirmed_memory_is_injected_into_real_turn(
     db_session.commit()
     provider = AsyncMock()
     provider.generate_response.return_value = ChatResponse(content="Сатурн очень интересный!")
-    app.dependency_overrides[get_ai_provider] = lambda: provider
+    app.dependency_overrides[get_chat_provider] = lambda: provider
     try:
         response = await client.post(
             f"/v1/conversations/{uuid.uuid4()}/turn",
             json={"role": "child", "content": "Расскажи что-нибудь интересное"},
         )
     finally:
-        app.dependency_overrides.pop(get_ai_provider, None)
+        app.dependency_overrides.pop(get_chat_provider, None)
 
     request = provider.generate_response.await_args.args[0]
     system_messages = [

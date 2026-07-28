@@ -12,8 +12,11 @@ from gateway.app.calibration.service import (
     SpeechCalibrationService,
 )
 from gateway.app.config import Settings, get_settings
-from gateway.app.dependencies import get_ai_provider, get_speech_calibration_service
-from gateway.app.providers.base import AIProvider
+from gateway.app.dependencies import (
+    get_speech_calibration_service,
+    get_speech_synthesis_provider,
+)
+from gateway.app.providers.contracts import SpeechSynthesisProvider
 from gateway.app.providers.schemas import SpeechRequest
 
 router = APIRouter(prefix="/v1/stt-calibration", tags=["stt calibration"])
@@ -49,7 +52,7 @@ async def active_calibration(
 async def calibration_prompt_audio(
     session_id: str,
     prompt_id: str,
-    provider: AIProvider = Depends(get_ai_provider),
+    provider: SpeechSynthesisProvider = Depends(get_speech_synthesis_provider),
     service: SpeechCalibrationService = Depends(get_speech_calibration_service),
     settings: Settings = Depends(get_settings),
 ) -> Response:

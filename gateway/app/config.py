@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     openai_base_url: str | None = None
     speech_api_key: SecretStr = SecretStr("")
     speech_base_url: str | None = None
+    stt_api_key: SecretStr = SecretStr("")
+    stt_base_url: str | None = None
     stt_model: str = "gpt-4o-transcribe"
     stt_temperature: float = 0.0
     stt_initial_prompt: str = (
@@ -29,6 +31,8 @@ class Settings(BaseSettings):
         "Подумай сама, Нотка, Мурка, Байтик."
     )
     tts_model: str = "tts-1"
+    tts_api_key: SecretStr = SecretStr("")
+    tts_base_url: str | None = None
     tts_voice: str = "alloy"
     tts_response_format: Literal["mp3", "wav"] = "mp3"
     web_search_tool_type: Literal["disabled", "browser_search"] = "disabled"

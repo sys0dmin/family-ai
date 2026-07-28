@@ -13,7 +13,7 @@ from gateway.app.agents import ActiveAgent, build_agent_system_message
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.memory import MemoryService
 from gateway.app.models import ChildProfile, Conversation, Message, MessageRole
-from gateway.app.providers.base import AIProvider
+from gateway.app.providers.contracts import ChatProvider
 from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole, ProviderTool
 from gateway.app.safety.contracts import PolicyAction
 from gateway.app.services.agent_service import AgentService
@@ -64,7 +64,7 @@ class ConversationService:
     def __init__(
         self,
         session: Session,
-        provider: AIProvider | None = None,
+        provider: ChatProvider | None = None,
         safety: SafetyService | None = None,
         agents: AgentService | None = None,
         visual_media: VisualMediaService | None = None,

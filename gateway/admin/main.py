@@ -43,8 +43,10 @@ class SettingsResponse(BaseModel):
     openai_model: str
     openai_base_url: str | None
     speech_base_url: str | None
+    stt_base_url: str | None
     stt_model: str
     stt_initial_prompt: str
+    tts_base_url: str | None
     tts_model: str
     tts_voice: str
     tts_response_format: Literal["mp3", "wav"]
@@ -55,6 +57,10 @@ class SettingsResponse(BaseModel):
     openai_api_key_preview: str
     has_speech_api_key: bool
     speech_api_key_preview: str
+    has_stt_api_key: bool
+    stt_api_key_preview: str
+    has_tts_api_key: bool
+    tts_api_key_preview: str
     music_recognition_provider: Literal["disabled", "acrcloud"]
     acrcloud_host: str | None
     has_acrcloud_access_key: bool
@@ -70,8 +76,10 @@ class SettingsUpdateRequest(BaseModel):
     openai_model: str = Field(min_length=1, max_length=200)
     openai_base_url: str | None = Field(default=None, max_length=500)
     speech_base_url: str | None = Field(default=None, max_length=500)
+    stt_base_url: str | None = Field(default=None, max_length=500)
     stt_model: str = Field(min_length=1, max_length=200)
     stt_initial_prompt: str = Field(min_length=1, max_length=1000)
+    tts_base_url: str | None = Field(default=None, max_length=500)
     tts_model: str = Field(min_length=1, max_length=200)
     tts_voice: str = Field(min_length=1, max_length=200)
     tts_response_format: Literal["mp3", "wav"]
@@ -80,6 +88,10 @@ class SettingsUpdateRequest(BaseModel):
     image_search_timeout_seconds: float = Field(default=6.0, ge=1, le=30)
     openai_api_key: str | None = Field(default=None, max_length=500)
     speech_api_key: str | None = Field(default=None, max_length=500)
+    stt_api_key: str | None = Field(default=None, max_length=500)
+    tts_api_key: str | None = Field(default=None, max_length=500)
+    clear_stt_api_key: bool = False
+    clear_tts_api_key: bool = False
     music_recognition_provider: Literal["disabled", "acrcloud"] = "disabled"
     acrcloud_host: str | None = Field(default=None, max_length=500)
     acrcloud_access_key: str | None = Field(default=None, max_length=500)
@@ -215,6 +227,8 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
     settings = get_settings()
     api_key = settings.openai_api_key.get_secret_value()
     speech_api_key = settings.speech_api_key.get_secret_value()
+    stt_api_key = settings.stt_api_key.get_secret_value()
+    tts_api_key = settings.tts_api_key.get_secret_value()
     acrcloud_access_key = settings.acrcloud_access_key.get_secret_value()
     acrcloud_access_secret = settings.acrcloud_access_secret.get_secret_value()
 
@@ -224,8 +238,10 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
         openai_model=settings.openai_model,
         openai_base_url=settings.openai_base_url,
         speech_base_url=settings.speech_base_url,
+        stt_base_url=settings.stt_base_url,
         stt_model=settings.stt_model,
         stt_initial_prompt=settings.stt_initial_prompt,
+        tts_base_url=settings.tts_base_url,
         tts_model=settings.tts_model,
         tts_voice=settings.tts_voice,
         tts_response_format=settings.tts_response_format,
@@ -236,6 +252,10 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
         openai_api_key_preview=_mask_secret(api_key),
         has_speech_api_key=bool(speech_api_key),
         speech_api_key_preview=_mask_secret(speech_api_key),
+        has_stt_api_key=bool(stt_api_key),
+        stt_api_key_preview=_mask_secret(stt_api_key),
+        has_tts_api_key=bool(tts_api_key),
+        tts_api_key_preview=_mask_secret(tts_api_key),
         music_recognition_provider=settings.music_recognition_provider,
         acrcloud_host=settings.acrcloud_host,
         has_acrcloud_access_key=bool(acrcloud_access_key),
@@ -290,8 +310,10 @@ def update_runtime_settings(
         "FAMILY_AI_OPENAI_MODEL": payload.openai_model.strip(),
         "FAMILY_AI_OPENAI_BASE_URL": (payload.openai_base_url or "").strip(),
         "FAMILY_AI_SPEECH_BASE_URL": (payload.speech_base_url or "").strip(),
+        "FAMILY_AI_STT_BASE_URL": (payload.stt_base_url or "").strip(),
         "FAMILY_AI_STT_MODEL": payload.stt_model.strip(),
         "FAMILY_AI_STT_INITIAL_PROMPT": payload.stt_initial_prompt.strip(),
+        "FAMILY_AI_TTS_BASE_URL": (payload.tts_base_url or "").strip(),
         "FAMILY_AI_TTS_MODEL": payload.tts_model.strip(),
         "FAMILY_AI_TTS_VOICE": payload.tts_voice.strip(),
         "FAMILY_AI_TTS_RESPONSE_FORMAT": payload.tts_response_format,
@@ -309,6 +331,14 @@ def update_runtime_settings(
         updates["FAMILY_AI_OPENAI_API_KEY"] = payload.openai_api_key.strip()
     if payload.speech_api_key and payload.speech_api_key.strip():
         updates["FAMILY_AI_SPEECH_API_KEY"] = payload.speech_api_key.strip()
+    if payload.clear_stt_api_key:
+        updates["FAMILY_AI_STT_API_KEY"] = ""
+    elif payload.stt_api_key and payload.stt_api_key.strip():
+        updates["FAMILY_AI_STT_API_KEY"] = payload.stt_api_key.strip()
+    if payload.clear_tts_api_key:
+        updates["FAMILY_AI_TTS_API_KEY"] = ""
+    elif payload.tts_api_key and payload.tts_api_key.strip():
+        updates["FAMILY_AI_TTS_API_KEY"] = payload.tts_api_key.strip()
     if payload.acrcloud_access_key and payload.acrcloud_access_key.strip():
         updates["FAMILY_AI_ACRCLOUD_ACCESS_KEY"] = payload.acrcloud_access_key.strip()
     if payload.acrcloud_access_secret and payload.acrcloud_access_secret.strip():
@@ -320,6 +350,8 @@ def update_runtime_settings(
     refreshed = get_settings()
     api_key = refreshed.openai_api_key.get_secret_value()
     speech_api_key = refreshed.speech_api_key.get_secret_value()
+    stt_api_key = refreshed.stt_api_key.get_secret_value()
+    tts_api_key = refreshed.tts_api_key.get_secret_value()
     acrcloud_access_key = refreshed.acrcloud_access_key.get_secret_value()
     acrcloud_access_secret = refreshed.acrcloud_access_secret.get_secret_value()
 
@@ -329,8 +361,10 @@ def update_runtime_settings(
         openai_model=refreshed.openai_model,
         openai_base_url=refreshed.openai_base_url,
         speech_base_url=refreshed.speech_base_url,
+        stt_base_url=refreshed.stt_base_url,
         stt_model=refreshed.stt_model,
         stt_initial_prompt=refreshed.stt_initial_prompt,
+        tts_base_url=refreshed.tts_base_url,
         tts_model=refreshed.tts_model,
         tts_voice=refreshed.tts_voice,
         tts_response_format=refreshed.tts_response_format,
@@ -341,6 +375,10 @@ def update_runtime_settings(
         openai_api_key_preview=_mask_secret(api_key),
         has_speech_api_key=bool(speech_api_key),
         speech_api_key_preview=_mask_secret(speech_api_key),
+        has_stt_api_key=bool(stt_api_key),
+        stt_api_key_preview=_mask_secret(stt_api_key),
+        has_tts_api_key=bool(tts_api_key),
+        tts_api_key_preview=_mask_secret(tts_api_key),
         music_recognition_provider=refreshed.music_recognition_provider,
         acrcloud_host=refreshed.acrcloud_host,
         has_acrcloud_access_key=bool(acrcloud_access_key),

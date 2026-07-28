@@ -7,7 +7,10 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from gateway.app.observability.voice_metrics import VoiceMetricsRegistry
-from gateway.app.providers.base import AIProvider
+from gateway.app.providers.contracts import (
+    SpeechRecognitionProvider,
+    SpeechSynthesisProvider,
+)
 from gateway.app.providers.schemas import (
     SpeechRequest,
     SpeechResponse,
@@ -38,12 +41,14 @@ class VoiceService:
 
     def __init__(
         self,
-        ai_provider: AIProvider,
+        recognition_provider: SpeechRecognitionProvider,
+        synthesis_provider: SpeechSynthesisProvider,
         conversation_service: ConversationService,
         music_recognition_service: MusicRecognitionService | None = None,
         metrics: VoiceMetricsRegistry | None = None,
     ) -> None:
-        self._ai_provider = ai_provider
+        self._recognition_provider = recognition_provider
+        self._synthesis_provider = synthesis_provider
         self._conversation_service = conversation_service
         self._music_recognition_service = music_recognition_service
         self._metrics = metrics or VoiceMetricsRegistry()
@@ -78,7 +83,9 @@ class VoiceService:
             nonlocal stt_duration_ms
             started_at = time.perf_counter()
             try:
-                return await self._ai_provider.transcribe_audio(transcription_request)
+                return await self._recognition_provider.transcribe_audio(
+                    transcription_request
+                )
             finally:
                 stt_duration_ms = round((time.perf_counter() - started_at) * 1000)
 
@@ -127,7 +134,7 @@ class VoiceService:
             stage = "tts"
             tts_started_at = time.perf_counter()
             try:
-                speech = await self._ai_provider.synthesize_speech(
+                speech = await self._synthesis_provider.synthesize_speech(
                     SpeechRequest(text=ai_message.content, voice=active_agent.tts_voice)
                 )
             finally:
@@ -192,6 +199,6 @@ class VoiceService:
         """Speak existing assistant text with the agent bound to the conversation."""
 
         active_agent = self._conversation_service.get_conversation_agent(conversation_id)
-        return await self._ai_provider.synthesize_speech(
+        return await self._synthesis_provider.synthesize_speech(
             SpeechRequest(text=text.strip(), voice=active_agent.tts_voice)
         )

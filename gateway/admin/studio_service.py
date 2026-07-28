@@ -6,7 +6,7 @@ from gateway.admin.studio_schemas import AgentTestResponse
 from gateway.app.agents import build_agent_system_message
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.memory import MemoryService
-from gateway.app.providers.base import AIProvider
+from gateway.app.providers.contracts import ChatProvider, SpeechSynthesisProvider
 from gateway.app.providers.schemas import (
     ChatMessage,
     ChatRequest,
@@ -30,12 +30,14 @@ class StudioService:
 
     def __init__(
         self,
-        provider: AIProvider,
+        chat_provider: ChatProvider,
+        synthesis_provider: SpeechSynthesisProvider,
         agents: AgentService,
         safety: SafetyService,
         memory: MemoryService | None = None,
     ) -> None:
-        self._provider = provider
+        self._chat_provider = chat_provider
+        self._synthesis_provider = synthesis_provider
         self._agents = agents
         self._safety = safety
         self._memory = memory
@@ -87,7 +89,7 @@ class StudioService:
         messages.append(ChatMessage(role=ProviderRole.USER, content=prompt))
         request = ChatRequest(messages=messages, tools=tools)
         started_at = time.perf_counter()
-        response = await self._provider.generate_response(request)
+        response = await self._chat_provider.generate_response(request)
         llm_duration_ms = round((time.perf_counter() - started_at) * 1000)
         raw_response = response.content.replace("\x00", "")
         output_outcome = self._safety.evaluate_output(
@@ -128,7 +130,7 @@ class StudioService:
         )
 
     async def synthesize(self, text: str, voice: str) -> SpeechResponse:
-        return await self._provider.synthesize_speech(
+        return await self._synthesis_provider.synthesize_speech(
             SpeechRequest(text=text, voice=voice)
         )
 

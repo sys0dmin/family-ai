@@ -83,7 +83,11 @@
 
           <article class="config-panel voice-panel">
             <div class="panel-head"><div class="panel-icon cyan">◖</div><div><div class="card-kicker">Voice engine</div><h2>Речь</h2></div><span class="live-badge"><i class="signal-dot cyan"></i>Groq</span></div>
-            <label class="field"><span>Speech Base URL</span><input id="speech_base_url" placeholder="https://api.groq.com/openai/v1"></label>
+            <label class="field"><span>Общий Speech Base URL <small>резерв для STT и TTS</small></span><input id="speech_base_url" placeholder="https://api.groq.com/openai/v1"></label>
+            <div class="grid">
+              <label class="field"><span>STT Base URL <small>если отличается</small></span><input id="stt_base_url" placeholder="использовать общий"></label>
+              <label class="field"><span>TTS Base URL <small>если отличается</small></span><input id="tts_base_url" placeholder="использовать общий"></label>
+            </div>
             <div class="grid">
               <label class="field"><span>STT-модель</span><input id="stt_model"></label>
               <label class="field"><span>TTS-модель</span><input id="tts_model"></label>
@@ -94,7 +98,11 @@
               <label class="field"><span>Формат</span><select id="tts_response_format"><option value="wav">WAV</option><option value="mp3">MP3</option></select></label>
             </div>
             <label class="field" id="tts_voice_custom_field" hidden><span>ID другого голоса</span><input id="tts_voice_custom" placeholder="Например: custom-voice-id"></label>
-            <label class="field"><span>Speech API-ключ <small>оставьте пустым, чтобы не менять</small></span><input id="speech_api_key" type="password" autocomplete="new-password"></label>
+            <label class="field"><span>Общий Speech API-ключ <small>резерв для STT и TTS</small></span><input id="speech_api_key" type="password" autocomplete="new-password"></label>
+            <div class="grid">
+              <div><label class="field"><span>STT API-ключ <small>пусто — не менять</small></span><input id="stt_api_key" type="password" autocomplete="new-password"></label><label class="option-row"><input id="clear_stt_api_key" type="checkbox"><span>Сбросить и использовать общий ключ</span></label></div>
+              <div><label class="field"><span>TTS API-ключ <small>пусто — не менять</small></span><input id="tts_api_key" type="password" autocomplete="new-password"></label><label class="option-row"><input id="clear_tts_api_key" type="checkbox"><span>Сбросить и использовать общий ключ</span></label></div>
+            </div>
           </article>
 
           <article class="config-panel data-panel">

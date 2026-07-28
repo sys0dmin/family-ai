@@ -15,9 +15,13 @@ from gateway.admin.studio_schemas import (
 from gateway.admin.studio_service import StudioService
 from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.db.session import get_session_factory
-from gateway.app.dependencies import get_ai_provider, get_safety_service
+from gateway.app.dependencies import (
+    get_chat_provider,
+    get_safety_service,
+    get_speech_synthesis_provider,
+)
 from gateway.app.memory import MemoryService, SqlAlchemyMemoryRepository
-from gateway.app.providers.base import AIProvider
+from gateway.app.providers.contracts import ChatProvider, SpeechSynthesisProvider
 from gateway.app.services.agent_service import (
     AgentConfigurationError,
     AgentNotFoundError,
@@ -38,12 +42,21 @@ def get_studio_session() -> Generator[Session]:
 
 def get_studio_service(
     session: Session = Depends(get_studio_session),
-    provider: AIProvider = Depends(get_ai_provider),
+    chat_provider: ChatProvider = Depends(get_chat_provider),
+    synthesis_provider: SpeechSynthesisProvider = Depends(
+        get_speech_synthesis_provider
+    ),
     safety: SafetyService = Depends(get_safety_service),
 ) -> StudioService:
     agents = AgentService(SqlAlchemyAgentRepository(session))
     memory = MemoryService(SqlAlchemyMemoryRepository(session))
-    return StudioService(provider, agents, safety, memory)
+    return StudioService(
+        chat_provider,
+        synthesis_provider,
+        agents,
+        safety,
+        memory,
+    )
 
 
 @router.post("/agent-test", response_model=AgentTestResponse)

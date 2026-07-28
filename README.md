@@ -23,10 +23,12 @@
 - `FAMILY_AI_IMAGE_SEARCH_TIMEOUT_SECONDS`: таймаут поиска и загрузки изображения
 - `FAMILY_AI_SPEECH_API_KEY`: отдельный bearer-токен Speech Service или ключ облачного провайдера
 - `FAMILY_AI_SPEECH_BASE_URL`: API STT/TTS (`http://192.168.31.84:8010/v1` для локального сервиса)
+- `FAMILY_AI_STT_API_KEY`, `FAMILY_AI_STT_BASE_URL`: необязательные отдельные настройки STT; без них используются общие Speech-настройки
 - `FAMILY_AI_STT_MODEL`: модель распознавания речи
 - `FAMILY_AI_STT_TEMPERATURE`: вариативность распознавания (`0` для стабильного результата)
 - `FAMILY_AI_STT_INITIAL_PROMPT`: локальный словарь имён и терминов для детской речи
 - `FAMILY_AI_TTS_MODEL`: модель синтеза речи
+- `FAMILY_AI_TTS_API_KEY`, `FAMILY_AI_TTS_BASE_URL`: необязательные отдельные настройки TTS; без них используются общие Speech-настройки
 - `FAMILY_AI_TTS_VOICE`: голос синтеза
 - `FAMILY_AI_TTS_RESPONSE_FORMAT`: формат аудиоответа (`mp3` или `wav`)
 - `FAMILY_AI_MESSAGE_RETENTION_DAYS`: срок хранения истории (дней)

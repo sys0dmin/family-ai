@@ -9,7 +9,8 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 
 from gateway.app.dependencies import get_voice_service
-from gateway.app.providers.openai import OpenAIProvider
+from gateway.app.providers.openai_stt import OpenAISpeechRecognitionProvider
+from gateway.app.providers.openai_tts import OpenAISpeechSynthesisProvider
 from gateway.app.providers.schemas import (
     SpeechRequest,
     SpeechResponse,
@@ -22,15 +23,14 @@ from gateway.app.services.voice_service import VoiceService, VoiceTurnResult
 
 @pytest.mark.anyio
 async def test_openai_provider_returns_configured_wav_content_type() -> None:
-    provider = OpenAIProvider(
-        api_key="test-chat-key",
-        speech_api_key="test-speech-key",
-        tts_model="canopylabs/orpheus-arabic-saudi",
-        tts_voice="lulwa",
-        tts_response_format="wav",
+    provider = OpenAISpeechSynthesisProvider(
+        api_key="test-speech-key",
+        model="canopylabs/orpheus-arabic-saudi",
+        default_voice="lulwa",
+        response_format="wav",
     )
     speech_create = AsyncMock(return_value=SimpleNamespace(content=b"wav-audio"))
-    provider._speech_client = SimpleNamespace(
+    provider._client = SimpleNamespace(
         audio=SimpleNamespace(
             speech=SimpleNamespace(create=speech_create),
         )
@@ -50,14 +50,13 @@ async def test_openai_provider_returns_configured_wav_content_type() -> None:
 
 @pytest.mark.anyio
 async def test_openai_provider_uses_deterministic_stt_temperature() -> None:
-    provider = OpenAIProvider(
-        api_key="test-chat-key",
-        speech_api_key="test-speech-key",
-        stt_model="whisper-large-v3-turbo",
-        stt_temperature=0.0,
+    provider = OpenAISpeechRecognitionProvider(
+        api_key="test-speech-key",
+        model="whisper-large-v3-turbo",
+        temperature=0.0,
     )
     transcription_create = AsyncMock(return_value="Привет")
-    provider._speech_client = SimpleNamespace(
+    provider._client = SimpleNamespace(
         audio=SimpleNamespace(
             transcriptions=SimpleNamespace(create=transcription_create),
         )
@@ -84,10 +83,9 @@ async def test_openai_provider_uses_deterministic_stt_temperature() -> None:
 
 @pytest.mark.anyio
 async def test_openai_provider_normalizes_verbose_stt_diagnostics() -> None:
-    provider = OpenAIProvider(
-        api_key="test-chat-key",
-        speech_api_key="test-speech-key",
-        stt_initial_prompt="Лера, Мурка, Байтик",
+    provider = OpenAISpeechRecognitionProvider(
+        api_key="test-speech-key",
+        initial_prompt="Лера, Мурка, Байтик",
     )
     transcription_create = AsyncMock(
         return_value=SimpleNamespace(
@@ -103,7 +101,7 @@ async def test_openai_provider_normalizes_verbose_stt_diagnostics() -> None:
             ],
         )
     )
-    provider._speech_client = SimpleNamespace(
+    provider._client = SimpleNamespace(
         audio=SimpleNamespace(
             transcriptions=SimpleNamespace(create=transcription_create),
         )
@@ -127,9 +125,14 @@ async def test_openai_provider_normalizes_verbose_stt_diagnostics() -> None:
 
 @pytest.mark.anyio
 async def test_voice_service_preserves_recording_metadata() -> None:
-    provider = AsyncMock()
-    provider.transcribe_audio.return_value = TranscriptionResponse(text="Привет")
-    provider.synthesize_speech.return_value = SpeechResponse(audio_content=b"mp3")
+    recognition_provider = AsyncMock()
+    recognition_provider.transcribe_audio.return_value = TranscriptionResponse(
+        text="Привет"
+    )
+    synthesis_provider = AsyncMock()
+    synthesis_provider.synthesize_speech.return_value = SpeechResponse(
+        audio_content=b"mp3"
+    )
     conversation_service = AsyncMock()
     message_id = uuid.uuid4()
     conversation_service.process_turn.return_value = SimpleNamespace(
@@ -139,7 +142,11 @@ async def test_voice_service_preserves_recording_metadata() -> None:
     conversation_service.get_conversation_agent = Mock(
         return_value=SimpleNamespace(tts_voice="lulwa")
     )
-    service = VoiceService(provider, conversation_service)
+    service = VoiceService(
+        recognition_provider,
+        synthesis_provider,
+        conversation_service,
+    )
     conversation_id = uuid.uuid4()
 
     result = await service.process_voice_turn(
@@ -151,7 +158,7 @@ async def test_voice_service_preserves_recording_metadata() -> None:
 
     assert result.speech.audio_content == b"mp3"
     assert result.message_id == message_id
-    provider.transcribe_audio.assert_awaited_once_with(
+    recognition_provider.transcribe_audio.assert_awaited_once_with(
         TranscriptionRequest(
             audio_content=b"webm-audio",
             filename="recording.webm",
@@ -165,7 +172,7 @@ async def test_voice_service_preserves_recording_metadata() -> None:
         runtime_context=None,
         diagnostics=ANY,
     )
-    provider.synthesize_speech.assert_awaited_once_with(
+    synthesis_provider.synthesize_speech.assert_awaited_once_with(
         SpeechRequest(text="Привет, Лера!", voice="lulwa")
     )
 
@@ -186,7 +193,12 @@ async def test_voice_service_uses_melody_context_when_humming_has_no_words() -> 
     recognition_service.recognize_for_agent.return_value = MusicRecognitionContext(
         prompt_context="Вариант 1: название='Тест'"
     )
-    service = VoiceService(provider, conversation_service, recognition_service)
+    service = VoiceService(
+        provider,
+        provider,
+        conversation_service,
+        recognition_service,
+    )
     conversation_id = uuid.uuid4()
 
     await service.process_voice_turn(
@@ -218,7 +230,7 @@ async def test_voice_service_synthesizes_text_with_conversation_agent_voice() ->
     conversation_service.get_conversation_agent.return_value = SimpleNamespace(
         tts_voice="noura"
     )
-    service = VoiceService(provider, conversation_service)
+    service = VoiceService(provider, provider, conversation_service)
     conversation_id = uuid.uuid4()
 
     response = await service.synthesize_text(conversation_id, "  Привет!  ")

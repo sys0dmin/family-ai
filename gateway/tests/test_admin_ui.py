@@ -38,6 +38,12 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'href="/admin-assets/admin.css"' in response.text
     assert 'type="module" src="/admin-assets/js/app.js"' in response.text
     assert 'id="image_search_provider"' in response.text
+    assert 'id="stt_base_url"' in response.text
+    assert 'id="tts_base_url"' in response.text
+    assert 'id="stt_api_key"' in response.text
+    assert 'id="tts_api_key"' in response.text
+    assert 'id="clear_stt_api_key"' in response.text
+    assert 'id="clear_tts_api_key"' in response.text
     assert 'id="agent-tool-image-search"' in response.text
     assert 'id="safety-baseline-save"' in response.text
     assert 'id="gateway-restart"' in response.text
@@ -84,5 +90,11 @@ async def test_admin_settings_expose_visual_search_configuration() -> None:
         body = response.json()
         assert body["image_search_provider"] in {"disabled", "openverse"}
         assert 1 <= body["image_search_timeout_seconds"] <= 30
+        assert "stt_base_url" in body
+        assert "tts_base_url" in body
+        assert "stt_api_key" not in body
+        assert "tts_api_key" not in body
+        assert "stt_api_key_preview" in body
+        assert "tts_api_key_preview" in body
     finally:
         admin_app.dependency_overrides.clear()

@@ -16,7 +16,15 @@ from gateway.app.music import MusicRecognitionProvider
 from gateway.app.music.acrcloud import AcrCloudMusicRecognitionProvider
 from gateway.app.observability.voice_metrics import voice_metrics_registry
 from gateway.app.providers.base import AIProvider
+from gateway.app.providers.contracts import (
+    ChatProvider,
+    SpeechRecognitionProvider,
+    SpeechSynthesisProvider,
+)
 from gateway.app.providers.openai import OpenAIProvider
+from gateway.app.providers.openai_chat import OpenAIChatProvider
+from gateway.app.providers.openai_stt import OpenAISpeechRecognitionProvider
+from gateway.app.providers.openai_tts import OpenAISpeechSynthesisProvider
 from gateway.app.safety.engine import SafetyPolicyEngine
 from gateway.app.safety.metrics import safety_metrics_registry
 from gateway.app.services.agent_service import AgentService
@@ -37,7 +45,7 @@ def get_safety_service() -> SafetyService:
 
 
 def get_ai_provider() -> AIProvider:
-    """Return provider configuration loaded from the latest .env values."""
+    """Return the deprecated composite provider for compatibility callers."""
     settings = Settings()
     return OpenAIProvider(
         api_key=settings.openai_api_key.get_secret_value(),
@@ -52,6 +60,62 @@ def get_ai_provider() -> AIProvider:
         tts_voice=settings.tts_voice,
         tts_response_format=settings.tts_response_format,
         web_search_tool_type=settings.web_search_tool_type,
+    )
+
+
+def get_chat_provider() -> ChatProvider:
+    """Build only the configured language-model adapter."""
+
+    settings = Settings()
+    return OpenAIChatProvider(
+        api_key=settings.openai_api_key.get_secret_value(),
+        model=settings.openai_model,
+        base_url=settings.openai_base_url,
+        web_search_tool_type=settings.web_search_tool_type,
+    )
+
+
+def get_speech_recognition_provider() -> SpeechRecognitionProvider:
+    """Build the STT adapter independently from chat and TTS."""
+
+    settings = Settings()
+    api_key = (
+        settings.stt_api_key.get_secret_value()
+        or settings.speech_api_key.get_secret_value()
+        or settings.openai_api_key.get_secret_value()
+    )
+    return OpenAISpeechRecognitionProvider(
+        api_key=api_key,
+        model=settings.stt_model,
+        base_url=(
+            settings.stt_base_url
+            or settings.speech_base_url
+            or settings.openai_base_url
+        ),
+        temperature=settings.stt_temperature,
+        initial_prompt=settings.stt_initial_prompt,
+    )
+
+
+def get_speech_synthesis_provider() -> SpeechSynthesisProvider:
+    """Build the TTS adapter independently from chat and STT."""
+
+    settings = Settings()
+    api_key = (
+        settings.tts_api_key.get_secret_value()
+        or settings.speech_api_key.get_secret_value()
+        or settings.openai_api_key.get_secret_value()
+    )
+    return OpenAISpeechSynthesisProvider(
+        api_key=api_key,
+        model=settings.tts_model,
+        base_url=(
+            settings.tts_base_url
+            or settings.speech_base_url
+            or settings.openai_base_url
+        ),
+        default_voice=settings.tts_voice,
+        response_format=settings.tts_response_format,
     )
 
 
@@ -138,7 +202,7 @@ def get_visual_media_service(
 
 def get_conversation_service(
     session: Session = Depends(get_db_session),
-    provider: AIProvider = Depends(get_ai_provider),
+    provider: ChatProvider = Depends(get_chat_provider),
     safety: SafetyService = Depends(get_safety_service),
     agents: AgentService = Depends(get_agent_service),
     visual_media: VisualMediaService = Depends(get_visual_media_service),
@@ -159,13 +223,17 @@ def get_conversation_service(
 
 
 def get_voice_service(
-    provider: AIProvider = Depends(get_ai_provider),
+    recognition: SpeechRecognitionProvider = Depends(
+        get_speech_recognition_provider
+    ),
+    synthesis: SpeechSynthesisProvider = Depends(get_speech_synthesis_provider),
     conversation: ConversationService = Depends(get_conversation_service),
     music_recognition: MusicRecognitionService = Depends(get_music_recognition_service),
 ) -> VoiceService:
     """Return a voice service with injected dependencies."""
     return VoiceService(
-        provider,
+        recognition,
+        synthesis,
         conversation,
         music_recognition,
         metrics=voice_metrics_registry,

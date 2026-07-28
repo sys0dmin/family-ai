@@ -8,7 +8,10 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 
 from gateway.app.calibration.schemas import CalibrationStatusResponse
-from gateway.app.dependencies import get_ai_provider, get_speech_calibration_service
+from gateway.app.dependencies import (
+    get_speech_calibration_service,
+    get_speech_synthesis_provider,
+)
 from gateway.app.providers.schemas import SpeechResponse
 
 
@@ -70,7 +73,7 @@ async def test_prompt_audio_and_wav_upload_use_existing_abstractions(
         content_type="audio/wav",
     )
     app.dependency_overrides[get_speech_calibration_service] = lambda: service
-    app.dependency_overrides[get_ai_provider] = lambda: provider
+    app.dependency_overrides[get_speech_synthesis_provider] = lambda: provider
 
     prompt_audio = await client.get(
         "/v1/stt-calibration/calibration-123/prompts/speech_01/audio"

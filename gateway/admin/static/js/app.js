@@ -465,6 +465,8 @@
       setValue("image_search_provider", data.image_search_provider || "disabled");
       setValue("image_search_timeout_seconds", data.image_search_timeout_seconds || 6);
       setValue("speech_base_url", data.speech_base_url || "");
+      setValue("stt_base_url", data.stt_base_url || "");
+      setValue("tts_base_url", data.tts_base_url || "");
       setValue("stt_model", data.stt_model);
       setValue("stt_initial_prompt", data.stt_initial_prompt);
       setValue("tts_model", data.tts_model);
@@ -473,6 +475,10 @@
       setValue("message_retention_days", data.message_retention_days);
       setValue("openai_api_key", "");
       setValue("speech_api_key", "");
+      setValue("stt_api_key", "");
+      setValue("tts_api_key", "");
+      document.getElementById("clear_stt_api_key").checked = false;
+      document.getElementById("clear_tts_api_key").checked = false;
       setValue("music_recognition_provider", data.music_recognition_provider || "disabled");
       setValue("acrcloud_host", data.acrcloud_host || "");
       setValue("music_recognition_timeout_seconds", data.music_recognition_timeout_seconds || 8);
@@ -485,7 +491,7 @@
       imageBadge.querySelector("span").textContent = data.image_search_provider === "openverse" ? "Openverse" : "Выключено";
       imageBadge.querySelector("i").className = `signal-dot ${data.image_search_provider === "openverse" ? "cyan" : ""}`;
 
-      summary.textContent = `env=${data.environment}, LLM key=${data.openai_api_key_preview || "(empty)"}, speech key=${data.speech_api_key_preview || "(empty)"}, images=${data.image_search_provider || "disabled"}, melody=${data.music_recognition_provider || "disabled"}`;
+      summary.textContent = `env=${data.environment}, LLM=${data.openai_api_key_preview || "(empty)"}, STT=${data.stt_api_key_preview || data.speech_api_key_preview || "(fallback LLM)"}, TTS=${data.tts_api_key_preview || data.speech_api_key_preview || "(fallback LLM)"}, images=${data.image_search_provider || "disabled"}, melody=${data.music_recognition_provider || "disabled"}`;
       document.getElementById("environment-label").textContent = data.environment;
       document.querySelector(".retention-ring").textContent = `${data.message_retention_days}d`;
     }
@@ -698,6 +704,8 @@
           image_search_provider: getValue("image_search_provider"),
           image_search_timeout_seconds: Number(getValue("image_search_timeout_seconds")),
           speech_base_url: getValue("speech_base_url").trim() || null,
+          stt_base_url: getValue("stt_base_url").trim() || null,
+          tts_base_url: getValue("tts_base_url").trim() || null,
           stt_model: getValue("stt_model").trim(),
           stt_initial_prompt: getValue("stt_initial_prompt").trim(),
           tts_model: getValue("tts_model").trim(),
@@ -706,6 +714,10 @@
           message_retention_days: Number(getValue("message_retention_days")),
           openai_api_key: getValue("openai_api_key").trim() || null,
           speech_api_key: getValue("speech_api_key").trim() || null,
+          stt_api_key: getValue("stt_api_key").trim() || null,
+          tts_api_key: getValue("tts_api_key").trim() || null,
+          clear_stt_api_key: document.getElementById("clear_stt_api_key").checked,
+          clear_tts_api_key: document.getElementById("clear_tts_api_key").checked,
           music_recognition_provider: getValue("music_recognition_provider"),
           acrcloud_host: getValue("acrcloud_host").trim() || null,
           acrcloud_access_key: getValue("acrcloud_access_key").trim() || null,

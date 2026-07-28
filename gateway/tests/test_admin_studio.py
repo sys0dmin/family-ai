@@ -21,7 +21,7 @@ async def test_studio_returns_raw_and_safe_model_output() -> None:
         permissions=(),
     )
     agents.get_safety_baseline.return_value = "Не причиняй вреда ребёнку."
-    service = StudioService(provider, agents, SafetyService())
+    service = StudioService(provider, provider, agents, SafetyService())
 
     result = await service.test_agent("teacher_friend", "Расскажи интересный факт")
 
@@ -44,7 +44,7 @@ async def test_studio_explains_blocked_model_output() -> None:
         permissions=(),
     )
     agents.get_safety_baseline.return_value = "Не причиняй вреда ребёнку."
-    service = StudioService(provider, agents, SafetyService())
+    service = StudioService(provider, provider, agents, SafetyService())
 
     result = await service.test_agent("teacher_friend", "Привет")
 
@@ -67,7 +67,7 @@ async def test_studio_uses_same_confirmed_memory_context_as_production() -> None
     agents.get_safety_baseline.return_value = "Не причиняй вреда ребёнку."
     memory = Mock()
     memory.build_prompt_context.return_value = "Подтверждённый интерес: космос"
-    service = StudioService(provider, agents, SafetyService(), memory)
+    service = StudioService(provider, provider, agents, SafetyService(), memory)
 
     await service.test_agent("teacher_friend", "Расскажи интересный факт")
 

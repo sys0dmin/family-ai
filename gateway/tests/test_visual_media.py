@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from gateway.app.dependencies import get_ai_provider, get_image_search_provider
+from gateway.app.dependencies import get_chat_provider, get_image_search_provider
 from gateway.app.images.openverse import OpenverseImageSearchProvider
 from gateway.app.images.schemas import ImageSearchResult
 from gateway.app.providers.schemas import ChatResponse
@@ -31,7 +31,7 @@ async def test_tech_question_returns_visual_attachment(
         license_name="CC BY",
         license_url="https://creativecommons.org/licenses/by/4.0/",
     )
-    app.dependency_overrides[get_ai_provider] = lambda: ai_provider
+    app.dependency_overrides[get_chat_provider] = lambda: ai_provider
     app.dependency_overrides[get_image_search_provider] = lambda: image_provider
 
     conversation = await client.post(

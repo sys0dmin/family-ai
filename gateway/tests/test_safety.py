@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from httpx import AsyncClient
 
-from gateway.app.dependencies import get_ai_provider
+from gateway.app.dependencies import get_chat_provider
 from gateway.app.providers.schemas import ChatResponse
 from gateway.app.services.safety_service import SafetyService
 
@@ -20,7 +20,7 @@ def mock_provider():
 
 @pytest.mark.anyio
 async def test_turn_blocks_dangerous_input(app, client: AsyncClient, mock_provider) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
 
     try:
         conversation_id = uuid.uuid4()
@@ -47,7 +47,7 @@ async def test_turn_blocks_dangerous_input(app, client: AsyncClient, mock_provid
 
 @pytest.mark.anyio
 async def test_turn_blocks_dangerous_output(app, client: AsyncClient, mock_provider) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
 
     # ИИ пытается выдать опасный ответ (например, про огонь)
     mock_provider.generate_response.return_value = ChatResponse(content="Давай разведем огонь!")
@@ -76,7 +76,7 @@ async def test_turn_allows_benign_educational_hazard_words(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     interesting_fact = "У осьминога три сердца, а его кровь голубого цвета."
     mock_provider.generate_response.return_value = ChatResponse(content=interesting_fact)
 
@@ -113,7 +113,7 @@ async def test_outdoor_guide_answers_fire_question_with_parent_guardrail(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     mock_provider.generate_response.return_value = ChatResponse(
         content=(
             "Выбери оборудованное место для костра, подготовь воду и сухие веточки."
@@ -141,7 +141,7 @@ async def test_outdoor_guide_can_discuss_poisonous_mushrooms_but_not_poison(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     conversation = await client.post(
         "/v1/conversations/",
         json={"agent_id": "outdoor_guide"},
@@ -202,7 +202,7 @@ async def test_outdoor_guide_explains_unknown_berries_without_provider(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     conversation = await client.post(
         "/v1/conversations/",
         json={"agent_id": "outdoor_guide"},
@@ -319,7 +319,7 @@ async def test_turn_allows_benign_emmc_explanation(
     client: AsyncClient,
     mock_provider,
 ) -> None:
-    app.dependency_overrides[get_ai_provider] = lambda: mock_provider
+    app.dependency_overrides[get_chat_provider] = lambda: mock_provider
     mock_provider.generate_response.return_value = ChatResponse(
         content=(
             "eMMC — это встроенная память. Она часто встречается "
