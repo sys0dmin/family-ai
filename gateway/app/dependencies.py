@@ -11,6 +11,7 @@ from gateway.app.calibration.service import SpeechCalibrationService
 from gateway.app.config import Settings, get_settings
 from gateway.app.db.session import get_db_session
 from gateway.app.images import ImageSearchProvider, OpenverseImageSearchProvider
+from gateway.app.memory import MemoryService, SqlAlchemyMemoryRepository
 from gateway.app.music import MusicRecognitionProvider
 from gateway.app.music.acrcloud import AcrCloudMusicRecognitionProvider
 from gateway.app.observability.voice_metrics import voice_metrics_registry
@@ -74,6 +75,14 @@ def get_agent_service(
     return AgentService(SqlAlchemyAgentRepository(session))
 
 
+def get_memory_service(
+    session: Session = Depends(get_db_session),
+) -> MemoryService:
+    """Return the provider-independent durable memory domain."""
+
+    return MemoryService(SqlAlchemyMemoryRepository(session))
+
+
 def get_music_recognition_provider() -> MusicRecognitionProvider | None:
     """Build the configured optional melody recognition provider."""
 
@@ -133,6 +142,7 @@ def get_conversation_service(
     safety: SafetyService = Depends(get_safety_service),
     agents: AgentService = Depends(get_agent_service),
     visual_media: VisualMediaService = Depends(get_visual_media_service),
+    memory: MemoryService = Depends(get_memory_service),
     settings: Settings = Depends(get_settings),
 ) -> ConversationService:
     """Return a conversation service with injected dependencies."""
@@ -144,6 +154,7 @@ def get_conversation_service(
         visual_media,
         default_agent_id=settings.default_agent_id,
         retention_days=settings.message_retention_days,
+        memory=memory,
     )
 
 

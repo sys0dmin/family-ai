@@ -7,6 +7,7 @@
     import { formatDateTime, getValue, setStatus, setValue } from "./dom.js";
     import { createHistoryScreen } from "./history-screen.js";
     import { createInfrastructureScreen } from "./infrastructure-screen.js";
+    import { createMemoryScreen } from "./memory-screen.js";
     import { createNavigation, hideAllScreens } from "./navigation.js";
     import { createSafetyPolicyScreen } from "./safety-policy-screen.js";
 
@@ -526,6 +527,7 @@
       openAgents: () => switchTab("agents")
     });
     const historyScreen = createHistoryScreen();
+    const memoryScreen = createMemoryScreen();
     const infrastructureScreen = createInfrastructureScreen();
     navigate = createNavigation(tab => {
       clearInterval(infrastructureTimer);
@@ -540,6 +542,7 @@
         calibrationTimer = setInterval(loadCalibrationStatus, 5000);
       }
       if (tab === "safety") safetyPolicyScreen.load();
+      if (tab === "memory") memoryScreen.load();
       if (tab === "infrastructure") {
         infrastructureScreen.load();
         infrastructureTimer = setInterval(infrastructureScreen.load, 15000);
@@ -584,6 +587,7 @@
     document.getElementById("agents-tab").onclick = () => switchTab("agents");
     document.getElementById("studio-tab").onclick = () => switchTab("studio");
     document.getElementById("safety-tab").onclick = () => switchTab("safety");
+    document.getElementById("memory-tab").onclick = () => switchTab("memory");
     document.getElementById("infrastructure-tab").onclick = () => switchTab("infrastructure");
     document.getElementById("history-tab").onclick = () => switchTab("history");
     document.getElementById("safety-baseline-save").onclick = saveSafetyBaseline;

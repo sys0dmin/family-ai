@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from gateway.admin.studio_service import SAFE_FALLBACK, StudioService
-from gateway.app.providers.schemas import ChatResponse
+from gateway.app.providers.schemas import ChatResponse, ProviderRole
 from gateway.app.services.safety_service import SafetyService
 
 
@@ -52,3 +52,28 @@ async def test_studio_explains_blocked_model_output() -> None:
     assert result.final_response == SAFE_FALLBACK
     assert result.safety_status == "blocked"
     assert result.safety_rule_id == "output.privacy.secret.block"
+
+
+@pytest.mark.anyio
+async def test_studio_uses_same_confirmed_memory_context_as_production() -> None:
+    provider = AsyncMock()
+    provider.generate_response.return_value = ChatResponse(content="Ответ")
+    agents = Mock()
+    agents.get_active.return_value = SimpleNamespace(
+        system_prompt="Будь добрым учителем.",
+        tools=(),
+        permissions=(),
+    )
+    agents.get_safety_baseline.return_value = "Не причиняй вреда ребёнку."
+    memory = Mock()
+    memory.build_prompt_context.return_value = "Подтверждённый интерес: космос"
+    service = StudioService(provider, agents, SafetyService(), memory)
+
+    await service.test_agent("teacher_friend", "Расскажи интересный факт")
+
+    request = provider.generate_response.await_args.args[0]
+    assert any(
+        message.role == ProviderRole.SYSTEM
+        and "Подтверждённый интерес" in message.content
+        for message in request.messages
+    )

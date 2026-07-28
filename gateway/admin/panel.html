@@ -41,6 +41,7 @@
         <button class="tab-button" id="agents-tab" aria-selected="false"><span class="nav-icon">✦</span><span>Агенты</span></button>
         <button class="tab-button" id="studio-tab" aria-selected="false"><span class="nav-icon">▶</span><span>Тест-студия</span></button>
         <button class="tab-button" id="safety-tab" aria-selected="false"><span class="nav-icon">◇</span><span>Safety</span></button>
+        <button class="tab-button" id="memory-tab" aria-selected="false"><span class="nav-icon">∞</span><span>Память</span></button>
         <button class="tab-button" id="infrastructure-tab" aria-selected="false"><span class="nav-icon">◉</span><span>Инфраструктура</span></button>
         <button class="tab-button" id="history-tab" aria-selected="false"><span class="nav-icon">▥</span><span>Аналитика</span></button>
       </nav>
@@ -275,6 +276,42 @@
           <div class="queue-strip"><span>Очередь Speech: <strong id="speech-queue">—</strong></span><span>Сейчас: <strong id="speech-active">—</strong></span><span>Ошибки Gateway: <strong id="pipeline-errors">—</strong></span><span>STT confidence: <strong id="pipeline-confidence">—</strong></span></div>
         </article>
         <div class="ops-footnote" id="infrastructure-checked">Ожидаем первый снимок</div>
+      </section>
+
+      <section id="memory-card" style="display:none">
+        <div class="section-intro">
+          <p>Только подтверждённые родителем сведения. Модель не умеет сама добавлять сюда догадки или выдержки из разговоров.</p>
+          <div class="row"><span id="memory-status"></span><button id="memory-refresh" class="secondary">↻ Обновить</button></div>
+        </div>
+        <div class="memory-overview">
+          <article class="memory-metric"><span>Всего записей</span><strong id="memory-total">0</strong></article>
+          <article class="memory-metric interest"><span>Интересы</span><strong id="memory-interest-count">0</strong></article>
+          <article class="memory-metric preference"><span>Предпочтения</span><strong id="memory-preference-count">0</strong></article>
+          <article class="memory-metric progress"><span>Учебный прогресс</span><strong id="memory-progress-count">0</strong></article>
+        </div>
+        <div class="memory-layout">
+          <aside class="panel memory-editor">
+            <div class="panel-head"><div><div class="card-kicker">Parent confirmation</div><h2 id="memory-form-title">Новая запись</h2></div></div>
+            <p class="muted">Формулируйте только то, что готовы подтвердить сами. После редактирования запись считается подтверждённой заново.</p>
+            <label class="field"><span>Категория</span><select id="memory-category"><option value="interest">Интерес</option><option value="preference">Предпочтение</option><option value="learning_progress">Учебный прогресс</option></select></label>
+            <label class="field"><span>Тема</span><input id="memory-topic" maxlength="120" placeholder="Например: Космос"></label>
+            <label class="field"><span>Подтверждённое сведение</span><textarea id="memory-summary" rows="5" maxlength="1000" placeholder="Лера с интересом узнаёт о планетах и задаёт вопросы о спутниках."></textarea></label>
+            <div class="grid">
+              <label class="field"><span>Источник</span><select id="memory-source-type"><option value="parent_observation">Наблюдение родителя</option><option value="child_statement">Слова Леры</option><option value="learning_activity">Учебное занятие</option></select></label>
+              <label class="field"><span>Дата источника</span><input id="memory-source-date" type="date"></label>
+            </div>
+            <label class="field"><span>Комментарий об источнике <small>необязательно</small></span><textarea id="memory-source-note" rows="3" maxlength="500" placeholder="Контекст для родителя, не дословная история чата"></textarea></label>
+            <div class="studio-actions"><button id="memory-save" class="primary">Подтвердить запись</button><button id="memory-cancel" class="secondary" hidden>Отменить редактирование</button></div>
+          </aside>
+          <article class="panel memory-library">
+            <div class="panel-head">
+              <div><div class="card-kicker">Durable context</div><h2>Что агенты помнят</h2></div>
+              <label class="compact-filter"><span>Показать</span><select id="memory-filter"><option value="">Все категории</option><option value="interest">Интересы</option><option value="preference">Предпочтения</option><option value="learning_progress">Учебный прогресс</option></select></label>
+            </div>
+            <div class="memory-guardrail">Записи используются только по теме ответа. Они не должны становиться способом давления, удержания внимания или заменой родителей.</div>
+            <div id="memory-list" class="memory-list"></div>
+          </article>
+        </div>
       </section>
 
       <section id="history-card" style="display:none">

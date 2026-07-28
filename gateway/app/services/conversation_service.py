@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from gateway.app.agents import ActiveAgent, build_agent_system_message
 from gateway.app.constants import LERA_PROFILE_ID
+from gateway.app.memory import MemoryService
 from gateway.app.models import ChildProfile, Conversation, Message, MessageRole
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole, ProviderTool
@@ -69,6 +70,7 @@ class ConversationService:
         visual_media: VisualMediaService | None = None,
         default_agent_id: str = "teacher_friend",
         retention_days: int = 10,
+        memory: MemoryService | None = None,
     ) -> None:
         self._session = session
         self._provider = provider
@@ -77,6 +79,7 @@ class ConversationService:
         self._visual_media = visual_media
         self._default_agent_id = default_agent_id
         self._retention_days = retention_days
+        self._memory = memory
 
     def create_message(
         self,
@@ -173,6 +176,17 @@ class ConversationService:
                 self._agents.get_safety_baseline(),
             )
         ]
+        if self._memory:
+            memory_context = self._memory.build_prompt_context(
+                self._conversation_profile_id(conversation_id)
+            )
+            if memory_context:
+                messages.append(
+                    ChatMessage(
+                        role=ProviderRole.SYSTEM,
+                        content=memory_context,
+                    )
+                )
         if runtime_context:
             messages.append(ChatMessage(role=ProviderRole.SYSTEM, content=runtime_context))
         elif "music_recognition" in active_agent.tools:
@@ -292,6 +306,12 @@ class ConversationService:
         self._session.add(conversation)
         self._session.flush()
         return conversation
+
+    def _conversation_profile_id(self, conversation_id: uuid.UUID) -> uuid.UUID:
+        conversation = self._session.get(Conversation, conversation_id)
+        if conversation is None:
+            raise RuntimeError("Conversation is not initialized")
+        return conversation.child_profile_id
 
     def create_conversation(self, agent_id: str | None = None) -> Conversation:
         """Создать новый диалог и вернуть его идентификатор."""

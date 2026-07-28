@@ -10,6 +10,7 @@ from gateway.app.db.base import Base
 from gateway.app.models import (  # noqa: F401
     ChildProfile,
     Conversation,
+    LongTermMemory,
     Message,
     TopicStatistic,
 )

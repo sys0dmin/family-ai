@@ -28,6 +28,8 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="safety-policy-card"' in response.text
     assert 'id="safety-run-scenarios"' in response.text
     assert 'id="safety-reset-metrics"' in response.text
+    assert 'id="memory-card"' in response.text
+    assert 'id="memory-save"' in response.text
     assert 'id="infrastructure-card"' in response.text
     assert 'id="infrastructure-tab"' in response.text
     assert 'id="server-speech"' in response.text
@@ -51,6 +53,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
         navigation = await client.get("/admin-assets/js/navigation.js")
         safety = await client.get("/admin-assets/js/safety-policy-screen.js")
         history = await client.get("/admin-assets/js/history-screen.js")
+        memory = await client.get("/admin-assets/js/memory-screen.js")
         infrastructure = await client.get(
             "/admin-assets/js/infrastructure-screen.js"
         )
@@ -65,6 +68,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert navigation.status_code == 200
     assert safety.status_code == 200
     assert history.status_code == 200
+    assert memory.status_code == 200
     assert infrastructure.status_code == 200
 
 

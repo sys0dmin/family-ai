@@ -3,6 +3,7 @@ const pageCopy = {
   agents: ["Агенты", "Agent studio"],
   studio: ["Тест-студия", "Prompt & voice laboratory"],
   safety: ["Safety Policy", "Child safety control"],
+  memory: ["Память", "Parent-confirmed context"],
   infrastructure: ["Инфраструктура", "Project operations"],
   history: ["Аналитика", "Conversation intelligence"]
 };
@@ -12,6 +13,7 @@ const screenIds = {
   agents: "agents-card",
   studio: "studio-card",
   safety: "safety-policy-card",
+  memory: "memory-card",
   infrastructure: "infrastructure-card",
   history: "history-card"
 };

@@ -16,6 +16,7 @@ from gateway.admin.studio_service import StudioService
 from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.db.session import get_session_factory
 from gateway.app.dependencies import get_ai_provider, get_safety_service
+from gateway.app.memory import MemoryService, SqlAlchemyMemoryRepository
 from gateway.app.providers.base import AIProvider
 from gateway.app.services.agent_service import (
     AgentConfigurationError,
@@ -41,7 +42,8 @@ def get_studio_service(
     safety: SafetyService = Depends(get_safety_service),
 ) -> StudioService:
     agents = AgentService(SqlAlchemyAgentRepository(session))
-    return StudioService(provider, agents, safety)
+    memory = MemoryService(SqlAlchemyMemoryRepository(session))
+    return StudioService(provider, agents, safety, memory)
 
 
 @router.post("/agent-test", response_model=AgentTestResponse)

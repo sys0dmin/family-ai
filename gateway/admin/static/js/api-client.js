@@ -14,6 +14,7 @@ export async function api(path, options = {}) {
     const body = await response.text();
     throw new Error(`HTTP ${response.status}: ${body || response.statusText}`);
   }
+  if (response.status === 204) return null;
   return response.json();
 }
 

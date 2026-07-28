@@ -26,6 +26,7 @@ from gateway.admin.history_schemas import (
     HistorySummaryResponse,
 )
 from gateway.admin.history_service import HistoryService
+from gateway.admin.memory_router import router as memory_router
 from gateway.admin.monitoring_router import router as monitoring_router
 from gateway.admin.safety_policy_router import router as safety_policy_router
 from gateway.admin.speech_runtime_router import router as speech_runtime_router
@@ -148,6 +149,7 @@ app.include_router(voice_observability_router)
 app.include_router(calibration_router)
 app.include_router(speech_runtime_router)
 app.include_router(safety_policy_router)
+app.include_router(memory_router)
 
 
 def get_history_session() -> Generator[Session]:

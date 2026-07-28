@@ -7,11 +7,11 @@ After=network-online.target
 Type=simple
 User=familyai-deploy
 Group=familyai-deploy
-WorkingDirectory=/home/familyai-deploy/family-ai/speech
+WorkingDirectory=/srv/family-ai/speech/current
 EnvironmentFile=/etc/family-ai/speech.env
 Environment=PYTHONUNBUFFERED=1
 Environment=HF_HOME=/var/lib/family-ai-speech/models
-ExecStart=/home/familyai-deploy/family-ai/speech/.venv/bin/python -m uvicorn family_ai_speech.main:app --host 0.0.0.0 --port 8010
+ExecStart=/srv/family-ai/speech/current/.venv/bin/python -m uvicorn family_ai_speech.main:app --host 0.0.0.0 --port 8010
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=180

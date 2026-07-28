@@ -11,6 +11,7 @@ from gateway.app.db.base import Base
 
 if TYPE_CHECKING:
     from gateway.app.models.conversation import Conversation
+    from gateway.app.models.long_term_memory import LongTermMemory
     from gateway.app.models.topic_statistic import TopicStatistic
 
 
@@ -30,4 +31,8 @@ class ChildProfile(Base):
     )
 
     conversations: Mapped[list["Conversation"]] = relationship(back_populates="child_profile")
+    memories: Mapped[list["LongTermMemory"]] = relationship(
+        back_populates="child_profile",
+        cascade="all, delete-orphan",
+    )
     topic_statistics: Mapped[list["TopicStatistic"]] = relationship(back_populates="child_profile")

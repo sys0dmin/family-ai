@@ -121,6 +121,8 @@ uv run uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001 --reload
 - «Тест-студия» — проверка агента, safety и голоса без записи в детскую историю;
 - «Safety Policy» — обязательные правила входа, выхода, инструментов и
   разрешений, обезличенные счётчики и локальная контрольная матрица;
+- «Память» — подтверждённые родителем интересы, предпочтения и учебный
+  прогресс с источником, датой, редактированием и физическим удалением;
 - «Инфраструктура» — состояние Gateway, БД, Speech, CPU, память, диски, uptime,
   PostgreSQL, этапы голосового конвейера и очередь Speech Service;
 - «История и аналитика» — недавние диалоги, поиск, активность и частые вопросы.
@@ -141,6 +143,14 @@ uv run uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001 --reload
 
 История доступна только через защищённую админку. Исходное аудио не сохраняется,
 а текстовые сообщения автоматически удаляются согласно сроку хранения.
+
+Долгосрочная память хранится отдельно от истории и не очищается 10-дневным
+retention timer. Языковая модель не может создавать записи самостоятельно:
+это делает только родитель во вкладке «Память». В prompt попадают не более 30
+подтверждённых записей без внутренних комментариев родителя. Изменение и
+удаление начинают действовать со следующего ответа без перезапуска Gateway.
+Политика описана в
+[`docs/long-term-memory.md`](docs/long-term-memory.md).
 
 В «Тест-студии» также запускается явно разрешённая родителем локальная
 калибровка детской речи. Android-приложение озвучивает 12 фраз и автоматически
@@ -256,8 +266,13 @@ Flutter-клиент находится в `mobile/` и использует Gat
 
 - PostgreSQL разворачивается на `family-ai-db` (Debian 13).
 - Скрипты: `scripts/postgres/fix-install.sh`, `scripts/postgres/harden.sh`.
-- Секреты БД хранятся на Gateway в `/etc/family-ai/db.env` (`chmod 600`).
-- Ежедневная очистка сообщений: `uv run python scripts/run_retention.py`.
+- Runtime-конфигурация и секреты Gateway хранятся в
+  `/etc/family-ai/gateway.env` (`chmod 600`), Speech — в
+  `/etc/family-ai/speech.env`.
+- Код запускается из неизменяемых релизов `/srv/family-ai/*/releases/<commit>`.
+- Сборка из точного Git commit, миграции, health-check, статус и rollback
+  описаны в [`docs/deployment.md`](docs/deployment.md).
+- Ежедневная очистка сообщений выполняется `family-ai-retention.timer`.
 
 ### Управление админкой через systemd
 
@@ -333,7 +348,7 @@ Timer запускает очистку ежедневно и удаляет с�
 ## Аварийный запуск в проде (без systemd)
 
 ```bash
-cd /home/familyai-deploy/family-ai
+cd /srv/family-ai/gateway/current
 nohup ./.venv/bin/python -m uvicorn gateway.app.main:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
 nohup ./.venv/bin/python -m uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001 > admin.log 2>&1 &
 ```

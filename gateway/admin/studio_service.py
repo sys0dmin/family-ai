@@ -4,6 +4,8 @@ import time
 
 from gateway.admin.studio_schemas import AgentTestResponse
 from gateway.app.agents import build_agent_system_message
+from gateway.app.constants import LERA_PROFILE_ID
+from gateway.app.memory import MemoryService
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.schemas import (
     ChatMessage,
@@ -31,10 +33,12 @@ class StudioService:
         provider: AIProvider,
         agents: AgentService,
         safety: SafetyService,
+        memory: MemoryService | None = None,
     ) -> None:
         self._provider = provider
         self._agents = agents
         self._safety = safety
+        self._memory = memory
 
     async def test_agent(self, agent_id: str, prompt: str) -> AgentTestResponse:
         agent = self._agents.get_active(agent_id)
@@ -65,16 +69,23 @@ class StudioService:
             if tool_outcome and tool_outcome.action is PolicyAction.ALLOW
             else ()
         )
-        request = ChatRequest(
-            messages=[
-                build_agent_system_message(
-                    agent.system_prompt,
-                    self._agents.get_safety_baseline(),
-                ),
-                ChatMessage(role=ProviderRole.USER, content=prompt),
-            ],
-            tools=tools,
-        )
+        messages = [
+            build_agent_system_message(
+                agent.system_prompt,
+                self._agents.get_safety_baseline(),
+            )
+        ]
+        if self._memory:
+            memory_context = self._memory.build_prompt_context(LERA_PROFILE_ID)
+            if memory_context:
+                messages.append(
+                    ChatMessage(
+                        role=ProviderRole.SYSTEM,
+                        content=memory_context,
+                    )
+                )
+        messages.append(ChatMessage(role=ProviderRole.USER, content=prompt))
+        request = ChatRequest(messages=messages, tools=tools)
         started_at = time.perf_counter()
         response = await self._provider.generate_response(request)
         llm_duration_ms = round((time.perf_counter() - started_at) * 1000)

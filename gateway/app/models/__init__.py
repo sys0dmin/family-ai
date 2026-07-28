@@ -3,6 +3,11 @@
 from gateway.app.models.agent import Agent, AgentRevision
 from gateway.app.models.child_profile import ChildProfile
 from gateway.app.models.conversation import Conversation
+from gateway.app.models.long_term_memory import (
+    LongTermMemory,
+    MemoryCategory,
+    MemorySourceType,
+)
 from gateway.app.models.message import Message, MessageRole
 from gateway.app.models.message_media import MessageMedia
 from gateway.app.models.safety_baseline import (
@@ -16,6 +21,9 @@ __all__ = [
     "AgentRevision",
     "ChildProfile",
     "Conversation",
+    "LongTermMemory",
+    "MemoryCategory",
+    "MemorySourceType",
     "Message",
     "MessageRole",
     "MessageMedia",
