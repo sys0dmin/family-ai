@@ -66,7 +66,7 @@ def test_vision_factory_is_independent_and_can_reuse_chat_credentials(monkeypatc
         openai_api_key="chat-key",
         openai_base_url="https://api.groq.com/openai/v1",
         vision_provider="openai_compatible",
-        vision_model="meta-llama/llama-4-scout-17b-16e-instruct",
+        vision_model="qwen/qwen3.6-27b",
     )
     monkeypatch.setattr(dependencies, "Settings", lambda: settings)
 
@@ -74,6 +74,6 @@ def test_vision_factory_is_independent_and_can_reuse_chat_credentials(monkeypatc
 
     assert isinstance(vision, ImageUnderstandingProvider)
     assert isinstance(vision, OpenAIImageUnderstandingProvider)
-    assert vision._model == "meta-llama/llama-4-scout-17b-16e-instruct"
+    assert vision._model == "qwen/qwen3.6-27b"
     assert str(vision._client.base_url) == "https://api.groq.com/openai/v1/"
     assert vision._client.api_key == "chat-key"

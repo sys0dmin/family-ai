@@ -467,7 +467,7 @@
       setValue("image_search_timeout_seconds", data.image_search_timeout_seconds || 6);
       setValue("vision_provider", data.vision_provider || "disabled");
       setValue("vision_base_url", data.vision_base_url || "");
-      setValue("vision_model", data.vision_model || "meta-llama/llama-4-scout-17b-16e-instruct");
+      setValue("vision_model", data.vision_model || "qwen/qwen3.6-27b");
       setValue("vision_api_key", "");
       document.getElementById("clear_vision_api_key").checked = false;
       setValue("speech_base_url", data.speech_base_url || "");

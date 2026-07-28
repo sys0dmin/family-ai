@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     vision_provider: Literal["disabled", "openai_compatible"] = "disabled"
     vision_api_key: SecretStr = SecretStr("")
     vision_base_url: str | None = None
-    vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    vision_model: str = "qwen/qwen3.6-27b"
     vision_max_image_bytes: int = 3 * 1024 * 1024
     voice_language: str = "ru"
     voice_max_audio_bytes: int = 10 * 1024 * 1024
