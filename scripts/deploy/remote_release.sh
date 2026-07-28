@@ -190,6 +190,12 @@ activate_release() {
     restart_services
     wait_for_health || die "rollback health-check also failed"
     version_for_target "$old_target" >"$COMPONENT_ROOT/deployed-version"
+  else
+    rm -f -- "$COMPONENT_ROOT/current"
+    for service in "${SERVICES[@]}"; do
+      sudo systemctl stop "$service" || true
+    done
+    echo "unavailable" >"$COMPONENT_ROOT/deployed-version"
   fi
   die "deployment rolled back after failed health-check"
 }

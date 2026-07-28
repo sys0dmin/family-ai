@@ -29,6 +29,9 @@ api.txt
 *.db-*
 /tmp/
 /.artifacts/
+/.dr/
+*.dump
+*.backup
 
 # Local Speech Service model/runtime data
 /speech/.cache/

@@ -14,6 +14,7 @@ param(
     [string]$Commit = "HEAD",
     [string]$TargetVersion = "",
     [string]$SshUser = "familyai-deploy",
+    [string]$ServiceUser = "familyai-deploy",
     [string]$IdentityFile = "$env:USERPROFILE\.ssh\family-ai-deploy"
 )
 
@@ -56,7 +57,7 @@ function Install-HostContract {
     }
     Invoke-Native "ssh" ($SshOptions + @(
         $Remote,
-        "sudo bash '$Bootstrap/install_host.sh' '$Component' '$Bootstrap' '$SshUser'"
+        "sudo bash '$Bootstrap/install_host.sh' '$Component' '$Bootstrap' '$ServiceUser'"
     ))
 }
 

@@ -170,3 +170,6 @@ health-check.
 
 .\.venv\Scripts\python.exe -m pytest gateway/tests/test_release_builder.py
 ```
+
+Для восстановления на трёх полностью чистых VM используется отдельный
+clean-room orchestrator: [`disaster-recovery.md`](disaster-recovery.md).

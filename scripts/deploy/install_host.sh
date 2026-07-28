@@ -26,15 +26,22 @@ install_unit() {
 case "$COMPONENT" in
   gateway)
     if [[ ! -f /etc/family-ai/gateway.env ]]; then
-      [[ -f /home/familyai-deploy/family-ai/.env ]] ||
-        { echo "legacy Gateway configuration was not found" >&2; exit 1; }
-      install -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0600 \
-        /home/familyai-deploy/family-ai/.env /etc/family-ai/gateway.env
+      if [[ -f /home/familyai-deploy/family-ai/.env ]]; then
+        install -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0600 \
+          /home/familyai-deploy/family-ai/.env /etc/family-ai/gateway.env
+      else
+        echo "/etc/family-ai/gateway.env is required on a fresh host" >&2
+        exit 1
+      fi
     fi
     if [[ ! -e "$ROOT/gateway/current" ]]; then
-      ln -s /home/familyai-deploy/family-ai "$ROOT/gateway/current"
-      echo "legacy" >"$ROOT/gateway/deployed-version"
-      chown "$DEPLOY_USER:$DEPLOY_USER" "$ROOT/gateway/deployed-version"
+      if [[ -d /home/familyai-deploy/family-ai ]]; then
+        ln -s /home/familyai-deploy/family-ai "$ROOT/gateway/current"
+        echo "legacy" >"$ROOT/gateway/deployed-version"
+        chown "$DEPLOY_USER:$DEPLOY_USER" "$ROOT/gateway/deployed-version"
+      else
+        echo "fresh Gateway host: current will be created during activation"
+      fi
     fi
     install_unit family-ai-gateway.service
     install_unit family-ai-admin.service
@@ -47,9 +54,13 @@ case "$COMPONENT" in
     [[ -f /etc/family-ai/speech.env ]] ||
       { echo "/etc/family-ai/speech.env is required" >&2; exit 1; }
     if [[ ! -e "$ROOT/speech/current" ]]; then
-      ln -s /home/familyai-deploy/family-ai/speech "$ROOT/speech/current"
-      echo "legacy" >"$ROOT/speech/deployed-version"
-      chown "$DEPLOY_USER:$DEPLOY_USER" "$ROOT/speech/deployed-version"
+      if [[ -d /home/familyai-deploy/family-ai/speech ]]; then
+        ln -s /home/familyai-deploy/family-ai/speech "$ROOT/speech/current"
+        echo "legacy" >"$ROOT/speech/deployed-version"
+        chown "$DEPLOY_USER:$DEPLOY_USER" "$ROOT/speech/deployed-version"
+      else
+        echo "fresh Speech host: current will be created during activation"
+      fi
     fi
     install_unit family-ai-speech.service
     systemctl enable family-ai-speech.service >/dev/null

@@ -274,6 +274,10 @@ Flutter-клиент находится в `mobile/` и использует Gat
 - Код запускается из неизменяемых релизов `/srv/family-ai/*/releases/<commit>`.
 - Сборка из точного Git commit, миграции, health-check, статус и rollback
   описаны в [`docs/deployment.md`](docs/deployment.md).
+- Полное восстановление трёх чистых VM и перенос доступной старой PostgreSQL
+  описаны в [`docs/disaster-recovery.md`](docs/disaster-recovery.md); критерии
+  fire drill находятся в
+  [`plans/DisasterRecoveryPlan.md`](plans/DisasterRecoveryPlan.md).
 - Ежедневная очистка сообщений выполняется `family-ai-retention.timer`.
 
 ### Управление админкой через systemd
