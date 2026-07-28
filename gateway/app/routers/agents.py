@@ -24,6 +24,7 @@ def list_agents(
                 icon=agent.icon,
                 color=agent.color,
                 greeting=agent.greeting,
+                supports_image_upload="image_understanding" in agent.tools,
             )
             for agent in service.list_available()
         ]

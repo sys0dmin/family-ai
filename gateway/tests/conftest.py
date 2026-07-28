@@ -51,6 +51,16 @@ TEST_AGENTS = (
         ["web_search", "image_search"],
         [],
     ),
+    (
+        "space_guide",
+        "Алиса Селезнёва",
+        "🚀",
+        "cosmos",
+        "aisha",
+        80,
+        ["web_search", "image_search", "image_understanding"],
+        [],
+    ),
 )
 
 

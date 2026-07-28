@@ -195,6 +195,20 @@ RULE_CATALOG = (
         "Поиск изображений не разрешён агенту",
     ),
     _rule(
+        "tool.image_understanding.allow",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.ALLOW,
+        "Агенту разрешено безопасное понимание загруженной фотографии",
+    ),
+    _rule(
+        "tool.image_understanding.block",
+        PolicyPhase.TOOL,
+        PolicyCategory.TOOL_ACCESS,
+        PolicyAction.BLOCK,
+        "Понимание загруженной фотографии не разрешено агенту",
+    ),
+    _rule(
         "tool.unknown.block",
         PolicyPhase.TOOL,
         PolicyCategory.TOOL_ACCESS,

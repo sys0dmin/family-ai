@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from gateway.app.providers.schemas import (
     ChatRequest,
     ChatResponse,
+    ImageUnderstandingRequest,
+    ImageUnderstandingResponse,
     SpeechRequest,
     SpeechResponse,
     TranscriptionRequest,
@@ -36,4 +38,15 @@ class SpeechSynthesisProvider(ABC):
 
     @abstractmethod
     async def synthesize_speech(self, request: SpeechRequest) -> SpeechResponse:
+        raise NotImplementedError
+
+
+class ImageUnderstandingProvider(ABC):
+    """Convert an ephemeral image into bounded textual observations."""
+
+    @abstractmethod
+    async def describe_image(
+        self,
+        request: ImageUnderstandingRequest,
+    ) -> ImageUnderstandingResponse:
         raise NotImplementedError

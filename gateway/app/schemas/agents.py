@@ -10,6 +10,7 @@ class AgentResponse(BaseModel):
     icon: str
     color: str
     greeting: str
+    supports_image_upload: bool = False
 
 
 class AgentListResponse(BaseModel):

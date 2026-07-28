@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../agents/agent.dart';
 import '../agents/agent_presentation.dart';
@@ -33,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   late final VoiceReplyCache _replyCache;
   late final ConversationController _conversation;
   late final VoiceChatController _voice;
+  final _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -87,6 +89,33 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _sendPhoto() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final photo = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+      maxWidth: 2048,
+      maxHeight: 2048,
+    );
+    if (photo == null) return;
+    final bytes = await photo.readAsBytes();
+    final question = _textController.text.trim();
+    _textController.clear();
+    await _conversation.sendImage(
+      imageBytes: bytes,
+      filename: photo.name,
+      contentType: photo.mimeType ?? _contentTypeFor(photo.name),
+      question: question,
+    );
+  }
+
+  static String _contentTypeFor(String filename) {
+    final normalized = filename.toLowerCase();
+    if (normalized.endsWith('.png')) return 'image/png';
+    if (normalized.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 
   void _scrollToBottom() {
@@ -197,6 +226,7 @@ class _ChatScreenState extends State<ChatScreen> {
               _voice.toggleRecording();
             },
             onCancelVoice: _voice.cancel,
+            onPhoto: widget.agent.supportsImageUpload ? _sendPhoto : null,
             compact: compactInputMode,
           ),
         ],

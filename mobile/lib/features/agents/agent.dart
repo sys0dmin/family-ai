@@ -6,6 +6,7 @@ class Agent {
     required this.icon,
     required this.color,
     required this.greeting,
+    this.supportsImageUpload = false,
   });
 
   final String id;
@@ -14,6 +15,7 @@ class Agent {
   final String icon;
   final String color;
   final String greeting;
+  final bool supportsImageUpload;
 
   factory Agent.fromJson(Map<String, dynamic> json) {
     return Agent(
@@ -23,6 +25,7 @@ class Agent {
       icon: json['icon'] as String,
       color: json['color'] as String,
       greeting: json['greeting'] as String,
+      supportsImageUpload: json['supports_image_upload'] as bool? ?? false,
     );
   }
 }

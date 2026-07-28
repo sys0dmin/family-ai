@@ -63,7 +63,7 @@ async def test_admin_can_view_safety_baseline_and_prompt_versions(
     body = response.json()
     assert "шести лет" in body["safety_baseline"]
     assert body["safety_baseline_version"] == 0
-    assert len(body["items"]) == 7
+    assert len(body["items"]) == 8
     assert body["items"][0]["revisions"][0]["is_active"] is True
     assert body["items"][0]["revisions"][0]["system_prompt"]
 

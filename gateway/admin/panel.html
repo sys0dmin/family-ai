@@ -118,6 +118,16 @@
               <label class="field"><span>Провайдер</span><select id="image_search_provider"><option value="disabled">Выключено</option><option value="openverse">Openverse</option></select></label>
               <label class="field"><span>Таймаут, секунд</span><input id="image_search_timeout_seconds" type="number" min="1" max="30" step="0.5"></label>
             </div>
+            <hr class="soft-divider">
+            <div class="panel-head"><div><div class="card-kicker">Vision input</div><h2>Фотографии от Леры</h2></div><span class="live-badge" id="vision-provider-badge"><i class="signal-dot"></i><span>Выключено</span></span></div>
+            <p class="muted">Фото обрабатывается один раз и не сохраняется. Сейчас эта способность включена только у Алисы.</p>
+            <div class="grid">
+              <label class="field"><span>Провайдер</span><select id="vision_provider"><option value="disabled">Выключено</option><option value="openai_compatible">OpenAI-compatible</option></select></label>
+              <label class="field"><span>Vision-модель</span><input id="vision_model" placeholder="meta-llama/llama-4-scout-17b-16e-instruct"></label>
+            </div>
+            <label class="field"><span>Vision Base URL <small>пусто — использовать LLM Base URL</small></span><input id="vision_base_url" placeholder="https://api.groq.com/openai/v1"></label>
+            <label class="field"><span>Vision API-ключ <small>пусто — использовать LLM-ключ</small></span><input id="vision_api_key" type="password" autocomplete="new-password"></label>
+            <label class="option-row"><input id="clear_vision_api_key" type="checkbox"><span>Сбросить отдельный ключ и использовать LLM-ключ</span></label>
           </article>
 
           <article class="config-panel wide">
@@ -149,7 +159,7 @@
               <div class="grid three"><label class="field"><span>Голос</span><select id="agent-voice"><optgroup label="Локальные · Silero"><option value="xenia">Xenia</option><option value="baya">Baya</option><option value="kseniya">Kseniya</option><option value="aidar">Aidar</option><option value="eugene">Eugene</option></optgroup><optgroup label="Облачные"><option value="lulwa">Lulwa</option><option value="noura">Noura</option><option value="aisha">Aisha</option><option value="abdullah">Abdullah</option><option value="fahad">Fahad</option><option value="sultan">Sultan</option></optgroup></select></label><label class="field"><span>Порядок</span><input id="agent-order" type="number"></label><label class="field"><span>Статус</span><select id="agent-enabled"><option value="true">Доступен</option><option value="false">Отключён</option></select></label></div>
               <label class="field"><span>Описание</span><textarea id="agent-description" rows="3"></textarea></label>
               <label class="field"><span>Приветствие</span><textarea id="agent-greeting" rows="3"></textarea></label>
-              <fieldset class="field option-group"><legend>Инструменты и разрешения</legend><label class="option-row"><input id="agent-tool-music" type="checkbox"><span>Музыкальный слух — отправлять голосовые записи сервису распознавания мелодий</span></label><label class="option-row"><input id="agent-tool-web-search" type="checkbox"><span>Веб-поиск — проверять факты и названия во внешнем поиске</span></label><label class="option-row"><input id="agent-tool-image-search" type="checkbox"><span>Иллюстрации — добавлять к подходящим ответам лицензированные изображения</span></label><label class="option-row"><input id="agent-permission-outdoor" type="checkbox"><span>Походная безопасность — обсуждать огонь и нож с обязательным участием родителей</span></label></fieldset>
+              <fieldset class="field option-group"><legend>Инструменты и разрешения</legend><label class="option-row"><input id="agent-tool-music" type="checkbox"><span>Музыкальный слух — отправлять голосовые записи сервису распознавания мелодий</span></label><label class="option-row"><input id="agent-tool-web-search" type="checkbox"><span>Веб-поиск — проверять факты и названия во внешнем поиске</span></label><label class="option-row"><input id="agent-tool-image-search" type="checkbox"><span>Иллюстрации — добавлять к подходящим ответам лицензированные изображения</span></label><label class="option-row"><input id="agent-tool-image-understanding" type="checkbox"><span>Понимание фото — принимать одноразовые изображения от ребёнка</span></label><label class="option-row"><input id="agent-permission-outdoor" type="checkbox"><span>Походная безопасность — обсуждать огонь и нож с обязательным участием родителей</span></label></fieldset>
               <div class="prompt-studio"><div class="panel-head"><div><div class="card-kicker">Prompt studio</div><h3>Новая версия поведения</h3></div><button id="agent-create-revision" class="secondary">Создать версию</button></div><textarea id="agent-new-prompt" rows="12"></textarea></div>
               <div><h3 class="section-title">История версий</h3><div id="agent-revisions" class="revision-list"></div></div>
             </div>

@@ -411,6 +411,7 @@
       backdrop-filter: blur(14px);
     }
     .voice-controls { display: grid; grid-template-columns: 52px 1fr 52px; align-items: center; gap: 16px; max-width: 520px; margin: 0 auto; }
+    .voice-controls.has-photo { grid-template-columns: 52px 52px 1fr 52px; }
     .dock-button {
       width: 52px;
       height: 52px;
@@ -505,6 +506,7 @@
       .avatar { width: 31px; height: 31px; }
       .control-dock { padding: 12px 14px var(--safe-bottom); }
       .voice-controls { grid-template-columns: 46px 1fr 46px; gap: 11px; }
+      .voice-controls.has-photo { grid-template-columns: 46px 46px 1fr 46px; }
       .dock-button { width: 46px; height: 46px; border-radius: 15px; }
       .mic-button { width: 76px; height: 76px; }
       .mic-symbol { transform: scale(0.82); }
@@ -592,13 +594,15 @@
         </div>
 
         <footer class="control-dock">
-          <div class="voice-controls">
+          <div id="voice-controls" class="voice-controls">
+            <button id="photo-btn" class="dock-button" type="button" aria-label="Выбрать фотографию" title="Фотография" hidden>📷</button>
             <button id="keyboard-toggle" class="dock-button" type="button" aria-label="Показать клавиатуру" aria-expanded="false">⌨</button>
             <button id="mic-btn" class="mic-button" type="button" aria-label="Начать голосовое сообщение">
               <span class="mic-symbol" aria-hidden="true"></span>
             </button>
             <button class="dock-button browser-speech-toggle" type="button" aria-label="Выключить автоозвучку" title="Автоозвучка">🔊</button>
           </div>
+          <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" hidden />
           <div id="text-composer" class="text-composer" hidden>
             <input id="text-input" type="text" placeholder="Напиши сообщение…" autocomplete="off" maxlength="4000" />
             <button id="send-btn" class="send-button" type="button" aria-label="Отправить">➜</button>
@@ -608,6 +612,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js?v=15"></script>
+  <script src="/static/app.js?v=16"></script>
 </body>
 </html>

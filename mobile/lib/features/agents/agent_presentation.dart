@@ -48,6 +48,11 @@ const agentPresentations = <String, AgentPresentation>{
     color: Color(0xFF176B91),
     softColor: Color(0xFFE2F3F8),
   ),
+  'space_guide': AgentPresentation(
+    asset: 'assets/characters/alice-selezneva.webp',
+    color: Color(0xFF7A4FC7),
+    softColor: Color(0xFFEEE8FB),
+  ),
 };
 
 const fallbackAgentPresentation = AgentPresentation(

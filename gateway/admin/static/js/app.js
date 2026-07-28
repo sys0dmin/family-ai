@@ -103,6 +103,7 @@
       document.getElementById("agent-tool-music").checked = (agent.tools || []).includes("music_recognition");
       document.getElementById("agent-tool-web-search").checked = (agent.tools || []).includes("web_search");
       document.getElementById("agent-tool-image-search").checked = (agent.tools || []).includes("image_search");
+      document.getElementById("agent-tool-image-understanding").checked = (agent.tools || []).includes("image_understanding");
       document.getElementById("agent-permission-outdoor").checked = (agent.permissions || []).includes("supervised_outdoor_safety");
       setValue("agent-new-prompt", agent.revisions[0]?.system_prompt || "");
 
@@ -464,6 +465,11 @@
       setValue("web_search_tool_type", data.web_search_tool_type || "disabled");
       setValue("image_search_provider", data.image_search_provider || "disabled");
       setValue("image_search_timeout_seconds", data.image_search_timeout_seconds || 6);
+      setValue("vision_provider", data.vision_provider || "disabled");
+      setValue("vision_base_url", data.vision_base_url || "");
+      setValue("vision_model", data.vision_model || "meta-llama/llama-4-scout-17b-16e-instruct");
+      setValue("vision_api_key", "");
+      document.getElementById("clear_vision_api_key").checked = false;
       setValue("speech_base_url", data.speech_base_url || "");
       setValue("stt_base_url", data.stt_base_url || "");
       setValue("tts_base_url", data.tts_base_url || "");
@@ -490,8 +496,12 @@
       const imageBadge = document.getElementById("image-provider-badge");
       imageBadge.querySelector("span").textContent = data.image_search_provider === "openverse" ? "Openverse" : "Выключено";
       imageBadge.querySelector("i").className = `signal-dot ${data.image_search_provider === "openverse" ? "cyan" : ""}`;
+      const visionBadge = document.getElementById("vision-provider-badge");
+      const visionEnabled = data.vision_provider === "openai_compatible";
+      visionBadge.querySelector("span").textContent = visionEnabled ? "Включено" : "Выключено";
+      visionBadge.querySelector("i").className = `signal-dot ${visionEnabled ? "cyan" : ""}`;
 
-      summary.textContent = `env=${data.environment}, LLM=${data.openai_api_key_preview || "(empty)"}, STT=${data.stt_api_key_preview || data.speech_api_key_preview || "(fallback LLM)"}, TTS=${data.tts_api_key_preview || data.speech_api_key_preview || "(fallback LLM)"}, images=${data.image_search_provider || "disabled"}, melody=${data.music_recognition_provider || "disabled"}`;
+      summary.textContent = `env=${data.environment}, LLM=${data.openai_api_key_preview || "(empty)"}, STT=${data.stt_api_key_preview || data.speech_api_key_preview || "(fallback LLM)"}, TTS=${data.tts_api_key_preview || data.speech_api_key_preview || "(fallback LLM)"}, images=${data.image_search_provider || "disabled"}, vision=${data.vision_provider || "disabled"}, melody=${data.music_recognition_provider || "disabled"}`;
       document.getElementById("environment-label").textContent = data.environment;
       document.querySelector(".retention-ring").textContent = `${data.message_retention_days}d`;
     }
@@ -620,7 +630,8 @@
         tools: [
           ...(document.getElementById("agent-tool-music").checked ? ["music_recognition"] : []),
           ...(document.getElementById("agent-tool-web-search").checked ? ["web_search"] : []),
-          ...(document.getElementById("agent-tool-image-search").checked ? ["image_search"] : [])
+          ...(document.getElementById("agent-tool-image-search").checked ? ["image_search"] : []),
+          ...(document.getElementById("agent-tool-image-understanding").checked ? ["image_understanding"] : [])
         ],
         permissions: document.getElementById("agent-permission-outdoor").checked ? ["supervised_outdoor_safety"] : [],
         enabled: getValue("agent-enabled") === "true",
@@ -703,6 +714,11 @@
           web_search_tool_type: getValue("web_search_tool_type"),
           image_search_provider: getValue("image_search_provider"),
           image_search_timeout_seconds: Number(getValue("image_search_timeout_seconds")),
+          vision_provider: getValue("vision_provider"),
+          vision_base_url: getValue("vision_base_url").trim() || null,
+          vision_model: getValue("vision_model").trim(),
+          vision_api_key: getValue("vision_api_key").trim() || null,
+          clear_vision_api_key: document.getElementById("clear_vision_api_key").checked,
           speech_base_url: getValue("speech_base_url").trim() || null,
           stt_base_url: getValue("stt_base_url").trim() || null,
           tts_base_url: getValue("tts_base_url").trim() || null,

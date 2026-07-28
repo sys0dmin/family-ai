@@ -49,7 +49,14 @@ class AgentUpdateRequest(BaseModel):
     color: str = Field(min_length=1, max_length=20)
     greeting: str = Field(min_length=1, max_length=300)
     tts_voice: str | None = Field(default=None, max_length=100)
-    tools: list[Literal["music_recognition", "web_search", "image_search"]] = Field(
+    tools: list[
+        Literal[
+            "music_recognition",
+            "web_search",
+            "image_search",
+            "image_understanding",
+        ]
+    ] = Field(
         default_factory=list,
         max_length=10,
     )

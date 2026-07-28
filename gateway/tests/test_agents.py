@@ -28,6 +28,7 @@ async def test_agent_manifest_exposes_only_child_safe_metadata(
         "musician",
         "outdoor_guide",
         "tech_guide",
+        "space_guide",
     ]
     assert all("system_prompt" not in item for item in items)
     assert all("tts_voice" not in item for item in items)
@@ -38,6 +39,7 @@ async def test_agent_manifest_exposes_only_child_safe_metadata(
         "icon",
         "color",
         "greeting",
+        "supports_image_upload",
     }
 
 
@@ -51,7 +53,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
     assert "Клуб любопытных" in page.text
     assert 'id="mic-btn"' in page.text
     assert "browser-speech-toggle" in page.text
-    assert 'src="/static/app.js?v=15"' in page.text
+    assert 'src="/static/app.js?v=16"' in page.text
     assert page.text.count('class="icon-button new-conversation"') == 2
     assert 'data-state="ready"' in page.text
 
@@ -63,6 +65,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
         "musician.webp",
         "murka.webp",
         "baytik.webp",
+        "alice-selezneva.webp",
     ):
         asset = await client.get(f"/static/assets/characters/{filename}")
         assert asset.status_code == 200

@@ -186,6 +186,7 @@ class ChatComposer extends StatelessWidget {
     required this.onSend,
     required this.onVoice,
     required this.onCancelVoice,
+    required this.onPhoto,
     required this.compact,
     super.key,
   });
@@ -198,6 +199,7 @@ class ChatComposer extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onVoice;
   final VoidCallback onCancelVoice;
+  final VoidCallback? onPhoto;
   final bool compact;
 
   bool get _recording => stage == VoiceTurnStage.listening;
@@ -232,6 +234,18 @@ class ChatComposer extends StatelessWidget {
         ),
         child: Row(
           children: [
+            if (onPhoto != null) ...[
+              IconButton.filledTonal(
+                key: const Key('photo-button'),
+                onPressed: textEnabled ? onPhoto : null,
+                tooltip: 'Выбрать фотографию',
+                style: IconButton.styleFrom(
+                  minimumSize: Size.square(compact ? 48 : 54),
+                ),
+                icon: const Icon(Icons.photo_camera_back_rounded),
+              ),
+              SizedBox(width: compact ? 6 : 8),
+            ],
             IconButton.filled(
               key: const Key('voice-button'),
               onPressed: voiceEnabled ? onVoice : null,

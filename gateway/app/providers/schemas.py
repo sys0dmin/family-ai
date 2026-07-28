@@ -77,3 +77,20 @@ class SpeechResponse:
     audio_content: bytes
     content_type: str = "audio/mpeg"
     raw_response: Any = None
+
+
+@dataclass(frozen=True)
+class ImageUnderstandingRequest:
+    """Ephemeral image input for a provider-independent vision task."""
+
+    image_content: bytes
+    content_type: str
+    question: str
+
+
+@dataclass(frozen=True)
+class ImageUnderstandingResponse:
+    """Textual observations extracted from an image."""
+
+    description: str
+    raw_response: Any = None

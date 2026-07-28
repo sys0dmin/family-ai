@@ -53,6 +53,11 @@ class SettingsResponse(BaseModel):
     web_search_tool_type: Literal["disabled", "browser_search"]
     image_search_provider: Literal["disabled", "openverse"]
     image_search_timeout_seconds: float
+    vision_provider: Literal["disabled", "openai_compatible"]
+    vision_base_url: str | None
+    vision_model: str
+    has_vision_api_key: bool
+    vision_api_key_preview: str
     has_openai_api_key: bool
     openai_api_key_preview: str
     has_speech_api_key: bool
@@ -86,6 +91,11 @@ class SettingsUpdateRequest(BaseModel):
     web_search_tool_type: Literal["disabled", "browser_search"] = "disabled"
     image_search_provider: Literal["disabled", "openverse"] = "disabled"
     image_search_timeout_seconds: float = Field(default=6.0, ge=1, le=30)
+    vision_provider: Literal["disabled", "openai_compatible"] = "disabled"
+    vision_base_url: str | None = Field(default=None, max_length=500)
+    vision_model: str = Field(min_length=1, max_length=200)
+    vision_api_key: str | None = Field(default=None, max_length=500)
+    clear_vision_api_key: bool = False
     openai_api_key: str | None = Field(default=None, max_length=500)
     speech_api_key: str | None = Field(default=None, max_length=500)
     stt_api_key: str | None = Field(default=None, max_length=500)
@@ -229,6 +239,7 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
     speech_api_key = settings.speech_api_key.get_secret_value()
     stt_api_key = settings.stt_api_key.get_secret_value()
     tts_api_key = settings.tts_api_key.get_secret_value()
+    vision_api_key = settings.vision_api_key.get_secret_value()
     acrcloud_access_key = settings.acrcloud_access_key.get_secret_value()
     acrcloud_access_secret = settings.acrcloud_access_secret.get_secret_value()
 
@@ -248,6 +259,11 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
         web_search_tool_type=settings.web_search_tool_type,
         image_search_provider=settings.image_search_provider,
         image_search_timeout_seconds=settings.image_search_timeout_seconds,
+        vision_provider=settings.vision_provider,
+        vision_base_url=settings.vision_base_url,
+        vision_model=settings.vision_model,
+        has_vision_api_key=bool(vision_api_key),
+        vision_api_key_preview=_mask_secret(vision_api_key),
         has_openai_api_key=api_key not in {"", "sk-placeholder"},
         openai_api_key_preview=_mask_secret(api_key),
         has_speech_api_key=bool(speech_api_key),
@@ -320,6 +336,9 @@ def update_runtime_settings(
         "FAMILY_AI_WEB_SEARCH_TOOL_TYPE": payload.web_search_tool_type,
         "FAMILY_AI_IMAGE_SEARCH_PROVIDER": payload.image_search_provider,
         "FAMILY_AI_IMAGE_SEARCH_TIMEOUT_SECONDS": str(payload.image_search_timeout_seconds),
+        "FAMILY_AI_VISION_PROVIDER": payload.vision_provider,
+        "FAMILY_AI_VISION_BASE_URL": (payload.vision_base_url or "").strip(),
+        "FAMILY_AI_VISION_MODEL": payload.vision_model.strip(),
         "FAMILY_AI_MUSIC_RECOGNITION_PROVIDER": payload.music_recognition_provider,
         "FAMILY_AI_ACRCLOUD_HOST": (payload.acrcloud_host or "").strip(),
         "FAMILY_AI_MUSIC_RECOGNITION_TIMEOUT_SECONDS": str(
@@ -329,6 +348,10 @@ def update_runtime_settings(
 
     if payload.openai_api_key and payload.openai_api_key.strip():
         updates["FAMILY_AI_OPENAI_API_KEY"] = payload.openai_api_key.strip()
+    if payload.clear_vision_api_key:
+        updates["FAMILY_AI_VISION_API_KEY"] = ""
+    elif payload.vision_api_key and payload.vision_api_key.strip():
+        updates["FAMILY_AI_VISION_API_KEY"] = payload.vision_api_key.strip()
     if payload.speech_api_key and payload.speech_api_key.strip():
         updates["FAMILY_AI_SPEECH_API_KEY"] = payload.speech_api_key.strip()
     if payload.clear_stt_api_key:
@@ -352,6 +375,7 @@ def update_runtime_settings(
     speech_api_key = refreshed.speech_api_key.get_secret_value()
     stt_api_key = refreshed.stt_api_key.get_secret_value()
     tts_api_key = refreshed.tts_api_key.get_secret_value()
+    vision_api_key = refreshed.vision_api_key.get_secret_value()
     acrcloud_access_key = refreshed.acrcloud_access_key.get_secret_value()
     acrcloud_access_secret = refreshed.acrcloud_access_secret.get_secret_value()
 
@@ -371,6 +395,11 @@ def update_runtime_settings(
         web_search_tool_type=refreshed.web_search_tool_type,
         image_search_provider=refreshed.image_search_provider,
         image_search_timeout_seconds=refreshed.image_search_timeout_seconds,
+        vision_provider=refreshed.vision_provider,
+        vision_base_url=refreshed.vision_base_url,
+        vision_model=refreshed.vision_model,
+        has_vision_api_key=bool(vision_api_key),
+        vision_api_key_preview=_mask_secret(vision_api_key),
         has_openai_api_key=api_key not in {"", "sk-placeholder"},
         openai_api_key_preview=_mask_secret(api_key),
         has_speech_api_key=bool(speech_api_key),

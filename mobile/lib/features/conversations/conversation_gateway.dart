@@ -28,6 +28,14 @@ abstract interface class ConversationGateway {
 
   Future<ConversationMessage> sendTextTurn(String conversationId, String text);
 
+  Future<ConversationMessage> sendImageTurn({
+    required String conversationId,
+    required Uint8List imageBytes,
+    required String filename,
+    required String contentType,
+    required String question,
+  });
+
   Future<ConversationMessage> getMessage(
     String conversationId,
     String messageId,

@@ -18,6 +18,7 @@ from gateway.app.observability.voice_metrics import voice_metrics_registry
 from gateway.app.providers.base import AIProvider
 from gateway.app.providers.contracts import (
     ChatProvider,
+    ImageUnderstandingProvider,
     SpeechRecognitionProvider,
     SpeechSynthesisProvider,
 )
@@ -25,10 +26,12 @@ from gateway.app.providers.openai import OpenAIProvider
 from gateway.app.providers.openai_chat import OpenAIChatProvider
 from gateway.app.providers.openai_stt import OpenAISpeechRecognitionProvider
 from gateway.app.providers.openai_tts import OpenAISpeechSynthesisProvider
+from gateway.app.providers.openai_vision import OpenAIImageUnderstandingProvider
 from gateway.app.safety.engine import SafetyPolicyEngine
 from gateway.app.safety.metrics import safety_metrics_registry
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.conversation_service import ConversationService
+from gateway.app.services.image_understanding_service import ImageUnderstandingService
 from gateway.app.services.music_recognition_service import MusicRecognitionService
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.visual_media_service import VisualMediaService
@@ -186,6 +189,23 @@ def get_image_search_provider() -> ImageSearchProvider | None:
     return OpenverseImageSearchProvider(settings.image_search_timeout_seconds)
 
 
+def get_image_understanding_provider() -> ImageUnderstandingProvider | None:
+    """Build the optional vision adapter independently from the chat model."""
+
+    settings = Settings()
+    if settings.vision_provider == "disabled":
+        return None
+    api_key = (
+        settings.vision_api_key.get_secret_value()
+        or settings.openai_api_key.get_secret_value()
+    )
+    return OpenAIImageUnderstandingProvider(
+        api_key=api_key,
+        model=settings.vision_model,
+        base_url=settings.vision_base_url or settings.openai_base_url,
+    )
+
+
 def get_visual_media_service(
     session: Session = Depends(get_db_session),
     provider: ImageSearchProvider | None = Depends(get_image_search_provider),
@@ -219,6 +239,24 @@ def get_conversation_service(
         default_agent_id=settings.default_agent_id,
         retention_days=settings.message_retention_days,
         memory=memory,
+    )
+
+
+def get_image_understanding_service(
+    provider: ImageUnderstandingProvider | None = Depends(
+        get_image_understanding_provider
+    ),
+    conversation: ConversationService = Depends(get_conversation_service),
+    safety: SafetyService = Depends(get_safety_service),
+    settings: Settings = Depends(get_settings),
+) -> ImageUnderstandingService:
+    """Return the application service for ephemeral child-image turns."""
+
+    return ImageUnderstandingService(
+        provider=provider,
+        conversation=conversation,
+        safety=safety,
+        max_image_bytes=settings.vision_max_image_bytes,
     )
 
 

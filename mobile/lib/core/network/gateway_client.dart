@@ -183,6 +183,45 @@ class GatewayClient implements ConversationGateway {
   }
 
   @override
+  Future<ConversationMessage> sendImageTurn({
+    required String conversationId,
+    required Uint8List imageBytes,
+    required String filename,
+    required String contentType,
+    required String question,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      serverAddress.resolve('/v1/vision/$conversationId/turn'),
+    )
+      ..fields['question'] = question
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          imageBytes,
+          filename: filename,
+          contentType: MediaType.parse(contentType),
+        ),
+      );
+    try {
+      final streamed = await _httpClient.send(request).timeout(voiceTimeout);
+      final response = await http.Response.fromStream(streamed).timeout(voiceTimeout);
+      if (response.statusCode == 413) {
+        throw const GatewayException('Фотография получилась слишком большой.');
+      }
+      if (response.statusCode == 415 || response.statusCode == 422) {
+        throw const GatewayException('Этот файл не похож на фотографию.');
+      }
+      _requireSuccess(response);
+      return ConversationMessage.fromJson(_decodeObject(response));
+    } on GatewayException {
+      rethrow;
+    } catch (_) {
+      throw const GatewayException('Не удалось отправить фотографию.');
+    }
+  }
+
+  @override
   Future<ConversationMessage> getMessage(
     String conversationId,
     String messageId,

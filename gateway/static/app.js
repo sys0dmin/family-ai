@@ -23,6 +23,9 @@ const sendBtn = document.getElementById('send-btn');
 const micBtn = document.getElementById('mic-btn');
 const keyboardToggle = document.getElementById('keyboard-toggle');
 const textComposer = document.getElementById('text-composer');
+const voiceControls = document.getElementById('voice-controls');
+const photoBtn = document.getElementById('photo-btn');
+const photoInput = document.getElementById('photo-input');
 
 const agentPresentation = {
     teacher_friend: {
@@ -66,6 +69,12 @@ const agentPresentation = {
         color: '#176b91',
         soft: '#e2f3f8',
         deep: '#173f64'
+    },
+    space_guide: {
+        image: '/static/assets/characters/alice-selezneva.webp',
+        color: '#7a4fc7',
+        soft: '#eee8fb',
+        deep: '#49317d'
     }
 };
 
@@ -111,6 +120,12 @@ const promptsByAgent = {
         { icon: '☁️', label: 'Облако', phrase: 'Почему компьютерное облако называется облаком?' },
         { icon: '🤖', label: 'ИИ', phrase: 'Как работает искусственный интеллект?' },
         { icon: '👨‍💻', label: 'Папина работа', phrase: 'Расскажи, чем папа-админ занимается на работе' }
+    ],
+    space_guide: [
+        { icon: '🌙', label: 'Луна', phrase: 'Алиса, почему Луна меняет форму?' },
+        { icon: '🪐', label: 'Планеты', phrase: 'Алиса, какая планета самая необычная?' },
+        { icon: '✨', label: 'Звёзды', phrase: 'Алиса, почему звёзды мерцают?' },
+        { icon: '🚀', label: 'Полетели!', phrase: 'Давай представим наше путешествие на новую планету' }
     ]
 };
 
@@ -362,6 +377,9 @@ async function chooseAgent(agent, announce = true) {
     document.getElementById('mobile-agent-name').textContent = agent.display_name;
     document.getElementById('companion-description').textContent = agent.description;
     document.getElementById('welcome-text').textContent = agent.greeting;
+    const supportsPhoto = Boolean(agent.supports_image_upload);
+    photoBtn.hidden = !supportsPhoto;
+    voiceControls.classList.toggle('has-photo', supportsPhoto);
     renderQuickReplies();
     chooser.hidden = true;
     conversation.hidden = false;
@@ -410,6 +428,7 @@ function setControlsEnabled(enabled) {
     sendBtn.disabled = !enabled;
     micBtn.disabled = !enabled;
     keyboardToggle.disabled = !enabled;
+    photoBtn.disabled = !enabled;
     quickReplies.querySelectorAll('button').forEach((button) => {
         button.disabled = !enabled;
     });
@@ -425,6 +444,7 @@ function setTurnControlsDisabled(disabled) {
     });
     sendBtn.disabled = disabled;
     keyboardToggle.disabled = disabled;
+    photoBtn.disabled = disabled;
     document.querySelectorAll('.browser-speech-toggle').forEach((button) => {
         button.disabled = disabled;
     });
@@ -556,6 +576,51 @@ async function sendText(forcedText = null) {
         setState('error', 'Нет связи');
         speakText('Ой, связь потерялась. Попробуем ещё раз.');
     } finally {
+        showTyping(false);
+        setTurnControlsDisabled(false);
+    }
+}
+
+async function sendPhoto(file) {
+    if (!file || !selectedAgent?.supports_image_upload || turnInProgress) return;
+    const question = textInput.value.trim()
+        || 'Алиса, расскажи, что интересного видно на этой фотографии?';
+    setTurnControlsDisabled(true);
+    textInput.value = '';
+    document.getElementById('welcome-card').hidden = true;
+    addMessage(`📷 ${question}`, 'child');
+    setState('busy', 'Рассматриваю');
+    showTyping(true);
+
+    try {
+        await ensureConversation();
+        const formData = new FormData();
+        formData.append('file', file, file.name || 'photo.jpg');
+        formData.append('question', question);
+        const response = await fetch(`/v1/vision/${conversationId}/turn`, {
+            method: 'POST',
+            body: formData
+        });
+        if (!response.ok) throw new Error(`Image turn failed: ${response.status}`);
+        const data = await response.json();
+        addMessage(data.content, 'assistant', data.media || []);
+        showTyping(false);
+        if (browserSpeechEnabled) {
+            try {
+                await speakAssistantReply(data.content);
+            } catch (voiceError) {
+                console.warn('Agent image reply playback failed:', voiceError);
+                if (!speakText(data.content)) showSilentResponse();
+            }
+        } else {
+            showSilentResponse();
+        }
+    } catch (error) {
+        console.error('Image turn failed:', error);
+        addMessage('Не получилось рассмотреть фотографию. Давай попробуем другую.', 'system');
+        setState('error', 'Не вижу фото');
+    } finally {
+        photoInput.value = '';
         showTyping(false);
         setTurnControlsDisabled(false);
     }
@@ -728,6 +793,9 @@ micBtn.onclick = () => {
     if (isRecording) stopRecording();
     else startRecording();
 };
+
+photoBtn.onclick = () => photoInput.click();
+photoInput.onchange = () => sendPhoto(photoInput.files?.[0]);
 
 sendBtn.onclick = () => sendText();
 textInput.onkeydown = (event) => {

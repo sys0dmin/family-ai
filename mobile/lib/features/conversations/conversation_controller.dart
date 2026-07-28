@@ -74,6 +74,44 @@ class ConversationController extends ChangeNotifier {
     }
   }
 
+  Future<void> sendImage({
+    required Uint8List imageBytes,
+    required String filename,
+    required String contentType,
+    required String question,
+  }) async {
+    if (busy || !_agent.supportsImageUpload) return;
+    final normalized = question.trim().isEmpty
+        ? 'Алиса, расскажи, что интересного видно на этой фотографии?'
+        : question.trim();
+    _sendingText = true;
+    _error = null;
+    _messages.add(
+      ConversationMessage(
+        id: 'local-image-${DateTime.now().microsecondsSinceEpoch}',
+        role: 'child',
+        content: '📷 $normalized',
+      ),
+    );
+    notifyListeners();
+    try {
+      final conversationId = await ensureConversation();
+      final reply = await _gateway.sendImageTurn(
+        conversationId: conversationId,
+        imageBytes: imageBytes,
+        filename: filename,
+        contentType: contentType,
+        question: normalized,
+      );
+      _messages.add(reply);
+    } on GatewayException catch (error) {
+      _error = error.message;
+    } finally {
+      _sendingText = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> requestNewConversation() async {
     if (busy) return false;
     if (!_confirmNewConversation) {
