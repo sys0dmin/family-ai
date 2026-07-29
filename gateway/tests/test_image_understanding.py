@@ -89,3 +89,27 @@ async def test_image_turn_rejects_unsupported_media_type(
     )
 
     assert response.status_code == 415
+
+
+@pytest.mark.anyio
+async def test_image_turn_rejects_payload_above_configured_limit(
+    client: AsyncClient,
+) -> None:
+    created = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "space_guide"},
+    )
+    response = await client.post(
+        f"/v1/vision/{created.json()['conversation_id']}/turn",
+        data={"question": "Что здесь?"},
+        files={
+            "file": (
+                "large.jpg",
+                b"\xff\xd8\xff" + b"x" * (10 * 1024 * 1024),
+                "image/jpeg",
+            )
+        },
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {"detail": "Image is too large"}

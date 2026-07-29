@@ -7,6 +7,7 @@ class Agent {
     required this.color,
     required this.greeting,
     this.supportsImageUpload = false,
+    this.imageUploadMaxBytes,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class Agent {
   final String color;
   final String greeting;
   final bool supportsImageUpload;
+  final int? imageUploadMaxBytes;
 
   factory Agent.fromJson(Map<String, dynamic> json) {
     return Agent(
@@ -26,6 +28,7 @@ class Agent {
       color: json['color'] as String,
       greeting: json['greeting'] as String,
       supportsImageUpload: json['supports_image_upload'] as bool? ?? false,
+      imageUploadMaxBytes: (json['image_upload_max_bytes'] as num?)?.toInt(),
     );
   }
 }

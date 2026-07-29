@@ -468,6 +468,10 @@
       setValue("vision_provider", data.vision_provider || "disabled");
       setValue("vision_base_url", data.vision_base_url || "");
       setValue("vision_model", data.vision_model || "qwen/qwen3.6-27b");
+      setValue(
+        "vision_max_image_mb",
+        Math.max(1, Math.round((data.vision_max_image_bytes || 10485760) / 1048576))
+      );
       setValue("vision_api_key", "");
       document.getElementById("clear_vision_api_key").checked = false;
       setValue("speech_base_url", data.speech_base_url || "");
@@ -717,6 +721,8 @@
           vision_provider: getValue("vision_provider"),
           vision_base_url: getValue("vision_base_url").trim() || null,
           vision_model: getValue("vision_model").trim(),
+          vision_max_image_bytes:
+            Math.round(Number(getValue("vision_max_image_mb")) * 1048576),
           vision_api_key: getValue("vision_api_key").trim() || null,
           clear_vision_api_key: document.getElementById("clear_vision_api_key").checked,
           speech_base_url: getValue("speech_base_url").trim() || null,

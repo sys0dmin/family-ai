@@ -1,5 +1,7 @@
 """Child-safe ephemeral image turns."""
 
+import hashlib
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -15,6 +17,7 @@ from gateway.app.services.image_understanding_service import (
 )
 
 router = APIRouter(prefix="/v1/vision", tags=["vision"])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -40,8 +43,17 @@ async def process_image_turn(
         )
     content = await file.read(service.max_image_bytes + 1)
     if len(content) > service.max_image_bytes:
+        logger.info(
+            "vision_image_rejected_too_large",
+            extra={
+                "conversation_id": str(conversation_id),
+                "content_type": content_type,
+                "bytes_read": len(content),
+                "max_bytes": service.max_image_bytes,
+            },
+        )
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Image is too large",
         )
     normalized_question = question.strip()
@@ -50,6 +62,15 @@ async def process_image_turn(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Question must not be blank",
         )
+    logger.info(
+        "vision_image_received",
+        extra={
+            "conversation_id": str(conversation_id),
+            "content_type": content_type,
+            "image_bytes": len(content),
+            "image_sha256_prefix": hashlib.sha256(content).hexdigest()[:16],
+        },
+    )
     try:
         message = await service.process_turn(
             conversation_id,

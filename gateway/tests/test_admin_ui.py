@@ -40,6 +40,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="image_search_provider"' in response.text
     assert 'id="vision_provider"' in response.text
     assert 'id="vision_model"' in response.text
+    assert 'id="vision_max_image_mb"' in response.text
     assert 'id="stt_base_url"' in response.text
     assert 'id="tts_base_url"' in response.text
     assert 'id="stt_api_key"' in response.text

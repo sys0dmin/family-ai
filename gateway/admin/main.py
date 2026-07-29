@@ -56,6 +56,7 @@ class SettingsResponse(BaseModel):
     vision_provider: Literal["disabled", "openai_compatible"]
     vision_base_url: str | None
     vision_model: str
+    vision_max_image_bytes: int
     has_vision_api_key: bool
     vision_api_key_preview: str
     has_openai_api_key: bool
@@ -94,6 +95,11 @@ class SettingsUpdateRequest(BaseModel):
     vision_provider: Literal["disabled", "openai_compatible"] = "disabled"
     vision_base_url: str | None = Field(default=None, max_length=500)
     vision_model: str = Field(min_length=1, max_length=200)
+    vision_max_image_bytes: int = Field(
+        default=10 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=14 * 1024 * 1024,
+    )
     vision_api_key: str | None = Field(default=None, max_length=500)
     clear_vision_api_key: bool = False
     openai_api_key: str | None = Field(default=None, max_length=500)
@@ -262,6 +268,7 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
         vision_provider=settings.vision_provider,
         vision_base_url=settings.vision_base_url,
         vision_model=settings.vision_model,
+        vision_max_image_bytes=settings.vision_max_image_bytes,
         has_vision_api_key=bool(vision_api_key),
         vision_api_key_preview=_mask_secret(vision_api_key),
         has_openai_api_key=api_key not in {"", "sk-placeholder"},
@@ -339,6 +346,7 @@ def update_runtime_settings(
         "FAMILY_AI_VISION_PROVIDER": payload.vision_provider,
         "FAMILY_AI_VISION_BASE_URL": (payload.vision_base_url or "").strip(),
         "FAMILY_AI_VISION_MODEL": payload.vision_model.strip(),
+        "FAMILY_AI_VISION_MAX_IMAGE_BYTES": str(payload.vision_max_image_bytes),
         "FAMILY_AI_MUSIC_RECOGNITION_PROVIDER": payload.music_recognition_provider,
         "FAMILY_AI_ACRCLOUD_HOST": (payload.acrcloud_host or "").strip(),
         "FAMILY_AI_MUSIC_RECOGNITION_TIMEOUT_SECONDS": str(
@@ -398,6 +406,7 @@ def update_runtime_settings(
         vision_provider=refreshed.vision_provider,
         vision_base_url=refreshed.vision_base_url,
         vision_model=refreshed.vision_model,
+        vision_max_image_bytes=refreshed.vision_max_image_bytes,
         has_vision_api_key=bool(vision_api_key),
         vision_api_key_preview=_mask_secret(vision_api_key),
         has_openai_api_key=api_key not in {"", "sk-placeholder"},

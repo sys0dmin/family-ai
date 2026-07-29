@@ -125,6 +125,7 @@
               <label class="field"><span>Провайдер</span><select id="vision_provider"><option value="disabled">Выключено</option><option value="openai_compatible">OpenAI-compatible</option></select></label>
               <label class="field"><span>Vision-модель</span><input id="vision_model" placeholder="qwen/qwen3.6-27b"></label>
             </div>
+            <label class="field"><span>Максимальный размер фото, МиБ <small>1–14; для Groq рекомендуется 10</small></span><input id="vision_max_image_mb" type="number" min="1" max="14" step="1"></label>
             <label class="field"><span>Vision Base URL <small>пусто — использовать LLM Base URL</small></span><input id="vision_base_url" placeholder="https://api.groq.com/openai/v1"></label>
             <label class="field"><span>Vision API-ключ <small>пусто — использовать LLM-ключ</small></span><input id="vision_api_key" type="password" autocomplete="new-password"></label>
             <label class="option-row"><input id="clear_vision_api_key" type="checkbox"><span>Сбросить отдельный ключ и использовать LLM-ключ</span></label>

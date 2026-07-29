@@ -40,7 +40,10 @@ async def test_agent_manifest_exposes_only_child_safe_metadata(
         "color",
         "greeting",
         "supports_image_upload",
+        "image_upload_max_bytes",
     }
+    assert items[0]["image_upload_max_bytes"] is None
+    assert items[-1]["image_upload_max_bytes"] == 10 * 1024 * 1024
 
 
 @pytest.mark.anyio
@@ -53,7 +56,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
     assert "Клуб любопытных" in page.text
     assert 'id="mic-btn"' in page.text
     assert "browser-speech-toggle" in page.text
-    assert 'src="/static/app.js?v=16"' in page.text
+    assert 'src="/static/app.js?v=17"' in page.text
     assert page.text.count('class="icon-button new-conversation"') == 2
     assert 'data-state="ready"' in page.text
 
