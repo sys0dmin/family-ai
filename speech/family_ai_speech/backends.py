@@ -2,6 +2,8 @@
 
 import io
 import math
+import re
+import unicodedata
 import wave
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -16,6 +18,38 @@ VOICE_ALIASES = {
     "aisha": "kseniya",
     "fahad": "aidar",
     "alloy": "xenia",
+}
+RUSSIAN_LETTERS = frozenset(
+    "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
+    "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
+)
+LATIN_TO_RUSSIAN = {
+    "a": "а",
+    "b": "б",
+    "c": "к",
+    "d": "д",
+    "e": "е",
+    "f": "ф",
+    "g": "г",
+    "h": "х",
+    "i": "и",
+    "j": "дж",
+    "k": "к",
+    "l": "л",
+    "m": "м",
+    "n": "н",
+    "o": "о",
+    "p": "п",
+    "q": "к",
+    "r": "р",
+    "s": "с",
+    "t": "т",
+    "u": "у",
+    "v": "в",
+    "w": "в",
+    "x": "кс",
+    "y": "й",
+    "z": "з",
 }
 
 
@@ -50,6 +84,35 @@ def resolve_voice(voice: str | None, default_voice: str) -> str:
     candidate = (voice or "").strip().lower()
     resolved = VOICE_ALIASES.get(candidate, candidate)
     return resolved if resolved in SILERO_VOICES else default_voice
+
+
+def normalize_silero_text(text: str) -> str:
+    """Convert unsupported scripts and symbols before Russian Silero inference."""
+
+    normalized: list[str] = []
+    for original in unicodedata.normalize("NFC", text):
+        characters = (
+            original
+            if original in RUSSIAN_LETTERS
+            else unicodedata.normalize("NFKD", original)
+        )
+        for character in characters:
+            if unicodedata.combining(character):
+                continue
+            if character in RUSSIAN_LETTERS:
+                normalized.append(character)
+                continue
+            latin = LATIN_TO_RUSSIAN.get(character.lower())
+            if latin is not None:
+                normalized.append(latin.upper() if character.isupper() else latin)
+                continue
+            if character.isalpha() or unicodedata.category(character).startswith(
+                ("C", "S")
+            ):
+                normalized.append(" ")
+                continue
+            normalized.append(character)
+    return re.sub(r"\s+", " ", "".join(normalized)).strip()
 
 
 def pcm16_to_wav(pcm: bytes, sample_rate: int) -> bytes:
@@ -231,8 +294,11 @@ class SileroBackend:
         self._sample_rate = settings.tts_sample_rate
 
     def synthesize(self, text: str, voice: str | None) -> bytes:
+        normalized_text = normalize_silero_text(text)
+        if not normalized_text:
+            normalized_text = "Я не смог озвучить этот ответ."
         audio = self._model.apply_tts(
-            text=text,
+            text=normalized_text,
             speaker=resolve_voice(voice, self._default_voice),
             sample_rate=self._sample_rate,
         )
