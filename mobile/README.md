@@ -84,12 +84,27 @@ cd mobile
 
 ## Сборка APK
 
+Debug-сборка для разработки:
+
 ```powershell
 cd mobile
 ..\.tools\flutter\bin\flutter.bat build apk --debug
 ```
 
 Результат: `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
+
+Подписанная release-сборка создаётся только штатным скриптом из точного Git
+commit:
+
+```powershell
+.\scripts\mobile\Initialize-AndroidSigning.ps1
+.\scripts\mobile\Build-AndroidRelease.ps1 -Commit HEAD
+```
+
+Keystore и пароли находятся вне Git. APK, SHA-256 и release manifest попадают в
+игнорируемый каталог `.artifacts\android`. Полная инструкция по инициализации,
+восстановлению ключа и обновлению приложения без потери адреса Gateway:
+[`../docs/android-release.md`](../docs/android-release.md).
 
 ## Архитектура чата
 
@@ -103,9 +118,6 @@ Voice UX использует один автомат состояний: `idle`
 `understanding`, `thinking`, `speaking`, `error`. Кнопка отмены инвалидирует
 активную операцию и не позволяет позднему ответу начать воспроизведение.
 Текущий HTTP-запрос на сервере при этом физически не отменяется.
-
-Это debug-сборка для домашней установки. Release keystore намеренно не хранится
-в репозитории и будет настроен отдельно перед распространением приложения.
 
 ## Запуск на физическом Android-устройстве
 

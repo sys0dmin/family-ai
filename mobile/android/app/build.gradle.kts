@@ -1,8 +1,28 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val signingPropertiesPath =
+    providers.environmentVariable("FAMILY_AI_ANDROID_SIGNING_PROPERTIES")
+        .orNull
+        ?.let(::file)
+        ?: file("${System.getProperty("user.home")}/.family-ai/android-signing/key.properties")
+val releaseSigningProperties = Properties()
+val releaseSigningConfigured = signingPropertiesPath.isFile
+
+if (releaseSigningConfigured) {
+    signingPropertiesPath.inputStream().use(releaseSigningProperties::load)
+}
+
+fun requiredSigningProperty(name: String): String =
+    releaseSigningProperties.getProperty(name)?.takeIf(String::isNotBlank)
+        ?: throw GradleException(
+            "Missing '$name' in external Android signing properties: $signingPropertiesPath",
+        )
 
 android {
     namespace = "ru.familyai.mentor"
@@ -24,11 +44,38 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(requiredSigningProperty("storeFile"))
+                storePassword = requiredSigningProperty("storePassword")
+                keyAlias = requiredSigningProperty("keyAlias")
+                keyPassword = requiredSigningProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig =
+                if (releaseSigningConfigured) {
+                    signingConfigs.getByName("release")
+                } else {
+                    null
+                }
+        }
+    }
+}
+
+if (!releaseSigningConfigured) {
+    tasks.configureEach {
+        if (name.contains("release", ignoreCase = true)) {
+            doFirst {
+                throw GradleException(
+                    "Release signing is not configured. Run " +
+                        "scripts/mobile/Initialize-AndroidSigning.ps1 first.",
+                )
+            }
         }
     }
 }
