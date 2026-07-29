@@ -71,6 +71,38 @@ void main() {
     expect(response.contentType, 'audio/mpeg');
   });
 
+  test('shows a child-friendly multimodal provider error', () async {
+    final gateway = GatewayClient(
+      serverAddress: ServerAddress.parse('http://server.local'),
+      httpClient: MockClient(
+        (_) async => http.Response(
+          '{"detail":"Multimodal providers are temporarily unavailable"}',
+          502,
+        ),
+      ),
+    );
+
+    await expectLater(
+      gateway.sendSpokenImageTurn(
+        conversationId: 'conversation-1',
+        imageBytes: Uint8List.fromList(<int>[137, 80, 78, 71]),
+        imageFilename: 'photo.png',
+        imageContentType: 'image/png',
+        audioBytes: Uint8List.fromList(<int>[82, 73, 70, 70]),
+        audioFilename: 'voice.wav',
+        audioContentType: 'audio/wav',
+        recordingDuration: const Duration(seconds: 1),
+      ),
+      throwsA(
+        isA<GatewayException>().having(
+          (error) => error.message,
+          'message',
+          'Не получилось подготовить ответ. Давай попробуем ещё раз.',
+        ),
+      ),
+    );
+  });
+
   test('discovers and uploads a parent-armed calibration sample', () async {
     var activeChecks = 0;
     final gateway = GatewayClient(

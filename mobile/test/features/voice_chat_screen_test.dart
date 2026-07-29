@@ -509,10 +509,7 @@ void main() {
       expect(requestBody, contains('1250'));
       expect(requestBody, contains('name="image"; filename="photo.png"'));
       expect(requestBody.toLowerCase(), contains('content-type: image/png'));
-      expect(
-        requestBody,
-        contains('name="audio"; filename="lera-voice.wav"'),
-      );
+      expect(requestBody, contains('name="audio"; filename="lera-voice.wav"'));
       expect(requestBody.toLowerCase(), contains('content-type: audio/wav'));
       expect(voice.stops, 1);
       expect(voice.playedBytes, <int>[30, 40, 50]);

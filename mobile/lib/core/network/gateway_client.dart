@@ -360,6 +360,11 @@ class GatewayClient implements ConversationGateway {
           'Сейчас я не могу рассмотреть фотографию. Попробуем позже.',
         );
       }
+      if (response.statusCode == 502) {
+        throw const GatewayException(
+          'Не получилось подготовить ответ. Давай попробуем ещё раз.',
+        );
+      }
       _requireSuccess(response);
       if (response.bodyBytes.isEmpty) {
         throw const GatewayException('Сервер не вернул голосовой ответ.');
