@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -20,6 +21,15 @@ from gateway.app.providers.schemas import (
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.music_recognition_service import MusicRecognitionService
 from gateway.app.services.turn_diagnostics import TurnDiagnostics
+from gateway.app.services.voice_streaming import (
+    VOICE_RESPONSE_CONTEXT,
+    PreparedVoiceResponse,
+    VoiceTurnTelemetry,
+    combine_runtime_context,
+    encode_stream_event,
+    stream_speech_events,
+    voice_stream_registry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +74,114 @@ class VoiceService:
     ) -> VoiceTurnResult:
         """Run one audio request through STT, conversation safety, and TTS."""
 
-        total_started_at = time.perf_counter()
-        stage = "stt"
-        stt_duration_ms: int | None = None
-        tts_duration_ms: int | None = None
-        stt_confidence: float | None = None
-        diagnostics = TurnDiagnostics()
+        telemetry = VoiceTurnTelemetry(
+            metrics=self._metrics,
+            mode="voice",
+            recording_duration_ms=recording_duration_ms,
+            streamed=False,
+        )
+        prepared = await self._prepare_voice_turn(
+            conversation_id=conversation_id,
+            audio_content=audio_content,
+            filename=filename,
+            content_type=content_type,
+            language=language,
+            telemetry=telemetry,
+            optimize_for_stream=False,
+        )
+        tts_started_at = time.perf_counter()
+        try:
+            speech = await self._synthesis_provider.synthesize_speech(
+                SpeechRequest(text=prepared.text, voice=prepared.voice)
+            )
+        except Exception:
+            telemetry.tts_duration_ms = round(
+                (time.perf_counter() - tts_started_at) * 1000
+            )
+            telemetry.record(status="error", error_stage="tts")
+            raise
+        finally:
+            telemetry.tts_duration_ms = round(
+                (time.perf_counter() - tts_started_at) * 1000
+            )
+        telemetry.record(status="success")
+        logger.info(
+            "voice_synthesis_completed",
+            extra={"audio_bytes": len(speech.audio_content)},
+        )
+        return VoiceTurnResult(speech=speech, message_id=prepared.message_id)
 
+    async def stream_voice_turn(
+        self,
+        conversation_id: UUID,
+        audio_content: bytes,
+        filename: str,
+        content_type: str,
+        language: str = "ru",
+        recording_duration_ms: int | None = None,
+    ) -> AsyncIterator[bytes]:
+        """Yield NDJSON events and stop remaining work when the turn is cancelled."""
+
+        telemetry = VoiceTurnTelemetry(
+            metrics=self._metrics,
+            mode="voice",
+            recording_duration_ms=recording_duration_ms,
+            streamed=True,
+        )
+        voice_stream_registry.register(telemetry.turn_id)
+        yield encode_stream_event("started", turn_id=str(telemetry.turn_id))
+        try:
+            prepared = await self._prepare_voice_turn(
+                conversation_id=conversation_id,
+                audio_content=audio_content,
+                filename=filename,
+                content_type=content_type,
+                language=language,
+                telemetry=telemetry,
+                optimize_for_stream=True,
+            )
+            async for event in stream_speech_events(
+                prepared,
+                self._synthesis_provider,
+            ):
+                yield event
+        except asyncio.CancelledError:
+            telemetry.record(
+                status="cancelled",
+                error_stage="cancelled",
+                cancelled=True,
+            )
+            raise
+        except VoiceInputError:
+            yield encode_stream_event(
+                "error",
+                code="speech_not_recognized",
+                message="Не удалось расслышать вопрос. Попробуем ещё раз.",
+            )
+        except Exception:
+            telemetry.record(status="error", error_stage="tts")
+            logger.exception("streaming_voice_turn_failed")
+            yield encode_stream_event(
+                "error",
+                code="provider_unavailable",
+                message="Не получилось подготовить ответ. Давай попробуем ещё раз.",
+            )
+        finally:
+            voice_stream_registry.unregister(telemetry.turn_id)
+
+    async def _prepare_voice_turn(
+        self,
+        *,
+        conversation_id: UUID,
+        audio_content: bytes,
+        filename: str,
+        content_type: str,
+        language: str,
+        telemetry: VoiceTurnTelemetry,
+        optimize_for_stream: bool,
+    ) -> PreparedVoiceResponse:
+        stage = "stt"
+        diagnostics = TurnDiagnostics()
         active_agent = self._conversation_service.get_conversation_agent(conversation_id)
         transcription_request = TranscriptionRequest(
             audio_content=audio_content,
@@ -80,14 +191,15 @@ class VoiceService:
         )
 
         async def transcribe() -> TranscriptionResponse:
-            nonlocal stt_duration_ms
             started_at = time.perf_counter()
             try:
                 return await self._recognition_provider.transcribe_audio(
                     transcription_request
                 )
             finally:
-                stt_duration_ms = round((time.perf_counter() - started_at) * 1000)
+                telemetry.stt_duration_ms = round(
+                    (time.perf_counter() - started_at) * 1000
+                )
 
         try:
             recognition_task = None
@@ -107,8 +219,10 @@ class VoiceService:
                     recognition_task,
                 )
 
-            stt_confidence = transcription.confidence
-            recording_duration_ms = transcription.duration_ms or recording_duration_ms
+            telemetry.stt_confidence = transcription.confidence
+            telemetry.recording_duration_ms = (
+                transcription.duration_ms or telemetry.recording_duration_ms
+            )
             transcript = transcription.text.strip()
             if not transcript and recognition is None:
                 raise VoiceInputError("Audio did not contain recognizable speech")
@@ -119,8 +233,8 @@ class VoiceService:
                 "voice_transcription_completed",
                 extra={
                     "transcript_characters": len(transcript),
-                    "confidence": stt_confidence,
-                    "recording_duration_ms": recording_duration_ms,
+                    "confidence": telemetry.stt_confidence,
+                    "recording_duration_ms": telemetry.recording_duration_ms,
                 },
             )
 
@@ -128,69 +242,30 @@ class VoiceService:
             ai_message = await self._conversation_service.process_turn(
                 conversation_id=conversation_id,
                 text=transcript,
-                runtime_context=recognition.prompt_context if recognition else None,
+                runtime_context=combine_runtime_context(
+                    recognition.prompt_context if recognition else None,
+                    VOICE_RESPONSE_CONTEXT if optimize_for_stream else None,
+                ),
                 diagnostics=diagnostics,
             )
-            stage = "tts"
-            tts_started_at = time.perf_counter()
-            try:
-                speech = await self._synthesis_provider.synthesize_speech(
-                    SpeechRequest(text=ai_message.content, voice=active_agent.tts_voice)
-                )
-            finally:
-                tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
-            logger.info(
-                "voice_synthesis_completed",
-                extra={"audio_bytes": len(speech.audio_content)},
+            telemetry.llm_duration_ms = diagnostics.llm_duration_ms
+            return PreparedVoiceResponse(
+                message_id=ai_message.id,
+                text=ai_message.content,
+                voice=active_agent.tts_voice,
+                telemetry=telemetry,
             )
-        except Exception:
-            self._record_metrics(
-                status="error",
+        except asyncio.CancelledError:
+            telemetry.record(
+                status="cancelled",
                 error_stage=stage,
-                started_at=total_started_at,
-                recording_duration_ms=recording_duration_ms,
-                stt_duration_ms=stt_duration_ms,
-                llm_duration_ms=diagnostics.llm_duration_ms,
-                tts_duration_ms=tts_duration_ms,
-                stt_confidence=stt_confidence,
+                cancelled=True,
             )
             raise
-
-        self._record_metrics(
-            status="success",
-            error_stage=None,
-            started_at=total_started_at,
-            recording_duration_ms=recording_duration_ms,
-            stt_duration_ms=stt_duration_ms,
-            llm_duration_ms=diagnostics.llm_duration_ms,
-            tts_duration_ms=tts_duration_ms,
-            stt_confidence=stt_confidence,
-        )
-        return VoiceTurnResult(speech=speech, message_id=ai_message.id)
-
-    def _record_metrics(
-        self,
-        *,
-        status: str,
-        error_stage: str | None,
-        started_at: float,
-        recording_duration_ms: int | None,
-        stt_duration_ms: int | None,
-        llm_duration_ms: int | None,
-        tts_duration_ms: int | None,
-        stt_confidence: float | None,
-    ) -> None:
-        self._metrics.record(
-            status=status,
-            mode="voice",
-            error_stage=error_stage,
-            recording_duration_ms=recording_duration_ms,
-            stt_duration_ms=stt_duration_ms,
-            llm_duration_ms=llm_duration_ms,
-            tts_duration_ms=tts_duration_ms,
-            total_duration_ms=round((time.perf_counter() - started_at) * 1000),
-            stt_confidence=stt_confidence,
-        )
+        except Exception:
+            telemetry.llm_duration_ms = diagnostics.llm_duration_ms
+            telemetry.record(status="error", error_stage=stage)
+            raise
 
     async def synthesize_text(
         self,

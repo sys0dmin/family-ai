@@ -6,6 +6,34 @@ class AudioFormat {
   final String extension;
   final String mimeType;
 
+  static Uint8List? mergeWavParts(List<Uint8List> parts) {
+    if (parts.isEmpty) return null;
+    final parsed = parts.map(_parseWavPart).toList(growable: false);
+    if (parsed.any((part) => part == null)) return null;
+    final wavParts = parsed.cast<_WavPart>();
+    final format = wavParts.first.format;
+    if (wavParts.any((part) => !_bytesEqual(part.format, format))) {
+      return null;
+    }
+
+    final data = BytesBuilder(copy: false);
+    for (final part in wavParts) {
+      data.add(part.data);
+    }
+    final joinedData = data.takeBytes();
+    final result = Uint8List(wavParts.first.dataOffset + joinedData.length);
+    result.setRange(0, wavParts.first.dataOffset, wavParts.first.prefix);
+    result.setRange(wavParts.first.dataOffset, result.length, joinedData);
+    final sizes = ByteData.sublistView(result);
+    sizes.setUint32(4, result.length - 8, Endian.little);
+    sizes.setUint32(
+      wavParts.first.dataOffset - 4,
+      joinedData.length,
+      Endian.little,
+    );
+    return result;
+  }
+
   static Uint8List normalizeContainer(Uint8List bytes) {
     if (!_startsWith(bytes, const <int>[0x52, 0x49, 0x46, 0x46]) ||
         bytes.length < 12 ||
@@ -93,6 +121,49 @@ class AudioFormat {
     return _matchesAt(bytes, 0, signature);
   }
 
+  static _WavPart? _parseWavPart(Uint8List source) {
+    final bytes = normalizeContainer(source);
+    if (bytes.length < 12 ||
+        !_startsWith(bytes, const <int>[0x52, 0x49, 0x46, 0x46]) ||
+        !_matchesAt(bytes, 8, const <int>[0x57, 0x41, 0x56, 0x45])) {
+      return null;
+    }
+    Uint8List? format;
+    var chunkOffset = 12;
+    while (chunkOffset + 8 <= bytes.length) {
+      final chunkSize = ByteData.sublistView(
+        bytes,
+        chunkOffset + 4,
+        chunkOffset + 8,
+      ).getUint32(0, Endian.little);
+      final payloadOffset = chunkOffset + 8;
+      final payloadEnd = payloadOffset + chunkSize;
+      if (payloadEnd > bytes.length) return null;
+      if (_matchesAt(bytes, chunkOffset, const <int>[0x66, 0x6D, 0x74, 0x20])) {
+        format = Uint8List.sublistView(bytes, payloadOffset, payloadEnd);
+      }
+      if (_matchesAt(bytes, chunkOffset, const <int>[0x64, 0x61, 0x74, 0x61])) {
+        if (format == null) return null;
+        return _WavPart(
+          prefix: Uint8List.sublistView(bytes, 0, payloadOffset),
+          dataOffset: payloadOffset,
+          format: format,
+          data: Uint8List.sublistView(bytes, payloadOffset, payloadEnd),
+        );
+      }
+      chunkOffset = payloadEnd + (chunkSize.isOdd ? 1 : 0);
+    }
+    return null;
+  }
+
+  static bool _bytesEqual(Uint8List left, Uint8List right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
+  }
+
   static bool _matchesAt(Uint8List bytes, int offset, List<int> signature) {
     if (bytes.length < offset + signature.length) return false;
     for (var index = 0; index < signature.length; index += 1) {
@@ -100,4 +171,18 @@ class AudioFormat {
     }
     return true;
   }
+}
+
+class _WavPart {
+  const _WavPart({
+    required this.prefix,
+    required this.dataOffset,
+    required this.format,
+    required this.data,
+  });
+
+  final Uint8List prefix;
+  final int dataOffset;
+  final Uint8List format;
+  final Uint8List data;
 }

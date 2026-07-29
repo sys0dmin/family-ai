@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -37,7 +38,11 @@ abstract interface class VoiceSession {
 
   Future<void> cancelRecording();
 
-  Future<void> play(Uint8List audioBytes, {required String contentType});
+  Future<void> play(
+    Uint8List audioBytes, {
+    required String contentType,
+    void Function()? onStarted,
+  });
 
   Future<void> stopPlayback();
 
@@ -54,6 +59,7 @@ class DeviceVoiceSession implements VoiceSession {
   String? _recordingPath;
   DateTime? _recordingStartedAt;
   String? _playbackPath;
+  Completer<void>? _playbackStopped;
 
   @override
   Future<void> startRecording() async {
@@ -126,7 +132,11 @@ class DeviceVoiceSession implements VoiceSession {
   }
 
   @override
-  Future<void> play(Uint8List audioBytes, {required String contentType}) async {
+  Future<void> play(
+    Uint8List audioBytes, {
+    required String contentType,
+    void Function()? onStarted,
+  }) async {
     await stopPlayback();
     final playableBytes = AudioFormat.normalizeContainer(audioBytes);
     final format = AudioFormat.detect(contentType, playableBytes);
@@ -137,14 +147,24 @@ class DeviceVoiceSession implements VoiceSession {
       '${format.extension}',
     );
     _playbackPath = file.path;
+    final stopped = Completer<void>();
+    _playbackStopped = stopped;
 
     try {
       await file.writeAsBytes(playableBytes, flush: true);
       final completed = _player.onPlayerComplete.first;
+      final started = _player.onPlayerStateChanged.firstWhere(
+        (state) => state == PlayerState.playing,
+      );
       await _player.play(
         DeviceFileSource(file.path, mimeType: format.mimeType),
       );
-      await completed.timeout(const Duration(minutes: 2));
+      await started.timeout(const Duration(seconds: 5));
+      onStarted?.call();
+      await Future.any(<Future<void>>[
+        completed,
+        stopped.future,
+      ]).timeout(const Duration(minutes: 2));
     } catch (_) {
       throw VoiceSessionException(
         'Телефон не смог проиграть ответ '
@@ -152,6 +172,9 @@ class DeviceVoiceSession implements VoiceSession {
       );
     } finally {
       await _player.stop();
+      if (identical(_playbackStopped, stopped)) {
+        _playbackStopped = null;
+      }
       _playbackPath = null;
       if (await file.exists()) {
         await file.delete();
@@ -161,6 +184,11 @@ class DeviceVoiceSession implements VoiceSession {
 
   @override
   Future<void> stopPlayback() async {
+    final stopped = _playbackStopped;
+    _playbackStopped = null;
+    if (stopped != null && !stopped.isCompleted) {
+      stopped.complete();
+    }
     await _player.stop();
     final path = _playbackPath;
     _playbackPath = null;

@@ -1,5 +1,6 @@
 """Tests for the ephemeral spoken-image conversation flow."""
 
+import json
 from unittest.mock import AsyncMock
 
 import pytest
@@ -92,6 +93,37 @@ async def test_spoken_image_turn_combines_ephemeral_inputs_and_returns_audio(
     assert "Похоже на чайку." in serialized
     assert "RIFFaudio" not in serialized
     assert "bird.jpg" not in serialized
+
+
+@pytest.mark.anyio
+async def test_spoken_image_turn_streams_safe_audio_events(
+    app: FastAPI,
+    client: AsyncClient,
+) -> None:
+    _override_providers(app, answer="Сначала главное. Потом подробность.")
+    created = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "teacher_friend"},
+    )
+
+    response = await client.post(
+        f"/v1/multimodal/{created.json()['conversation_id']}/turn/stream",
+        files={
+            "image": ("bird.jpg", b"\xff\xd8\xffbird", "image/jpeg"),
+            "audio": ("question.wav", b"RIFFaudio", "audio/wav"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-family-ai-voice-protocol"] == "family-ai-voice/2"
+    events = [json.loads(line) for line in response.content.splitlines()]
+    assert [event["type"] for event in events] == [
+        "started",
+        "message",
+        "audio",
+        "audio",
+        "complete",
+    ]
 
 
 @pytest.mark.anyio

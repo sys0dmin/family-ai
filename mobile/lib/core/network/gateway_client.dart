@@ -295,6 +295,35 @@ class GatewayClient implements ConversationGateway {
   }
 
   @override
+  Stream<VoiceStreamEvent> streamVoiceTurn({
+    required String conversationId,
+    required Uint8List audioBytes,
+    required String filename,
+    required String contentType,
+    required Duration recordingDuration,
+  }) async* {
+    final request =
+        http.MultipartRequest(
+            'POST',
+            serverAddress.resolve('/v1/voice/$conversationId/turn/stream'),
+          )
+          ..fields['recording_duration_ms'] = recordingDuration.inMilliseconds
+              .toString()
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'file',
+              audioBytes,
+              filename: filename,
+              contentType: MediaType.parse(contentType),
+            ),
+          );
+    yield* _sendVoiceStream(
+      request,
+      fallbackMessage: 'Не удалось отправить голосовое сообщение.',
+    );
+  }
+
+  @override
   Future<VoiceTurnAudio> sendSpokenImageTurn({
     required String conversationId,
     required Uint8List imageBytes,
@@ -385,6 +414,75 @@ class GatewayClient implements ConversationGateway {
   }
 
   @override
+  Stream<VoiceStreamEvent> streamSpokenImageTurn({
+    required String conversationId,
+    required Uint8List imageBytes,
+    required String imageFilename,
+    required String imageContentType,
+    required Uint8List audioBytes,
+    required String audioFilename,
+    required String audioContentType,
+    required Duration recordingDuration,
+  }) async* {
+    final request =
+        http.MultipartRequest(
+            'POST',
+            serverAddress.resolve('/v1/multimodal/$conversationId/turn/stream'),
+          )
+          ..fields['recording_duration_ms'] = recordingDuration.inMilliseconds
+              .toString()
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'image',
+              imageBytes,
+              filename: imageFilename,
+              contentType: MediaType.parse(imageContentType),
+            ),
+          )
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'audio',
+              audioBytes,
+              filename: audioFilename,
+              contentType: MediaType.parse(audioContentType),
+            ),
+          );
+    yield* _sendVoiceStream(
+      request,
+      fallbackMessage: 'Не удалось отправить фотографию и голосовой вопрос.',
+    );
+  }
+
+  @override
+  Future<void> cancelVoiceStream(String turnId) async {
+    try {
+      await _httpClient
+          .delete(serverAddress.resolve('/v1/voice/streams/$turnId'))
+          .timeout(timeout);
+    } catch (_) {
+      // Cancellation is best effort; the local player already stopped.
+    }
+  }
+
+  @override
+  Future<void> reportVoicePlayback({
+    required String turnId,
+    required Duration duration,
+  }) async {
+    try {
+      await _httpClient
+          .post(
+            serverAddress.resolve('/v1/voice/streams/$turnId/playback'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'duration_ms': duration.inMilliseconds}),
+          )
+          .timeout(timeout);
+    } catch (_) {
+      // Telemetry must never affect the conversation.
+    }
+  }
+
+  @override
   Future<SynthesizedAudio> synthesizeText({
     required String conversationId,
     required String text,
@@ -417,6 +515,78 @@ class GatewayClient implements ConversationGateway {
   Uri resolveMediaUrl(String contentUrl) {
     final uri = Uri.parse(contentUrl);
     return uri.hasScheme ? uri : serverAddress.uri.resolveUri(uri);
+  }
+
+  Stream<VoiceStreamEvent> _sendVoiceStream(
+    http.MultipartRequest request, {
+    required String fallbackMessage,
+  }) async* {
+    try {
+      final response = await _httpClient.send(request).timeout(voiceTimeout);
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        await response.stream.drain<void>();
+        throw const VoiceStreamingUnavailable();
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        await response.stream.drain<void>();
+        throw GatewayException(
+          'Сервер ответил с ошибкой ${response.statusCode}.',
+        );
+      }
+      if (response.headers['x-family-ai-voice-protocol'] !=
+          'family-ai-voice/2') {
+        await response.stream.drain<void>();
+        throw const VoiceStreamingUnavailable();
+      }
+      await for (final line
+          in response.stream
+              .timeout(voiceTimeout)
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
+        if (line.trim().isEmpty) continue;
+        yield _decodeVoiceStreamEvent(line);
+      }
+    } on VoiceStreamingUnavailable {
+      rethrow;
+    } on GatewayException {
+      rethrow;
+    } catch (_) {
+      throw GatewayException(fallbackMessage);
+    }
+  }
+
+  VoiceStreamEvent _decodeVoiceStreamEvent(String line) {
+    try {
+      final body = jsonDecode(line);
+      if (body is! Map<String, dynamic> ||
+          body['protocol'] != 'family-ai-voice/2') {
+        throw const FormatException();
+      }
+      final type = switch (body['type']) {
+        'started' => VoiceStreamEventType.started,
+        'message' => VoiceStreamEventType.message,
+        'audio' => VoiceStreamEventType.audio,
+        'complete' => VoiceStreamEventType.complete,
+        'error' => VoiceStreamEventType.error,
+        _ => throw const FormatException(),
+      };
+      Uint8List? audioBytes;
+      if (type == VoiceStreamEventType.audio) {
+        audioBytes = base64Decode(body['audio_base64'] as String);
+      }
+      return VoiceStreamEvent(
+        type: type,
+        turnId: body['turn_id'] as String?,
+        messageId: body['message_id'] as String?,
+        audioBytes: audioBytes,
+        contentType: body['content_type'] as String?,
+        audioIndex: body['index'] as int?,
+        chunkCount: body['chunk_count'] as int?,
+        errorMessage: body['message'] as String?,
+      );
+    } catch (_) {
+      throw const GatewayException('Сервер вернул непонятный голосовой поток.');
+    }
   }
 
   Future<http.Response> _get(Uri uri) async {

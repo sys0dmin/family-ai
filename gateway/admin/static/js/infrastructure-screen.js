@@ -143,13 +143,23 @@ export function createInfrastructureScreen() {
     );
     byId("pipeline-llm").textContent = formatPipelineMs(stages.llm?.last_ms);
     byId("pipeline-tts").textContent = formatPipelineMs(stages.tts?.last_ms);
+    byId("pipeline-first-ready").textContent = formatPipelineMs(
+      stages.first_audio_ready?.last_ms
+    );
+    byId("pipeline-first-playback").textContent = formatPipelineMs(
+      stages.client_first_playback?.last_ms
+    );
     byId("pipeline-total").textContent = formatPipelineMs(stages.total?.last_ms);
     byId("speech-queue").textContent = speech?.queue_depth ?? "—";
     byId("speech-active").textContent = speech?.active_stage || "свободен";
     byId("pipeline-errors").textContent = gateway?.errors ?? "—";
+    byId("pipeline-cancellations").textContent =
+      gateway?.cancellations ?? "—";
     const recent = gateway?.recent || [];
+    const latest = recent.length ? recent[recent.length - 1] : null;
+    byId("pipeline-chunks").textContent = latest?.chunk_count ?? "—";
     const confidence = recent.length
-      ? recent[recent.length - 1].stt_confidence
+      ? latest.stt_confidence
       : null;
     byId("pipeline-confidence").textContent =
       confidence == null ? "—" : `${Math.round(confidence * 100)}%`;

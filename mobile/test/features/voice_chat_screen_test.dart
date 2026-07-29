@@ -7,6 +7,7 @@ import 'package:family_ai_mobile/core/network/gateway_client.dart';
 import 'package:family_ai_mobile/features/agents/agent.dart';
 import 'package:family_ai_mobile/features/conversations/chat_screen.dart';
 import 'package:family_ai_mobile/features/conversations/photo_picker.dart';
+import 'package:family_ai_mobile/features/voice/audio_format.dart';
 import 'package:family_ai_mobile/features/voice/voice_reply_cache.dart';
 import 'package:family_ai_mobile/features/voice/voice_session.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +40,7 @@ class _FakeVoiceSession implements VoiceSession {
   int starts = 0;
   int stops = 0;
   int plays = 0;
+  final List<Uint8List> playedParts = [];
   Uint8List? playedBytes;
   String? playedContentType;
   Completer<void>? playGate;
@@ -58,10 +60,17 @@ class _FakeVoiceSession implements VoiceSession {
   }
 
   @override
-  Future<void> play(Uint8List audioBytes, {required String contentType}) async {
+  Future<void> play(
+    Uint8List audioBytes, {
+    required String contentType,
+    void Function()? onStarted,
+  }) async {
     plays += 1;
+    playedParts.add(audioBytes);
     playedBytes = audioBytes;
     playedContentType = contentType;
+    await Future<void>.delayed(Duration.zero);
+    onStarted?.call();
     await playGate?.future;
   }
 
@@ -126,6 +135,113 @@ class _FakePhotoPicker implements PhotoPicker {
       contentType: 'image/png',
     );
   }
+}
+
+Uint8List _wavPart(List<int> samples) {
+  final bytes = Uint8List(44 + samples.length);
+  bytes.setAll(0, ascii.encode('RIFF'));
+  bytes.setAll(8, ascii.encode('WAVE'));
+  bytes.setAll(12, ascii.encode('fmt '));
+  bytes.setAll(36, ascii.encode('data'));
+  bytes.setAll(44, samples);
+  final data = ByteData.sublistView(bytes);
+  data.setUint32(4, bytes.length - 8, Endian.little);
+  data.setUint32(16, 16, Endian.little);
+  data.setUint16(20, 1, Endian.little);
+  data.setUint16(22, 1, Endian.little);
+  data.setUint32(24, 24000, Endian.little);
+  data.setUint32(28, 48000, Endian.little);
+  data.setUint16(32, 2, Endian.little);
+  data.setUint16(34, 16, Endian.little);
+  data.setUint32(40, samples.length, Endian.little);
+  return bytes;
+}
+
+GatewayClient _streamingVoiceGateway({
+  required VoidCallback onPlaybackReported,
+}) {
+  return GatewayClient(
+    serverAddress: ServerAddress.parse('http://server.local'),
+    httpClient: MockClient((request) async {
+      if (request.method == 'GET' &&
+          request.url.path == '/v1/conversations/latest') {
+        return http.Response(
+          jsonEncode({
+            'conversation_id': null,
+            'agent_id': 'teacher',
+            'messages': <Object>[],
+            'history_truncated': false,
+          }),
+          200,
+        );
+      }
+      if (request.method == 'POST' &&
+          request.url.path == '/v1/conversations/') {
+        return http.Response(
+          jsonEncode({'conversation_id': 'conversation-1'}),
+          200,
+        );
+      }
+      if (request.method == 'POST' &&
+          request.url.path == '/v1/voice/conversation-1/turn/stream') {
+        final events = <Map<String, Object>>[
+          {
+            'type': 'started',
+            'protocol': 'family-ai-voice/2',
+            'turn_id': 'turn-1',
+          },
+          {
+            'type': 'message',
+            'protocol': 'family-ai-voice/2',
+            'message_id': 'streamed-message',
+            'chunk_count': 2,
+          },
+          {
+            'type': 'audio',
+            'protocol': 'family-ai-voice/2',
+            'index': 0,
+            'content_type': 'audio/wav',
+            'audio_base64': base64Encode(_wavPart(<int>[1, 2])),
+          },
+          {
+            'type': 'audio',
+            'protocol': 'family-ai-voice/2',
+            'index': 1,
+            'content_type': 'audio/wav',
+            'audio_base64': base64Encode(_wavPart(<int>[3, 4])),
+          },
+          {'type': 'complete', 'protocol': 'family-ai-voice/2'},
+        ];
+        return http.Response(
+          '${events.map(jsonEncode).join('\n')}\n',
+          200,
+          headers: {
+            'content-type': 'application/x-ndjson',
+            'x-family-ai-voice-protocol': 'family-ai-voice/2',
+          },
+        );
+      }
+      if (request.method == 'POST' &&
+          request.url.path == '/v1/voice/streams/turn-1/playback') {
+        onPlaybackReported();
+        return http.Response('{"accepted":true}', 200);
+      }
+      if (request.method == 'GET' &&
+          request.url.path ==
+              '/v1/conversations/conversation-1/messages/streamed-message') {
+        return http.Response(
+          jsonEncode({
+            'id': 'streamed-message',
+            'role': 'assistant',
+            'content': 'Ответ из двух частей.',
+            'media': <Object>[],
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    }),
+  );
 }
 
 GatewayClient _voiceGateway({VoidCallback? onMessageFetched}) {
@@ -310,6 +426,37 @@ GatewayClient _pendingVoiceGateway(Completer<http.Response> voiceResponse) {
 }
 
 void main() {
+  testWidgets('plays Voice 2.0 parts and reports first playback', (
+    tester,
+  ) async {
+    final voice = _FakeVoiceSession();
+    final cache = _FakeVoiceReplyCache();
+    var playbackReports = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChatScreen(
+          agent: _agent,
+          gateway: _streamingVoiceGateway(
+            onPlaybackReported: () => playbackReports += 1,
+          ),
+          voiceSession: voice,
+          voiceReplyCache: cache,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('voice-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('voice-button')));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
+
+    expect(voice.plays, 2);
+    expect(playbackReports, 1);
+    expect(AudioFormat.mergeWavParts(voice.playedParts), isNotNull);
+  });
+
   testWidgets('records, sends and plays a voice turn', (tester) async {
     final voice = _FakeVoiceSession();
     final cache = _FakeVoiceReplyCache();

@@ -7,3 +7,9 @@ class SynthesizeTextRequest(BaseModel):
     """Assistant text that should be spoken with the conversation agent's voice."""
 
     text: str = Field(min_length=1, max_length=8000)
+
+
+class VoicePlaybackReport(BaseModel):
+    """Privacy-safe client timing for the first actually played audio part."""
+
+    duration_ms: int = Field(ge=0, le=3_600_000)

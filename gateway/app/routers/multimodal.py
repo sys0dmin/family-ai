@@ -5,7 +5,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 from gateway.app.config import Settings, get_settings
 from gateway.app.dependencies import get_multimodal_turn_service
@@ -18,6 +18,7 @@ from gateway.app.services.image_understanding_service import (
 )
 from gateway.app.services.multimodal_turn_service import MultimodalTurnService
 from gateway.app.services.voice_service import VoiceInputError
+from gateway.app.services.voice_streaming import VOICE_STREAM_PROTOCOL
 from gateway.app.upload_formats import (
     AUDIO_EXTENSIONS,
     normalized_content_type,
@@ -26,6 +27,54 @@ from gateway.app.upload_formats import (
 
 router = APIRouter(prefix="/v1/multimodal", tags=["multimodal"])
 logger = logging.getLogger(__name__)
+
+
+async def _read_multimodal_uploads(
+    image: UploadFile,
+    audio: UploadFile,
+    settings: Settings,
+) -> tuple[bytes, str, bytes, str, str]:
+    image_type = normalized_content_type(image.content_type)
+    if image_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Unsupported image format",
+        )
+    audio_type = normalized_content_type(audio.content_type)
+    if audio_type not in AUDIO_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Unsupported audio format",
+        )
+    audio_filename = safe_audio_filename(audio.filename, audio_type)
+    if audio_filename is None:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Unsupported audio format",
+        )
+    image_content = await image.read(settings.vision_max_image_bytes + 1)
+    if not image_content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty image file",
+        )
+    if len(image_content) > settings.vision_max_image_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Image file is too large",
+        )
+    audio_content = await audio.read(settings.voice_max_audio_bytes + 1)
+    if not audio_content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty audio file",
+        )
+    if len(audio_content) > settings.voice_max_audio_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Audio file is too large",
+        )
+    return image_content, image_type, audio_content, audio_filename, audio_type
 
 
 @router.post("/{conversation_id}/turn", response_class=Response)
@@ -40,47 +89,13 @@ async def multimodal_turn(
     """Accept one image and one spoken question; return the safe spoken answer."""
 
     try:
-        image_type = normalized_content_type(image.content_type)
-        if image_type not in ALLOWED_IMAGE_TYPES:
-            raise HTTPException(
-                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail="Unsupported image format",
-            )
-        audio_type = normalized_content_type(audio.content_type)
-        if audio_type not in AUDIO_EXTENSIONS:
-            raise HTTPException(
-                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail="Unsupported audio format",
-            )
-        audio_filename = safe_audio_filename(audio.filename, audio_type)
-        if audio_filename is None:
-            raise HTTPException(
-                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail="Unsupported audio format",
-            )
-
-        image_content = await image.read(settings.vision_max_image_bytes + 1)
-        if not image_content:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Empty image file",
-            )
-        if len(image_content) > settings.vision_max_image_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail="Image file is too large",
-            )
-        audio_content = await audio.read(settings.voice_max_audio_bytes + 1)
-        if not audio_content:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Empty audio file",
-            )
-        if len(audio_content) > settings.voice_max_audio_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail="Audio file is too large",
-            )
+        (
+            image_content,
+            image_type,
+            audio_content,
+            audio_filename,
+            audio_type,
+        ) = await _read_multimodal_uploads(image, audio, settings)
 
         logger.info(
             "multimodal_upload_received",
@@ -139,3 +154,45 @@ async def multimodal_turn(
     finally:
         await image.close()
         await audio.close()
+
+
+@router.post("/{conversation_id}/turn/stream", response_class=StreamingResponse)
+async def stream_multimodal_turn(
+    conversation_id: UUID,
+    image: UploadFile = File(...),
+    audio: UploadFile = File(...),
+    recording_duration_ms: int | None = Form(default=None, ge=0, le=3_600_000),
+    service: MultimodalTurnService = Depends(get_multimodal_turn_service),
+    settings: Settings = Depends(get_settings),
+) -> StreamingResponse:
+    """Stream one safe spoken answer about an ephemeral image."""
+
+    try:
+        (
+            image_content,
+            image_type,
+            audio_content,
+            audio_filename,
+            audio_type,
+        ) = await _read_multimodal_uploads(image, audio, settings)
+    finally:
+        await image.close()
+        await audio.close()
+    return StreamingResponse(
+        service.stream_turn(
+            conversation_id,
+            image_content=image_content,
+            image_content_type=image_type,
+            audio_content=audio_content,
+            audio_filename=audio_filename,
+            audio_content_type=audio_type,
+            language=settings.voice_language,
+            recording_duration_ms=recording_duration_ms,
+        ),
+        media_type="application/x-ndjson",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Accel-Buffering": "no",
+            "X-Family-AI-Voice-Protocol": VOICE_STREAM_PROTOCOL,
+        },
+    )

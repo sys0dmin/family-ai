@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../core/network/gateway_client.dart';
+import '../voice/audio_format.dart';
 import '../voice/voice_reply_cache.dart';
 import '../voice/voice_session.dart';
 import 'conversation_controller.dart';
@@ -39,6 +40,8 @@ class VoiceChatController extends ChangeNotifier {
   PickedPhoto? _pendingPhoto;
   int _operation = 0;
   bool _disposed = false;
+  StreamIterator<VoiceStreamEvent>? _activeStream;
+  String? _activeTurnId;
 
   VoiceTurnStage get stage => _stage;
   String? get replayingMessageId => _replayingMessageId;
@@ -125,63 +128,21 @@ class VoiceChatController extends ChangeNotifier {
           }
         });
       }
-      final response = photo == null
-          ? await _gateway.sendVoiceTurn(
-              conversationId: conversationId,
-              audioBytes: recording.bytes,
-              filename: recording.filename,
-              contentType: recording.contentType,
-              recordingDuration: recording.duration,
-            )
-          : await _gateway.sendSpokenImageTurn(
-              conversationId: conversationId,
-              imageBytes: photo.bytes,
-              imageFilename: photo.filename,
-              imageContentType: photo.contentType,
-              audioBytes: recording.bytes,
-              audioFilename: recording.filename,
-              audioContentType: recording.contentType,
-              recordingDuration: recording.duration,
-            );
-      _stageTimer?.cancel();
-      _stageTimer = null;
-      if (!_isCurrent(operation)) return;
-
-      var reply = ConversationMessage(
-        id:
-            response.messageId ??
-            'local-reply-${DateTime.now().microsecondsSinceEpoch}',
-        role: 'assistant',
-        content: '🔊 Голосовой ответ',
-      );
-      if (response.messageId != null) {
-        try {
-          reply = await _gateway.getMessage(
-            conversationId,
-            response.messageId!,
-          );
-        } on GatewayException {
-          // The audio response remains useful if message refresh fails.
-        }
-      }
-      if (!_isCurrent(operation)) return;
-      _conversation.appendMessage(reply);
-      _setStage(VoiceTurnStage.speaking);
       try {
-        await _voiceReplyCache.write(
+        await _runStreamingTurn(
+          operation: operation,
           conversationId: conversationId,
-          messageId: reply.id,
-          bytes: response.audioBytes,
-          contentType: response.contentType,
+          recording: recording,
+          photo: photo,
         );
-      } catch (_) {
-        // Playback remains available even if persistent caching fails.
+      } on VoiceStreamingUnavailable {
+        await _runLegacyTurn(
+          operation: operation,
+          conversationId: conversationId,
+          recording: recording,
+          photo: photo,
+        );
       }
-      if (!_isCurrent(operation)) return;
-      await _voiceSession.play(
-        response.audioBytes,
-        contentType: response.contentType,
-      );
       if (_isCurrent(operation)) {
         _pendingPhoto = null;
         _setStage(VoiceTurnStage.idle);
@@ -197,6 +158,187 @@ class VoiceChatController extends ChangeNotifier {
         _conversation.setVoiceBusy(false);
       }
     }
+  }
+
+  Future<void> _runStreamingTurn({
+    required int operation,
+    required String conversationId,
+    required RecordedVoice recording,
+    required PickedPhoto? photo,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    final stream = photo == null
+        ? _gateway.streamVoiceTurn(
+            conversationId: conversationId,
+            audioBytes: recording.bytes,
+            filename: recording.filename,
+            contentType: recording.contentType,
+            recordingDuration: recording.duration,
+          )
+        : _gateway.streamSpokenImageTurn(
+            conversationId: conversationId,
+            imageBytes: photo.bytes,
+            imageFilename: photo.filename,
+            imageContentType: photo.contentType,
+            audioBytes: recording.bytes,
+            audioFilename: recording.filename,
+            audioContentType: recording.contentType,
+            recordingDuration: recording.duration,
+          );
+    final iterator = StreamIterator(stream);
+    _activeStream = iterator;
+    String? messageId;
+    String? audioContentType;
+    final audioParts = <Uint8List>[];
+    var playbackReported = false;
+    var completed = false;
+    try {
+      streamEvents:
+      while (await iterator.moveNext()) {
+        if (!_isCurrent(operation)) return;
+        final event = iterator.current;
+        switch (event.type) {
+          case VoiceStreamEventType.started:
+            _activeTurnId = event.turnId;
+            break;
+          case VoiceStreamEventType.message:
+            messageId = event.messageId;
+            break;
+          case VoiceStreamEventType.audio:
+            final bytes = event.audioBytes;
+            final contentType = event.contentType;
+            if (bytes == null || bytes.isEmpty || contentType == null) {
+              throw const GatewayException(
+                'Сервер вернул пустую часть голосового ответа.',
+              );
+            }
+            _stageTimer?.cancel();
+            _stageTimer = null;
+            _setStage(VoiceTurnStage.speaking);
+            audioContentType ??= contentType;
+            audioParts.add(bytes);
+            await _voiceSession.play(
+              bytes,
+              contentType: contentType,
+              onStarted: () {
+                if (playbackReported) return;
+                playbackReported = true;
+                final turnId = _activeTurnId;
+                if (turnId != null) {
+                  unawaited(
+                    _gateway.reportVoicePlayback(
+                      turnId: turnId,
+                      duration: stopwatch.elapsed,
+                    ),
+                  );
+                }
+              },
+            );
+            break;
+          case VoiceStreamEventType.complete:
+            completed = true;
+            unawaited(iterator.cancel());
+            break streamEvents;
+          case VoiceStreamEventType.error:
+            throw GatewayException(
+              event.errorMessage ??
+                  'Не получилось подготовить голосовой ответ.',
+            );
+        }
+      }
+    } finally {
+      if (identical(_activeStream, iterator)) {
+        _activeStream = null;
+        _activeTurnId = null;
+      }
+    }
+    if (!completed || messageId == null || audioParts.isEmpty) {
+      throw const GatewayException('Голосовой ответ пришёл не полностью.');
+    }
+    if (!_isCurrent(operation)) return;
+    final merged = AudioFormat.mergeWavParts(audioParts);
+    if (merged != null && audioContentType != null) {
+      try {
+        await _voiceReplyCache.write(
+          conversationId: conversationId,
+          messageId: messageId,
+          bytes: merged,
+          contentType: audioContentType,
+        );
+      } catch (_) {
+        // Streaming playback remains successful if caching fails.
+      }
+    }
+    if (!_isCurrent(operation)) return;
+    final reply = await _loadVoiceReply(conversationId, messageId);
+    if (!_isCurrent(operation)) return;
+    _conversation.appendMessage(reply);
+  }
+
+  Future<void> _runLegacyTurn({
+    required int operation,
+    required String conversationId,
+    required RecordedVoice recording,
+    required PickedPhoto? photo,
+  }) async {
+    final response = photo == null
+        ? await _gateway.sendVoiceTurn(
+            conversationId: conversationId,
+            audioBytes: recording.bytes,
+            filename: recording.filename,
+            contentType: recording.contentType,
+            recordingDuration: recording.duration,
+          )
+        : await _gateway.sendSpokenImageTurn(
+            conversationId: conversationId,
+            imageBytes: photo.bytes,
+            imageFilename: photo.filename,
+            imageContentType: photo.contentType,
+            audioBytes: recording.bytes,
+            audioFilename: recording.filename,
+            audioContentType: recording.contentType,
+            recordingDuration: recording.duration,
+          );
+    _stageTimer?.cancel();
+    _stageTimer = null;
+    if (!_isCurrent(operation)) return;
+    final reply = await _loadVoiceReply(conversationId, response.messageId);
+    if (!_isCurrent(operation)) return;
+    _conversation.appendMessage(reply);
+    _setStage(VoiceTurnStage.speaking);
+    try {
+      await _voiceReplyCache.write(
+        conversationId: conversationId,
+        messageId: reply.id,
+        bytes: response.audioBytes,
+        contentType: response.contentType,
+      );
+    } catch (_) {
+      // Playback remains available even if persistent caching fails.
+    }
+    if (!_isCurrent(operation)) return;
+    await _voiceSession.play(
+      response.audioBytes,
+      contentType: response.contentType,
+    );
+  }
+
+  Future<ConversationMessage> _loadVoiceReply(
+    String conversationId,
+    String? messageId,
+  ) async {
+    if (messageId != null) {
+      try {
+        return await _gateway.getMessage(conversationId, messageId);
+      } on GatewayException {
+        // The audio response remains useful if message refresh fails.
+      }
+    }
+    return ConversationMessage(
+      id: messageId ?? 'local-reply-${DateTime.now().microsecondsSinceEpoch}',
+      role: 'assistant',
+      content: '🔊 Голосовой ответ',
+    );
   }
 
   Future<void> replay(ConversationMessage message) async {
@@ -256,10 +398,20 @@ class VoiceChatController extends ChangeNotifier {
     _recordingTimer = null;
     _stageTimer?.cancel();
     _stageTimer = null;
+    final iterator = _activeStream;
+    final turnId = _activeTurnId;
+    _activeStream = null;
+    _activeTurnId = null;
     try {
       if (recording) {
         await _voiceSession.cancelRecording();
       } else {
+        if (iterator != null) {
+          await iterator.cancel();
+        }
+        if (turnId != null) {
+          unawaited(_gateway.cancelVoiceStream(turnId));
+        }
         await _voiceSession.stopPlayback();
       }
     } finally {
@@ -294,6 +446,16 @@ class VoiceChatController extends ChangeNotifier {
     ++_operation;
     _recordingTimer?.cancel();
     _stageTimer?.cancel();
+    final iterator = _activeStream;
+    final turnId = _activeTurnId;
+    _activeStream = null;
+    _activeTurnId = null;
+    if (iterator != null) {
+      unawaited(iterator.cancel());
+    }
+    if (turnId != null) {
+      unawaited(_gateway.cancelVoiceStream(turnId));
+    }
     unawaited(_voiceSession.dispose());
     super.dispose();
   }

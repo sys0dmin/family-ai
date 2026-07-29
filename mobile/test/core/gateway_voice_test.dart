@@ -9,6 +9,56 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('decodes Voice 2.0 NDJSON audio parts', () async {
+    final events = <Map<String, dynamic>>[
+      {'type': 'started', 'protocol': 'family-ai-voice/2', 'turn_id': 'turn-1'},
+      {
+        'type': 'message',
+        'protocol': 'family-ai-voice/2',
+        'message_id': 'message-2',
+        'chunk_count': 1,
+      },
+      {
+        'type': 'audio',
+        'protocol': 'family-ai-voice/2',
+        'index': 0,
+        'content_type': 'audio/wav',
+        'audio_base64': base64Encode(<int>[1, 2, 3]),
+      },
+      {'type': 'complete', 'protocol': 'family-ai-voice/2'},
+    ];
+    final gateway = GatewayClient(
+      serverAddress: ServerAddress.parse('http://server.local'),
+      httpClient: MockClient((request) async {
+        expect(request.url.path, '/v1/voice/conversation-1/turn/stream');
+        return http.Response(
+          '${events.map(jsonEncode).join('\n')}\n',
+          200,
+          headers: {
+            'content-type': 'application/x-ndjson',
+            'x-family-ai-voice-protocol': 'family-ai-voice/2',
+          },
+        );
+      }),
+    );
+
+    final decoded = await gateway
+        .streamVoiceTurn(
+          conversationId: 'conversation-1',
+          audioBytes: Uint8List.fromList(<int>[82, 73, 70, 70]),
+          filename: 'voice.wav',
+          contentType: 'audio/wav',
+          recordingDuration: const Duration(seconds: 1),
+        )
+        .toList();
+
+    expect(decoded, hasLength(4));
+    expect(decoded.first.turnId, 'turn-1');
+    expect(decoded[1].messageId, 'message-2');
+    expect(decoded[2].audioBytes, <int>[1, 2, 3]);
+    expect(decoded[2].contentType, 'audio/wav');
+  });
+
   test('sends a WAV voice turn and reads the assistant message id', () async {
     final gateway = GatewayClient(
       serverAddress: ServerAddress.parse('http://server.local'),

@@ -1,5 +1,6 @@
 """Tests for the server-side voice conversation flow."""
 
+import json
 import uuid
 from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock, Mock
@@ -19,6 +20,7 @@ from gateway.app.providers.schemas import (
 )
 from gateway.app.services.music_recognition_service import MusicRecognitionContext
 from gateway.app.services.voice_service import VoiceService, VoiceTurnResult
+from gateway.app.services.voice_streaming import encode_stream_event
 
 
 @pytest.mark.anyio
@@ -277,6 +279,29 @@ async def test_voice_endpoint_returns_provider_content_type(
         language="ru",
         recording_duration_ms=1250,
     )
+
+
+@pytest.mark.anyio
+async def test_voice_stream_endpoint_preserves_event_boundaries(
+    app: FastAPI,
+    client: AsyncClient,
+) -> None:
+    class FakeStreamingVoiceService:
+        async def stream_voice_turn(self, **_: object):
+            yield encode_stream_event("started", turn_id=str(uuid.uuid4()))
+            yield encode_stream_event("complete")
+
+    app.dependency_overrides[get_voice_service] = FakeStreamingVoiceService
+
+    response = await client.post(
+        f"/v1/voice/{uuid.uuid4()}/turn/stream",
+        files={"file": ("recording.wav", b"RIFFaudio", "audio/wav")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-family-ai-voice-protocol"] == "family-ai-voice/2"
+    events = [json.loads(line) for line in response.content.splitlines()]
+    assert [event["type"] for event in events] == ["started", "complete"]
 
 
 @pytest.mark.anyio
