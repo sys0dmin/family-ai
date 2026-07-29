@@ -244,6 +244,25 @@ try {
     Write-Output "SHA-256: $ArtifactHash"
     Write-Output "Signer certificate SHA-256: $SignerDigest"
 } finally {
+    $GradleWrapper = Join-Path $BuildRoot "source\mobile\android\gradlew.bat"
+    if (Test-Path -LiteralPath $GradleWrapper -PathType Leaf) {
+        $PreviousJavaHome = $env:JAVA_HOME
+        try {
+            $env:JAVA_HOME = $JavaHome
+            Push-Location (Split-Path -Parent $GradleWrapper)
+            try {
+                & $GradleWrapper --stop *> $null
+            } finally {
+                Pop-Location
+            }
+        } finally {
+            if ($null -eq $PreviousJavaHome) {
+                Remove-Item Env:\JAVA_HOME -ErrorAction SilentlyContinue
+            } else {
+                $env:JAVA_HOME = $PreviousJavaHome
+            }
+        }
+    }
     if (
         (Test-Path -LiteralPath $BuildRoot) -and
         $BuildRoot.StartsWith(
@@ -251,6 +270,19 @@ try {
             [StringComparison]::OrdinalIgnoreCase
         )
     ) {
-        Remove-Item -LiteralPath $BuildRoot -Recurse -Force
+        $CleanupError = $null
+        foreach ($Attempt in 1..5) {
+            try {
+                Remove-Item -LiteralPath $BuildRoot -Recurse -Force
+                $CleanupError = $null
+                break
+            } catch {
+                $CleanupError = $_
+                Start-Sleep -Milliseconds (250 * $Attempt)
+            }
+        }
+        if ($null -ne $CleanupError) {
+            throw $CleanupError
+        }
     }
 }
