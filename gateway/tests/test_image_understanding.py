@@ -10,10 +10,16 @@ from gateway.app.dependencies import (
     get_chat_provider,
     get_image_understanding_provider,
 )
+from gateway.app.providers.openai_vision import VISION_SYSTEM_PROMPT
 from gateway.app.providers.schemas import (
     ChatResponse,
     ImageUnderstandingResponse,
 )
+
+
+def test_vision_prompt_does_not_infer_repeated_copies() -> None:
+    assert "exactly one uploaded image file" in VISION_SYSTEM_PROMPT
+    assert "do not claim that the image is duplicated" in VISION_SYSTEM_PROMPT
 
 
 @pytest.mark.anyio
