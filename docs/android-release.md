@@ -7,6 +7,15 @@ Release APK подписывается постоянным проектным �
 `%USERPROFILE%\.family-ai\android-signing` и никогда не копируются в Git.
 Пароли не передаются параметрами Gradle и не выводятся в консоль.
 
+Текущий сертификат Family AI Mentor:
+
+```text
+SHA-256: 4b6ea599c89e618b92600f04a4d527e0c8d4b2a446ef1bddae38365fc4951d7e
+```
+
+Fingerprint публичен и нужен для проверки идентичности релиза; паролем или
+секретом он не является.
+
 Инициализация создаёт DPAPI CurrentUser recovery-kit:
 
 ```powershell
