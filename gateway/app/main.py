@@ -13,6 +13,7 @@ from gateway.app.routers.conversations import router as conversations_router
 from gateway.app.routers.health import router as health_router
 from gateway.app.routers.internal_metrics import router as internal_metrics_router
 from gateway.app.routers.media import router as media_router
+from gateway.app.routers.multimodal import router as multimodal_router
 from gateway.app.routers.vision import router as vision_router
 from gateway.app.routers.voice import router as voice_router
 
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(media_router)
     app.include_router(voice_router)
     app.include_router(vision_router)
+    app.include_router(multimodal_router)
     app.include_router(calibration_router)
     app.include_router(internal_metrics_router)
     return app

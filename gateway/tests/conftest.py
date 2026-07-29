@@ -17,7 +17,16 @@ from gateway.app.main import create_app
 from gateway.app.models import Agent, AgentRevision, ChildProfile
 
 TEST_AGENTS = (
-    ("teacher_friend", "Учитель-друг", "🐻", "blue", "lulwa", 10, ["image_search"], []),
+    (
+        "teacher_friend",
+        "Учитель-друг",
+        "🐻",
+        "blue",
+        "lulwa",
+        10,
+        ["image_search", "image_understanding"],
+        [],
+    ),
     ("scientist", "Почемучка", "🔬", "green", "noura", 20, ["image_search"], []),
     ("storyteller", "Сказочник", "🦉", "purple", "aisha", 30, [], []),
     ("socrates", "Подумай сама", "🦊", "orange", "lulwa", 40, [], []),
@@ -38,7 +47,7 @@ TEST_AGENTS = (
         "forest",
         "noura",
         60,
-        ["web_search", "image_search"],
+        ["web_search", "image_search", "image_understanding"],
         ["supervised_outdoor_safety"],
     ),
     (
@@ -48,7 +57,7 @@ TEST_AGENTS = (
         "navy",
         "fahad",
         70,
-        ["web_search", "image_search"],
+        ["web_search", "image_search", "image_understanding"],
         [],
     ),
     (
@@ -66,10 +75,14 @@ TEST_AGENTS = (
 
 @pytest.fixture
 def test_settings() -> Settings:
+    database_name = f"family_ai_test_{uuid.uuid4().hex}"
     return Settings(
         app_name="Family AI Gateway",
         environment="test",
-        database_url="sqlite+pysqlite:///file:family_ai_test?mode=memory&cache=shared",
+        database_url=(
+            f"sqlite+pysqlite:///file:{database_name}"
+            "?mode=memory&cache=shared&uri=true"
+        ),
         message_retention_days=10,
     )
 

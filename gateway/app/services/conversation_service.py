@@ -113,6 +113,7 @@ class ConversationService:
         conversation_id: uuid.UUID,
         text: str,
         runtime_context: str | None = None,
+        input_safety_context: str | None = None,
         diagnostics: TurnDiagnostics | None = None,
     ) -> Message:
         """Store a child message and return the generated assistant response."""
@@ -125,6 +126,7 @@ class ConversationService:
         return await self.generate_ai_response(
             conversation_id,
             runtime_context=runtime_context,
+            input_safety_context=input_safety_context,
             diagnostics=diagnostics,
         )
 
@@ -132,6 +134,7 @@ class ConversationService:
         self,
         conversation_id: uuid.UUID,
         runtime_context: str | None = None,
+        input_safety_context: str | None = None,
         diagnostics: TurnDiagnostics | None = None,
     ) -> Message:
         """Generate an AI response based on conversation history with safety checks."""
@@ -149,9 +152,17 @@ class ConversationService:
 
         # 2. Safety check: Incoming
         if self._safety and last_child_msg:
-            input_outcome = self._safety.evaluate_input(
-                last_child_msg.content,
-                active_agent.permissions,
+            input_outcome = (
+                self._safety.evaluate_multimodal_input(
+                    last_child_msg.content,
+                    input_safety_context,
+                    active_agent.permissions,
+                )
+                if input_safety_context
+                else self._safety.evaluate_input(
+                    last_child_msg.content,
+                    active_agent.permissions,
+                )
             )
             if input_outcome.action is PolicyAction.BLOCK:
                 return self.create_message(

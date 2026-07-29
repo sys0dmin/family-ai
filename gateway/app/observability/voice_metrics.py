@@ -12,10 +12,12 @@ class VoiceTurnSample:
     """One anonymized voice turn timing sample."""
 
     timestamp: str
+    mode: str
     status: str
     recording_duration_ms: int | None
     stt_duration_ms: int | None
     llm_duration_ms: int | None
+    vision_duration_ms: int | None
     tts_duration_ms: int | None
     total_duration_ms: int
     stt_confidence: float | None = None
@@ -34,19 +36,23 @@ class VoiceMetricsRegistry:
         *,
         status: str,
         total_duration_ms: int,
+        mode: str = "voice",
         recording_duration_ms: int | None = None,
         stt_duration_ms: int | None = None,
         llm_duration_ms: int | None = None,
+        vision_duration_ms: int | None = None,
         tts_duration_ms: int | None = None,
         stt_confidence: float | None = None,
         error_stage: str | None = None,
     ) -> None:
         sample = VoiceTurnSample(
             timestamp=datetime.now(UTC).isoformat(),
+            mode=mode,
             status=status,
             recording_duration_ms=recording_duration_ms,
             stt_duration_ms=stt_duration_ms,
             llm_duration_ms=llm_duration_ms,
+            vision_duration_ms=vision_duration_ms,
             tts_duration_ms=tts_duration_ms,
             total_duration_ms=total_duration_ms,
             stt_confidence=stt_confidence,
@@ -76,6 +82,7 @@ class VoiceMetricsRegistry:
                     "recording_duration_ms",
                     "stt_duration_ms",
                     "llm_duration_ms",
+                    "vision_duration_ms",
                     "tts_duration_ms",
                     "total_duration_ms",
                 )

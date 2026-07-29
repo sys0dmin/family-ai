@@ -49,6 +49,17 @@ abstract interface class ConversationGateway {
     required Duration recordingDuration,
   });
 
+  Future<VoiceTurnAudio> sendSpokenImageTurn({
+    required String conversationId,
+    required Uint8List imageBytes,
+    required String imageFilename,
+    required String imageContentType,
+    required Uint8List audioBytes,
+    required String audioFilename,
+    required String audioContentType,
+    required Duration recordingDuration,
+  });
+
   Future<SynthesizedAudio> synthesizeText({
     required String conversationId,
     required String text,

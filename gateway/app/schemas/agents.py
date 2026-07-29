@@ -11,6 +11,7 @@ class AgentResponse(BaseModel):
     color: str
     greeting: str
     supports_image_upload: bool = False
+    supports_spoken_image_question: bool = False
     image_upload_max_bytes: int | None = None
 
 

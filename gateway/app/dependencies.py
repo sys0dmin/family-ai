@@ -32,6 +32,7 @@ from gateway.app.safety.metrics import safety_metrics_registry
 from gateway.app.services.agent_service import AgentService
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.image_understanding_service import ImageUnderstandingService
+from gateway.app.services.multimodal_turn_service import MultimodalTurnService
 from gateway.app.services.music_recognition_service import MusicRecognitionService
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.visual_media_service import VisualMediaService
@@ -274,5 +275,26 @@ def get_voice_service(
         synthesis,
         conversation,
         music_recognition,
+        metrics=voice_metrics_registry,
+    )
+
+
+def get_multimodal_turn_service(
+    recognition: SpeechRecognitionProvider = Depends(
+        get_speech_recognition_provider
+    ),
+    synthesis: SpeechSynthesisProvider = Depends(get_speech_synthesis_provider),
+    image_understanding: ImageUnderstandingService = Depends(
+        get_image_understanding_service
+    ),
+    conversation: ConversationService = Depends(get_conversation_service),
+) -> MultimodalTurnService:
+    """Return the provider-neutral spoken-image turn orchestrator."""
+
+    return MultimodalTurnService(
+        recognition_provider=recognition,
+        synthesis_provider=synthesis,
+        image_understanding=image_understanding,
+        conversation=conversation,
         metrics=voice_metrics_registry,
     )

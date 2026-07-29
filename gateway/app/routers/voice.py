@@ -1,7 +1,6 @@
 """HTTP transport for complete voice conversation turns."""
 
 import logging
-from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -9,34 +8,18 @@ from fastapi.responses import Response
 
 from gateway.app.config import Settings, get_settings
 from gateway.app.dependencies import get_voice_service
+from gateway.app.routers.speech_response import speech_response
 from gateway.app.schemas.voice import SynthesizeTextRequest
 from gateway.app.services.voice_service import VoiceInputError, VoiceService
+from gateway.app.upload_formats import (
+    AUDIO_EXTENSIONS,
+    normalized_content_type,
+    safe_audio_filename,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/voice", tags=["voice"])
-
-SUPPORTED_AUDIO_TYPES = {
-    "audio/m4a": "m4a",
-    "audio/mp4": "mp4",
-    "audio/mpeg": "mp3",
-    "audio/ogg": "ogg",
-    "audio/wav": "wav",
-    "audio/webm": "webm",
-    "video/webm": "webm",
-}
-
-
-def _speech_response(speech, message_id: UUID | None = None) -> Response:
-    headers = {"Cache-Control": "no-store"}
-    if message_id is not None:
-        headers["X-Family-AI-Message-Id"] = str(message_id)
-    return Response(
-        content=speech.audio_content,
-        media_type=speech.content_type,
-        headers=headers,
-    )
-
 
 @router.post("/{conversation_id}/turn", response_class=Response)
 async def voice_turn(
@@ -48,9 +31,8 @@ async def voice_turn(
 ) -> Response:
     """Accept one recording and return the assistant's MP3 response."""
 
-    content_type = (file.content_type or "").split(";", maxsplit=1)[0].lower()
-    extension = SUPPORTED_AUDIO_TYPES.get(content_type)
-    if extension is None:
+    content_type = normalized_content_type(file.content_type)
+    if content_type not in AUDIO_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Unsupported audio format",
@@ -65,8 +47,12 @@ async def voice_turn(
             detail="Audio file is too large",
         )
 
-    original_stem = Path(file.filename or "recording").stem[:80] or "recording"
-    filename = f"{original_stem}.{extension}"
+    filename = safe_audio_filename(file.filename, content_type)
+    if filename is None:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Unsupported audio format",
+        )
 
     try:
         result = await voice_service.process_voice_turn(
@@ -92,7 +78,7 @@ async def voice_turn(
             detail="Voice provider is temporarily unavailable",
         ) from exc
 
-    return _speech_response(result.speech, result.message_id)
+    return speech_response(result.speech, result.message_id)
 
 
 @router.post("/{conversation_id}/synthesize", response_class=Response)
@@ -114,4 +100,4 @@ async def synthesize_text(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Voice provider is temporarily unavailable",
         ) from exc
-    return _speech_response(speech)
+    return speech_response(speech)

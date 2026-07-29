@@ -182,6 +182,7 @@ class VoiceService:
     ) -> None:
         self._metrics.record(
             status=status,
+            mode="voice",
             error_stage=error_stage,
             recording_duration_ms=recording_duration_ms,
             stt_duration_ms=stt_duration_ms,

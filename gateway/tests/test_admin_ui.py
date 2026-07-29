@@ -49,6 +49,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="clear_tts_api_key"' in response.text
     assert 'id="agent-tool-image-search"' in response.text
     assert 'id="agent-tool-image-understanding"' in response.text
+    assert 'id="pipeline-vision"' in response.text
     assert 'id="safety-baseline-save"' in response.text
     assert 'id="gateway-restart"' in response.text
     assert "https://cdn" not in response.text

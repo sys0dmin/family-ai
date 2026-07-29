@@ -139,6 +139,20 @@ RULE_CATALOG = (
         "Ответ адресует ребёнку опасное действие",
     ),
     _rule(
+        "input.visual.ingestion.transform",
+        PolicyPhase.INPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.TRANSFORM,
+        "По фотографии нельзя подтверждать безопасность еды или питья",
+    ),
+    _rule(
+        "input.visual.hazard.transform",
+        PolicyPhase.INPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.TRANSFORM,
+        "Визуально похожий опасный предмет требует участия родителя",
+    ),
+    _rule(
         "output.outdoor.presentation.transform",
         PolicyPhase.OUTPUT,
         PolicyCategory.PRESENTATION,

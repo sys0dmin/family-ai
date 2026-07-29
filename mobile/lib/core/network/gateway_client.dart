@@ -190,22 +190,25 @@ class GatewayClient implements ConversationGateway {
     required String contentType,
     required String question,
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      serverAddress.resolve('/v1/vision/$conversationId/turn'),
-    )
-      ..fields['question'] = question
-      ..files.add(
-        http.MultipartFile.fromBytes(
-          'file',
-          imageBytes,
-          filename: filename,
-          contentType: MediaType.parse(contentType),
-        ),
-      );
+    final request =
+        http.MultipartRequest(
+            'POST',
+            serverAddress.resolve('/v1/vision/$conversationId/turn'),
+          )
+          ..fields['question'] = question
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'file',
+              imageBytes,
+              filename: filename,
+              contentType: MediaType.parse(contentType),
+            ),
+          );
     try {
       final streamed = await _httpClient.send(request).timeout(voiceTimeout);
-      final response = await http.Response.fromStream(streamed).timeout(voiceTimeout);
+      final response = await http.Response.fromStream(
+        streamed,
+      ).timeout(voiceTimeout);
       if (response.statusCode == 413) {
         throw const GatewayException('Фотография получилась слишком большой.');
       }
@@ -288,6 +291,91 @@ class GatewayClient implements ConversationGateway {
       rethrow;
     } catch (_) {
       throw const GatewayException('Не удалось отправить голосовое сообщение.');
+    }
+  }
+
+  @override
+  Future<VoiceTurnAudio> sendSpokenImageTurn({
+    required String conversationId,
+    required Uint8List imageBytes,
+    required String imageFilename,
+    required String imageContentType,
+    required Uint8List audioBytes,
+    required String audioFilename,
+    required String audioContentType,
+    required Duration recordingDuration,
+  }) async {
+    final request =
+        http.MultipartRequest(
+            'POST',
+            serverAddress.resolve('/v1/multimodal/$conversationId/turn'),
+          )
+          ..fields['recording_duration_ms'] = recordingDuration.inMilliseconds
+              .toString()
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'image',
+              imageBytes,
+              filename: imageFilename,
+              contentType: MediaType.parse(imageContentType),
+            ),
+          )
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'audio',
+              audioBytes,
+              filename: audioFilename,
+              contentType: MediaType.parse(audioContentType),
+            ),
+          );
+    try {
+      final streamedResponse = await _httpClient
+          .send(request)
+          .timeout(voiceTimeout);
+      final response = await http.Response.fromStream(
+        streamedResponse,
+      ).timeout(voiceTimeout);
+      if (response.statusCode == 403) {
+        throw const GatewayException(
+          'Этот персонаж пока не умеет рассматривать фотографии.',
+        );
+      }
+      if (response.statusCode == 413) {
+        throw const GatewayException(
+          'Фотография или голосовое сообщение получились слишком большими.',
+        );
+      }
+      if (response.statusCode == 415) {
+        throw const GatewayException(
+          'Телефон не смог подготовить фотографию или запись.',
+        );
+      }
+      if (response.statusCode == 422) {
+        throw const GatewayException(
+          'Не удалось расслышать вопрос или рассмотреть фотографию.',
+        );
+      }
+      if (response.statusCode == 503) {
+        throw const GatewayException(
+          'Сейчас я не могу рассмотреть фотографию. Попробуем позже.',
+        );
+      }
+      _requireSuccess(response);
+      if (response.bodyBytes.isEmpty) {
+        throw const GatewayException('Сервер не вернул голосовой ответ.');
+      }
+      return VoiceTurnAudio(
+        audioBytes: response.bodyBytes,
+        contentType:
+            response.headers['content-type'] ?? 'application/octet-stream',
+        messageId: response.headers['x-family-ai-message-id'],
+      );
+    } on GatewayException {
+      rethrow;
+    } catch (_) {
+      throw const GatewayException(
+        'Не удалось отправить фотографию и голосовой вопрос.',
+      );
     }
   }
 

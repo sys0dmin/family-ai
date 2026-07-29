@@ -1,5 +1,6 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../agents/agent.dart';
 import '../agents/agent_presentation.dart';
@@ -8,6 +9,7 @@ import '../voice/voice_session.dart';
 import 'chat_widgets.dart';
 import 'conversation_controller.dart';
 import 'conversation_gateway.dart';
+import 'photo_picker.dart';
 import 'voice_chat_controller.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class ChatScreen extends StatefulWidget {
     required this.gateway,
     this.voiceSession,
     this.voiceReplyCache,
+    this.photoPicker,
     super.key,
   });
 
@@ -23,6 +26,7 @@ class ChatScreen extends StatefulWidget {
   final ConversationGateway gateway;
   final VoiceSession? voiceSession;
   final VoiceReplyCache? voiceReplyCache;
+  final PhotoPicker? photoPicker;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -34,12 +38,13 @@ class _ChatScreenState extends State<ChatScreen> {
   late final VoiceReplyCache _replyCache;
   late final ConversationController _conversation;
   late final VoiceChatController _voice;
-  final _imagePicker = ImagePicker();
+  late final PhotoPicker _photoPicker;
 
   @override
   void initState() {
     super.initState();
     _replyCache = widget.voiceReplyCache ?? DeviceVoiceReplyCache();
+    _photoPicker = widget.photoPicker ?? DevicePhotoPicker();
     _conversation = ConversationController(
       widget.agent,
       widget.gateway,
@@ -91,31 +96,27 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _sendPhoto() async {
+  Future<void> _startSpokenImageQuestion() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final photo = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 88,
-      maxWidth: 2048,
-      maxHeight: 2048,
+    final source = await showModalBottomSheet<PhotoSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => const _PhotoSourceSheet(),
     );
-    if (photo == null) return;
-    final bytes = await photo.readAsBytes();
-    final question = _textController.text.trim();
-    _textController.clear();
-    await _conversation.sendImage(
-      imageBytes: bytes,
-      filename: photo.name,
-      contentType: photo.mimeType ?? _contentTypeFor(photo.name),
-      question: question,
-    );
-  }
-
-  static String _contentTypeFor(String filename) {
-    final normalized = filename.toLowerCase();
-    if (normalized.endsWith('.png')) return 'image/png';
-    if (normalized.endsWith('.webp')) return 'image/webp';
-    return 'image/jpeg';
+    if (source == null || !mounted) return;
+    try {
+      final photo = await _photoPicker.pick(
+        source,
+        maxBytes: widget.agent.imageUploadMaxBytes ?? 10 * 1024 * 1024,
+      );
+      if (photo == null || !mounted) return;
+      _textController.clear();
+      await _voice.startSpokenImageQuestion(photo);
+    } on PhotoPickerException catch (error) {
+      _conversation.setError(error.message);
+    } catch (_) {
+      _conversation.setError('Не удалось открыть камеру или фотографию.');
+    }
   }
 
   void _scrollToBottom() {
@@ -211,6 +212,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
+          if (_voice.pendingPhotoBytes != null && !compactInputMode)
+            _PendingPhotoPreview(bytes: _voice.pendingPhotoBytes!),
           ChatComposer(
             controller: _textController,
             color: presentation.color,
@@ -226,10 +229,133 @@ class _ChatScreenState extends State<ChatScreen> {
               _voice.toggleRecording();
             },
             onCancelVoice: _voice.cancel,
-            onPhoto: widget.agent.supportsImageUpload ? _sendPhoto : null,
+            onPhoto:
+                widget.agent.supportsSpokenImageQuestion ||
+                    widget.agent.supportsImageUpload
+                ? _startSpokenImageQuestion
+                : null,
             compact: compactInputMode,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PendingPhotoPreview extends StatelessWidget {
+  const _PendingPhotoPreview({required this.bytes});
+
+  final Uint8List bytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('pending-photo-preview'),
+      height: 112,
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      color: const Color(0xFFFFFDF8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Image.memory(bytes, fit: BoxFit.cover),
+      ),
+    );
+  }
+}
+
+class _PhotoSourceSheet extends StatelessWidget {
+  const _PhotoSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Что покажем?',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: _PhotoSourceButton(
+                    key: const Key('photo-source-camera'),
+                    icon: Icons.photo_camera_rounded,
+                    label: 'Камера',
+                    color: const Color(0xFF327BB5),
+                    onTap: () => Navigator.pop(context, PhotoSource.camera),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: _PhotoSourceButton(
+                    key: const Key('photo-source-gallery'),
+                    icon: Icons.photo_library_rounded,
+                    label: 'Галерея',
+                    color: const Color(0xFF5A8F62),
+                    onTap: () => Navigator.pop(context, PhotoSource.gallery),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoSourceButton extends StatelessWidget {
+  const _PhotoSourceButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          height: 138,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: color.withValues(alpha: 0.35), width: 2),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 64, color: color),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

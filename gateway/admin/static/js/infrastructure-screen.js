@@ -138,6 +138,9 @@ export function createInfrastructureScreen() {
       stages.recording?.last_ms
     );
     byId("pipeline-stt").textContent = formatPipelineMs(stages.stt?.last_ms);
+    byId("pipeline-vision").textContent = formatPipelineMs(
+      stages.vision?.last_ms
+    );
     byId("pipeline-llm").textContent = formatPipelineMs(stages.llm?.last_ms);
     byId("pipeline-tts").textContent = formatPipelineMs(stages.tts?.last_ms);
     byId("pipeline-total").textContent = formatPipelineMs(stages.total?.last_ms);

@@ -40,9 +40,12 @@ async def test_agent_manifest_exposes_only_child_safe_metadata(
         "color",
         "greeting",
         "supports_image_upload",
+        "supports_spoken_image_question",
         "image_upload_max_bytes",
     }
-    assert items[0]["image_upload_max_bytes"] is None
+    assert items[0]["image_upload_max_bytes"] == 10 * 1024 * 1024
+    assert items[0]["supports_spoken_image_question"] is True
+    assert items[1]["image_upload_max_bytes"] is None
     assert items[-1]["image_upload_max_bytes"] == 10 * 1024 * 1024
 
 

@@ -29,6 +29,7 @@ def list_agents(
                 color=agent.color,
                 greeting=agent.greeting,
                 supports_image_upload=supports_images,
+                supports_spoken_image_question=supports_images,
                 image_upload_max_bytes=(
                     settings.vision_max_image_bytes if supports_images else None
                 ),

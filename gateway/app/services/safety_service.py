@@ -43,6 +43,20 @@ class SafetyService:
     ) -> PolicyOutcome:
         return self._engine.evaluate_input(text, permissions=permissions)
 
+    def evaluate_multimodal_input(
+        self,
+        text: str,
+        visual_observations: str,
+        permissions: tuple[str, ...] = (),
+    ) -> PolicyOutcome:
+        """Evaluate a question together with untrusted visual observations."""
+
+        return self._engine.evaluate_multimodal_input(
+            text,
+            visual_observations,
+            permissions=permissions,
+        )
+
     def evaluate_output(
         self,
         text: str,

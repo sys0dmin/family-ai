@@ -8,11 +8,13 @@ import '../voice/voice_session.dart';
 import 'conversation_controller.dart';
 import 'conversation_gateway.dart';
 import 'conversation_models.dart';
+import 'photo_picker.dart';
 
 enum VoiceTurnStage {
   idle,
   listening,
   understanding,
+  looking,
   thinking,
   speaking,
   error,
@@ -31,17 +33,22 @@ class VoiceChatController extends ChangeNotifier {
   final VoiceSession _voiceSession;
   final VoiceReplyCache _voiceReplyCache;
   Timer? _recordingTimer;
+  Timer? _stageTimer;
   VoiceTurnStage _stage = VoiceTurnStage.idle;
   String? _replayingMessageId;
+  PickedPhoto? _pendingPhoto;
   int _operation = 0;
   bool _disposed = false;
 
   VoiceTurnStage get stage => _stage;
   String? get replayingMessageId => _replayingMessageId;
+  Uint8List? get pendingPhotoBytes => _pendingPhoto?.bytes;
+  bool get askingAboutPhoto => _pendingPhoto != null;
   bool get recording => _stage == VoiceTurnStage.listening;
   bool get active => switch (_stage) {
     VoiceTurnStage.listening ||
     VoiceTurnStage.understanding ||
+    VoiceTurnStage.looking ||
     VoiceTurnStage.thinking ||
     VoiceTurnStage.speaking => true,
     _ => false,
@@ -54,7 +61,18 @@ class VoiceChatController extends ChangeNotifier {
       return;
     }
     if (active) return;
+    _pendingPhoto = null;
+    await _startRecording();
+  }
 
+  Future<void> startSpokenImageQuestion(PickedPhoto photo) async {
+    if (_conversation.busy || active) return;
+    _pendingPhoto = photo;
+    notifyListeners();
+    await _startRecording();
+  }
+
+  Future<void> _startRecording() async {
     final operation = ++_operation;
     _conversation.clearError();
     try {
@@ -84,7 +102,9 @@ class VoiceChatController extends ChangeNotifier {
         ConversationMessage(
           id: 'local-voice-${DateTime.now().microsecondsSinceEpoch}',
           role: 'child',
-          content: '🎙️ Голосовое сообщение',
+          content: _pendingPhoto == null
+              ? '🎙️ Голосовое сообщение'
+              : '📷🎙️ Вопрос о фотографии',
         ),
       );
       final conversationId = await _conversation.ensureConversation();
@@ -94,14 +114,37 @@ class VoiceChatController extends ChangeNotifier {
       // Yield once so the child sees the "understanding" state before waiting.
       await Future<void>.delayed(const Duration(milliseconds: 180));
       if (!_isCurrent(operation)) return;
-      _setStage(VoiceTurnStage.thinking);
-      final response = await _gateway.sendVoiceTurn(
-        conversationId: conversationId,
-        audioBytes: recording.bytes,
-        filename: recording.filename,
-        contentType: recording.contentType,
-        recordingDuration: recording.duration,
+      final photo = _pendingPhoto;
+      _setStage(
+        photo == null ? VoiceTurnStage.thinking : VoiceTurnStage.looking,
       );
+      if (photo != null) {
+        _stageTimer = Timer(const Duration(seconds: 3), () {
+          if (_isCurrent(operation) && _stage == VoiceTurnStage.looking) {
+            _setStage(VoiceTurnStage.thinking);
+          }
+        });
+      }
+      final response = photo == null
+          ? await _gateway.sendVoiceTurn(
+              conversationId: conversationId,
+              audioBytes: recording.bytes,
+              filename: recording.filename,
+              contentType: recording.contentType,
+              recordingDuration: recording.duration,
+            )
+          : await _gateway.sendSpokenImageTurn(
+              conversationId: conversationId,
+              imageBytes: photo.bytes,
+              imageFilename: photo.filename,
+              imageContentType: photo.contentType,
+              audioBytes: recording.bytes,
+              audioFilename: recording.filename,
+              audioContentType: recording.contentType,
+              recordingDuration: recording.duration,
+            );
+      _stageTimer?.cancel();
+      _stageTimer = null;
       if (!_isCurrent(operation)) return;
 
       var reply = ConversationMessage(
@@ -139,7 +182,10 @@ class VoiceChatController extends ChangeNotifier {
         response.audioBytes,
         contentType: response.contentType,
       );
-      if (_isCurrent(operation)) _setStage(VoiceTurnStage.idle);
+      if (_isCurrent(operation)) {
+        _pendingPhoto = null;
+        _setStage(VoiceTurnStage.idle);
+      }
     } on VoiceSessionException catch (error) {
       _fail(error.message, operation);
     } on GatewayException catch (error) {
@@ -208,6 +254,8 @@ class VoiceChatController extends ChangeNotifier {
     ++_operation;
     _recordingTimer?.cancel();
     _recordingTimer = null;
+    _stageTimer?.cancel();
+    _stageTimer = null;
     try {
       if (recording) {
         await _voiceSession.cancelRecording();
@@ -216,6 +264,7 @@ class VoiceChatController extends ChangeNotifier {
       }
     } finally {
       _replayingMessageId = null;
+      _pendingPhoto = null;
       _conversation.setVoiceBusy(false);
       _setStage(VoiceTurnStage.idle);
     }
@@ -225,6 +274,9 @@ class VoiceChatController extends ChangeNotifier {
     if (!_isCurrent(operation)) return;
     _conversation.setError(message);
     _conversation.setVoiceBusy(false);
+    _pendingPhoto = null;
+    _stageTimer?.cancel();
+    _stageTimer = null;
     _setStage(VoiceTurnStage.error);
   }
 
@@ -241,6 +293,7 @@ class VoiceChatController extends ChangeNotifier {
     _disposed = true;
     ++_operation;
     _recordingTimer?.cancel();
+    _stageTimer?.cancel();
     unawaited(_voiceSession.dispose());
     super.dispose();
   }

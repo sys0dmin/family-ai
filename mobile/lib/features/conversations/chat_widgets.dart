@@ -206,6 +206,7 @@ class ChatComposer extends StatelessWidget {
   bool get _voiceActive => switch (stage) {
     VoiceTurnStage.listening ||
     VoiceTurnStage.understanding ||
+    VoiceTurnStage.looking ||
     VoiceTurnStage.thinking ||
     VoiceTurnStage.speaking => true,
     _ => false,
@@ -214,6 +215,7 @@ class ChatComposer extends StatelessWidget {
   String get _hint => switch (stage) {
     VoiceTurnStage.listening => 'Слушаю…',
     VoiceTurnStage.understanding => 'Понимаю…',
+    VoiceTurnStage.looking => 'Рассматриваю…',
     VoiceTurnStage.thinking => 'Думаю…',
     VoiceTurnStage.speaking => 'Отвечаю…',
     VoiceTurnStage.error => 'Попробуем ещё раз',

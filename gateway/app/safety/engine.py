@@ -74,6 +74,20 @@ BERRY_GUIDANCE_PATTERN = (
     r"ягод.{0,50}(?:съедоб|можно.{0,15}есть)"
     r"|(?:съедоб|можно.{0,15}есть).{0,50}ягод"
 )
+VISUAL_INGESTION_QUESTION_PATTERN = (
+    r"(?:можно|безопасно|стоит ли).{0,35}"
+    r"(?:есть|съесть|пробовать|попробовать|пить|выпить)"
+    r"|(?:есть|съесть|пробовать|попробовать|пить|выпить).{0,35}"
+    r"(?:можно|безопасно)"
+)
+VISUAL_HAZARD_ACTION_PATTERN = (
+    r"(?:можно|безопасно|стоит ли).{0,35}"
+    r"(?:трогать|взять|держать|включить|подключить|зажечь|открыть|выпить|принять)"
+)
+VISUAL_HAZARD_OBSERVATION_PATTERN = (
+    r"розетк|провод|кабел|электр|нож|лезви|огонь|плам|спичк|"
+    r"лекар|таблет|капсул|химикат|неизвестн\w*.{0,15}(?:жидкост|предмет)"
+)
 PARENT_MARKERS = r"родител|взросл|мам|пап"
 OUTPUT_SECRET_VALUE_PATTERN = (
     r"(?:парол\w*|токен\w*|api.{0,5}ключ\w*)"
@@ -185,6 +199,56 @@ class SafetyPolicyEngine:
                 ),
             ),
         )
+
+    def evaluate_multimodal_input(
+        self,
+        text: str,
+        visual_observations: str,
+        *,
+        permissions: tuple[str, ...] = (),
+    ) -> PolicyOutcome:
+        """Apply input rules with untrusted, non-persistent visual context."""
+
+        regular = self.evaluate_input(text, permissions=permissions)
+        if regular.action is not PolicyAction.ALLOW:
+            return regular
+
+        lowered_question = text.lower()
+        lowered_observations = visual_observations.lower()
+        if re.search(VISUAL_INGESTION_QUESTION_PATTERN, lowered_question):
+            return self._outcome(
+                PolicyAction.TRANSFORM,
+                (
+                    "По фотографии нельзя надёжно понять, можно ли это есть или пить. "
+                    "Не пробуй и не трогай это, а покажи родителям. Для еды и питья "
+                    "выбирайте только то, в безопасности чего взрослые уверены."
+                ),
+                (
+                    self._decision(
+                        "input.visual.ingestion.transform",
+                        "Запрошена безопасность еды или питья по фотографии.",
+                    ),
+                ),
+            )
+        if (
+            re.search(VISUAL_HAZARD_ACTION_PATTERN, lowered_question)
+            and re.search(VISUAL_HAZARD_OBSERVATION_PATTERN, lowered_observations)
+        ):
+            return self._outcome(
+                PolicyAction.TRANSFORM,
+                (
+                    "По фотографии нельзя проверить, безопасно ли это трогать или "
+                    "использовать. Ничего не бери и не включай. Покажи предмет "
+                    "родителям — взрослый сможет осмотреть его рядом."
+                ),
+                (
+                    self._decision(
+                        "input.visual.hazard.transform",
+                        "На фото возможен опасный предмет и запрошено действие с ним.",
+                    ),
+                ),
+            )
+        return regular
 
     def evaluate_output(
         self,
