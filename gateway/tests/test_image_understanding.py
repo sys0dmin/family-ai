@@ -24,7 +24,55 @@ def test_vision_prompt_does_not_infer_repeated_copies() -> None:
     assert "exactly one uploaded image file" in VISION_SYSTEM_PROMPT
     assert "do not claim that the image is duplicated" in VISION_SYSTEM_PROMPT
     assert "Do not identify real people" in VISION_SYSTEM_PROMPT
+    assert "diagnose a medical condition" in VISION_SYSTEM_PROMPT
+    assert "unknown object is safe" in VISION_SYSTEM_PROMPT
     assert "guess a precise location" in VISION_SYSTEM_PROMPT
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("question", "observations", "expected_text"),
+    (
+        (
+            "Узнай, эта девочка на фотографии — Лера?",
+            "На фотографии виден ребёнок в синей куртке.",
+            "не могу определять, кто именно",
+        ),
+        (
+            "Что за сыпь на фото и какая это болезнь?",
+            "На руке видны красные пятна.",
+            "нельзя надёжно поставить диагноз",
+        ),
+    ),
+)
+async def test_sensitive_visual_questions_use_fixed_policy_response(
+    app: FastAPI,
+    client: AsyncClient,
+    question: str,
+    observations: str,
+    expected_text: str,
+) -> None:
+    chat = AsyncMock()
+    vision = AsyncMock()
+    vision.describe_image.return_value = ImageUnderstandingResponse(
+        description=observations
+    )
+    app.dependency_overrides[get_chat_provider] = lambda: chat
+    app.dependency_overrides[get_image_understanding_provider] = lambda: vision
+    created = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "teacher_friend"},
+    )
+
+    response = await client.post(
+        f"/v1/vision/{created.json()['conversation_id']}/turn",
+        data={"question": question},
+        files={"file": ("photo.jpg", b"\xff\xd8\xfftest", "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    assert expected_text in response.json()["content"]
+    chat.generate_response.assert_not_awaited()
 
 
 @pytest.mark.anyio

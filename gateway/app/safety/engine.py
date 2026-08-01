@@ -88,6 +88,17 @@ VISUAL_HAZARD_OBSERVATION_PATTERN = (
     r"розетк|провод|кабел|электр|нож|лезви|огонь|плам|спичк|"
     r"лекар|таблет|капсул|химикат|неизвестн\w*.{0,15}(?:жидкост|предмет)"
 )
+VISUAL_PERSON_IDENTITY_QUESTION_PATTERN = (
+    r"(?:кто|как зовут|узнай|определи|распознай).{0,50}"
+    r"(?:человек|девочк|мальчик|женщин|мужчин|мама|папа|лера)"
+    r"|(?:это|на фото).{0,30}(?:мама|папа|лера)"
+)
+VISUAL_MEDICAL_QUESTION_PATTERN = (
+    r"(?:по фото|на фото|это).{0,50}"
+    r"(?:диагноз|болезн|сып|перелом|ожог|инфекц|опухол|рана)"
+    r"|(?:что|какая|определи|поставь).{0,40}"
+    r"(?:диагноз|болезн|сып|перелом|ожог|инфекц|опухол|рана)"
+)
 PARENT_MARKERS = r"родител|взросл|мам|пап"
 OUTPUT_SECRET_VALUE_PATTERN = (
     r"(?:парол\w*|токен\w*|api.{0,5}ключ\w*)"
@@ -215,6 +226,38 @@ class SafetyPolicyEngine:
 
         lowered_question = text.lower()
         lowered_observations = visual_observations.lower()
+        if re.search(VISUAL_PERSON_IDENTITY_QUESTION_PATTERN, lowered_question):
+            return self._outcome(
+                PolicyAction.TRANSFORM,
+                (
+                    "Я могу описать одежду, позу и то, что происходит на фотографии, "
+                    "но не могу определять, кто именно на ней изображён. Если важно "
+                    "узнать человека, покажи фотографию родителям."
+                ),
+                (
+                    self._decision(
+                        "input.visual.identity.transform",
+                        "Запрошено распознавание личности по фотографии.",
+                    ),
+                ),
+            )
+        if re.search(VISUAL_MEDICAL_QUESTION_PATTERN, lowered_question):
+            return self._outcome(
+                PolicyAction.TRANSFORM,
+                (
+                    "По фотографии нельзя надёжно поставить диагноз. Я могу только "
+                    "описать видимые признаки без медицинского вывода. Покажи это "
+                    "родителям: они решат, нужно ли обратиться к врачу. Если очень "
+                    "больно, трудно дышать или состояние быстро ухудшается, позови "
+                    "взрослого прямо сейчас."
+                ),
+                (
+                    self._decision(
+                        "input.visual.medical.transform",
+                        "Запрошен медицинский вывод по фотографии.",
+                    ),
+                ),
+            )
         if re.search(VISUAL_INGESTION_QUESTION_PATTERN, lowered_question):
             return self._outcome(
                 PolicyAction.TRANSFORM,

@@ -139,6 +139,20 @@ RULE_CATALOG = (
         "Ответ адресует ребёнку опасное действие",
     ),
     _rule(
+        "input.visual.identity.transform",
+        PolicyPhase.INPUT,
+        PolicyCategory.PRIVACY,
+        PolicyAction.TRANSFORM,
+        "Личность человека по фотографии не определяется",
+    ),
+    _rule(
+        "input.visual.medical.transform",
+        PolicyPhase.INPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.TRANSFORM,
+        "Медицинский диагноз по фотографии не ставится",
+    ),
+    _rule(
         "input.visual.ingestion.transform",
         PolicyPhase.INPUT,
         PolicyCategory.CHILD_SAFETY,

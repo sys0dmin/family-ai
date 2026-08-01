@@ -66,6 +66,9 @@ uv run uvicorn gateway.app.main:app --reload
 Короткие голосовые приключения, их API, retention и родительский контроль
 описаны в [`docs/activities.md`](docs/activities.md).
 
+Постоянные границы хранения детских данных, Vision, памяти и игровых механик:
+[`docs/child-safety-boundaries.md`](docs/child-safety-boundaries.md).
+
 ### Local Speech Service (порт 8010)
 
 Speech Service живёт отдельно от Gateway и реализует используемую часть
