@@ -39,6 +39,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="feedback-dialog"' in response.text
     assert 'id="regression-dialog"' in response.text
     assert 'id="regression-list"' in response.text
+    assert 'class="regression-status-row"' in response.text
     assert 'class="row panel-actions"' in response.text
     assert 'href="/admin-assets/admin.css"' in response.text
     assert 'type="module" src="/admin-assets/js/app.js"' in response.text
@@ -92,6 +93,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert "regression-cases" in quality.text
     assert 'actions.className = "row card-actions"' in quality.text
     assert "@media (max-width: 1100px)" in css.text
+    assert ".regression-status-row" in css.text
     tab_rule = css.text.split(".tab-button {", 1)[1].split("}", 1)[0]
     assert "display: flex" in tab_rule
     assert "justify-content: center" not in tab_rule
