@@ -185,7 +185,7 @@ export function createQualityScreen({ reloadHistory }) {
       meta.textContent = `${item.agent_id} · ${formatDateTime(item.created_at)}`;
       identity.append(title, meta);
       const actions = document.createElement("div");
-      actions.className = "row";
+      actions.className = "row card-actions";
       const run = document.createElement("button");
       run.className = "primary";
       run.textContent = "▶ Запустить";

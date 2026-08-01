@@ -53,7 +53,16 @@
     }
     button, input, select, textarea { font: inherit; }
     button, a { -webkit-tap-highlight-color: transparent; }
-    button { border: 0; }
+    button {
+      max-width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      line-height: 1.25;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
     h1, h2, h3, p { margin-top: 0; }
     h1, h2, h3 { letter-spacing: -0.035em; }
     .muted { color: var(--muted); font-size: 0.86rem; line-height: 1.55; }
@@ -425,9 +434,12 @@
     .section-intro p { max-width: 760px; margin: 0; color: var(--muted); line-height: 1.55; }
     .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .settings-grid .wide { grid-column: 1 / -1; }
-    .panel-head { margin-bottom: 22px; display: flex; align-items: center; gap: 13px; }
+    .panel-head { min-width: 0; margin-bottom: 22px; display: flex; align-items: center; gap: 13px; flex-wrap: wrap; }
+    .panel-head > :first-child { min-width: 0; overflow-wrap: anywhere; }
     .panel-head h2, .panel-head h3 { margin: 3px 0 0; }
     .panel-head > button, .panel-head > #conversation-total { margin-left: auto; }
+    .panel-actions { margin-left: auto; justify-content: flex-end; flex: 0 0 auto; }
+    .panel-actions button, .card-actions button { flex: 0 1 auto; }
     .panel-icon { width: 42px; height: 42px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 13px; }
     .panel-icon.violet { color: #c5b6ff; border: 1px solid rgba(155,124,255,.2); background: rgba(155,124,255,.1); }
     .panel-icon.cyan { color: var(--cyan); border: 1px solid rgba(66,216,237,.18); background: rgba(66,216,237,.08); }
@@ -573,11 +585,13 @@
     .regression-list { display:flex; flex-direction:column; gap:12px; margin-top:18px; }
     .regression-case { padding:16px; border:1px solid var(--line); border-radius:17px; background:var(--surface-soft); }
     .regression-case-head { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
-    .regression-prompt { margin-top:12px; padding:12px; border-radius:12px; background:rgba(255,255,255,.55); white-space:pre-wrap; }
+    .regression-case-head > :first-child { min-width:0; overflow-wrap:anywhere; }
+    .card-actions { flex:0 0 auto; justify-content:flex-end; }
+    .regression-prompt { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.025); white-space:pre-wrap; overflow-wrap:anywhere; }
     .regression-expectation { margin-top:9px; font-size:.75rem; }
     .regression-result { margin-top:12px; padding:13px; border-radius:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
-    .regression-result.passed { background:color-mix(in srgb, var(--green) 12%, white); border:1px solid color-mix(in srgb, var(--green) 35%, var(--line)); }
-    .regression-result.failed { background:color-mix(in srgb, var(--red) 10%, white); border:1px solid color-mix(in srgb, var(--red) 35%, var(--line)); }
+    .regression-result.passed { background:color-mix(in srgb, var(--green) 10%, transparent); border:1px solid color-mix(in srgb, var(--green) 35%, var(--line)); }
+    .regression-result.failed { background:color-mix(in srgb, var(--red) 9%, transparent); border:1px solid color-mix(in srgb, var(--red) 35%, var(--line)); }
     .admin-dialog { width:min(620px, calc(100vw - 24px)); max-height:calc(100vh - 24px); padding:0; border:1px solid var(--line); border-radius:22px; background:var(--surface); color:var(--text); box-shadow:0 28px 90px rgba(17,24,39,.28); }
     .admin-dialog.wide { width:min(900px, calc(100vw - 24px)); }
     .admin-dialog::backdrop { background:rgba(17,24,39,.58); backdrop-filter:blur(4px); }
@@ -742,9 +756,11 @@
       align-items: center;
       clear: both;
     }
+    .studio-actions > button { flex:0 1 auto; }
+    .studio-actions > span { min-width:0; overflow-wrap:anywhere; }
     .studio-controls > .grid + .studio-actions { margin-top: 22px; }
     .studio-results { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
-    .studio-result { min-height:210px; padding:16px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.55); white-space:pre-wrap; overflow-wrap:anywhere; }
+    .studio-result { min-height:210px; padding:16px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.025); white-space:pre-wrap; overflow-wrap:anywhere; }
     .studio-result strong { display:block; margin-bottom:10px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
     .studio-meta { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
     .studio-audio { width:100%; margin-top:12px; }
@@ -781,10 +797,23 @@
     .scenario-row span { color:var(--muted); font-size:11px; white-space:nowrap; }
     .scenario-row.failed { border-color:rgba(255,111,125,.35); }
     .safety-note { margin-top:16px; padding:14px; border:1px solid rgba(66,216,237,.18); border-radius:14px; background:rgba(66,216,237,.055); color:var(--muted); line-height:1.5; }
+    @media (max-width: 1100px) {
+      .studio-grid, .safety-layout { grid-template-columns:1fr; }
+    }
     @media (max-width: 900px) {
-      .studio-grid, .studio-results, .safety-layout { grid-template-columns:1fr; }
+      .studio-results { grid-template-columns:1fr; }
       .quality-summary-grid { grid-template-columns:1fr; }
       .regression-case-head { flex-direction:column; }
+      .regression-case-head .card-actions { width:100%; }
       .safety-overview { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .pipeline-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+      .panel-head > .panel-actions { width:100%; margin-left:0; justify-content:stretch; }
+      .panel-actions > button, .card-actions > button { flex:1 1 150px; }
+      .studio-actions { align-items:stretch; }
+      .studio-actions > button { width:100%; flex:1 1 100%; }
+      .studio-actions > span { flex:1 1 100%; }
+      .dialog-actions { flex-direction:column; }
+      .dialog-actions button { width:100%; }
     }
