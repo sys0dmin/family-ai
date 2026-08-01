@@ -36,6 +36,7 @@
 - `FAMILY_AI_TTS_VOICE`: голос синтеза
 - `FAMILY_AI_TTS_RESPONSE_FORMAT`: формат аудиоответа (`mp3` или `wav`)
 - `FAMILY_AI_MESSAGE_RETENTION_DAYS`: срок хранения истории (дней)
+- `FAMILY_AI_ACTIVITY_RETENTION_HOURS`: срок жизни состояния незавершённого занятия (по умолчанию 24 часа)
 - `FAMILY_AI_ADMIN_SESSION_TTL_HOURS`: срок HttpOnly-сессии админки после входа
 - `FAMILY_AI_DEFAULT_AGENT_ID`: агент для клиентов, которые не передали выбор явно
 - `FAMILY_AI_MUSIC_RECOGNITION_PROVIDER`: `disabled` или `acrcloud`
@@ -61,6 +62,9 @@ uv run uvicorn gateway.app.main:app --reload
 ```
 
 Проверка: `http://127.0.0.1:8000/healthz`
+
+Короткие голосовые приключения, их API, retention и родительский контроль
+описаны в [`docs/activities.md`](docs/activities.md).
 
 ### Local Speech Service (порт 8010)
 

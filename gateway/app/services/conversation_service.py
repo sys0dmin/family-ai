@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from gateway.app.activities import ActivityService, ActivityTurnContext
 from gateway.app.agents import ActiveAgent, build_agent_system_message
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.memory import MemoryService
@@ -71,6 +72,7 @@ class ConversationService:
         default_agent_id: str = "teacher_friend",
         retention_days: int = 10,
         memory: MemoryService | None = None,
+        activities: ActivityService | None = None,
     ) -> None:
         self._session = session
         self._provider = provider
@@ -80,6 +82,7 @@ class ConversationService:
         self._default_agent_id = default_agent_id
         self._retention_days = retention_days
         self._memory = memory
+        self._activities = activities
 
     def create_message(
         self,
@@ -123,6 +126,17 @@ class ConversationService:
             role=MessageRole.CHILD,
             content=text,
         )
+        if self._activities:
+            control_response = self._activities.handle_control_intent(
+                conversation_id,
+                text,
+            )
+            if control_response:
+                return self.create_message(
+                    conversation_id=conversation_id,
+                    role=MessageRole.ASSISTANT,
+                    content=control_response,
+                )
         return await self.generate_ai_response(
             conversation_id,
             runtime_context=runtime_context,
@@ -149,6 +163,11 @@ class ConversationService:
 
         active_agent = self.get_conversation_agent(conversation_id)
         last_child_msg = next((m for m in reversed(history) if m.role == 'child'), None)
+        activity_context: ActivityTurnContext | None = (
+            self._activities.turn_context(conversation_id)
+            if self._activities
+            else None
+        )
 
         # 2. Safety check: Incoming
         if self._safety and last_child_msg:
@@ -200,7 +219,14 @@ class ConversationService:
                 )
         if runtime_context:
             messages.append(ChatMessage(role=ProviderRole.SYSTEM, content=runtime_context))
-        elif "music_recognition" in active_agent.tools:
+        if activity_context:
+            messages.append(
+                ChatMessage(
+                    role=ProviderRole.SYSTEM,
+                    content=activity_context.prompt_context,
+                )
+            )
+        if "music_recognition" in active_agent.tools:
             messages.append(
                 ChatMessage(
                     role=ProviderRole.SYSTEM,
@@ -288,6 +314,8 @@ class ConversationService:
             role='assistant',
             content=response_content,
         )
+        if self._activities and activity_context:
+            self._activities.advance(activity_context)
         if self._visual_media and last_child_msg:
             await self._visual_media.attach_for_turn(
                 message=message,

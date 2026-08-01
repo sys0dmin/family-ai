@@ -6,6 +6,7 @@ from functools import lru_cache
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from gateway.app.activities import ActivityCatalog, ActivityService
 from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.calibration.service import SpeechCalibrationService
 from gateway.app.config import Settings, get_settings
@@ -151,6 +152,17 @@ def get_memory_service(
     return MemoryService(SqlAlchemyMemoryRepository(session))
 
 
+def get_activity_service(
+    session: Session = Depends(get_db_session),
+    settings: Settings = Depends(get_settings),
+) -> ActivityService:
+    return ActivityService(
+        session,
+        ActivityCatalog(),
+        retention_hours=settings.activity_retention_hours,
+    )
+
+
 def get_music_recognition_provider() -> MusicRecognitionProvider | None:
     """Build the configured optional melody recognition provider."""
 
@@ -228,6 +240,7 @@ def get_conversation_service(
     agents: AgentService = Depends(get_agent_service),
     visual_media: VisualMediaService = Depends(get_visual_media_service),
     memory: MemoryService = Depends(get_memory_service),
+    activities: ActivityService = Depends(get_activity_service),
     settings: Settings = Depends(get_settings),
 ) -> ConversationService:
     """Return a conversation service with injected dependencies."""
@@ -240,6 +253,7 @@ def get_conversation_service(
         default_agent_id=settings.default_agent_id,
         retention_days=settings.message_retention_days,
         memory=memory,
+        activities=activities,
     )
 
 

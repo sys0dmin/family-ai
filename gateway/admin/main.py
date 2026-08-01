@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from gateway.admin.activity_router import router as activity_router
 from gateway.admin.agents_router import router as agents_router
 from gateway.admin.auth import (
     SESSION_COOKIE,
@@ -171,6 +172,7 @@ app.mount(
     name="admin-assets",
 )
 app.include_router(agents_router)
+app.include_router(activity_router)
 app.include_router(monitoring_router)
 app.include_router(system_router)
 app.include_router(studio_router)

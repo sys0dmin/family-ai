@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = "sqlite:///./family_ai.db"
     message_retention_days: int = 10
+    activity_retention_hours: int = 24
     default_agent_id: str = "teacher_friend"
 
     # LLM/STT/TTS provider settings

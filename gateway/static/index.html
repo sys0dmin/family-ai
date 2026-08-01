@@ -453,6 +453,29 @@
     .text-composer input:focus { border-color: var(--theme); box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme) 12%, transparent); }
     .send-button { width: 52px; height: 52px; padding: 0; border: 0; border-radius: 17px; color: #fff; background: var(--theme); cursor: pointer; font-size: 1.25rem; }
 
+    .activity-bar { padding: 0 20px 12px; }
+    .activity-launch, .activity-active { width:100%; min-height:70px; padding:10px 14px; align-items:center; gap:12px; border:2px solid color-mix(in srgb,var(--theme) 32%,white); border-radius:22px; color:var(--theme-deep); background:color-mix(in srgb,var(--theme-soft) 82%,white); }
+    .activity-launch { display:flex; justify-content:center; cursor:pointer; }
+    .activity-launch > span:first-child, .activity-active-icon { width:48px; height:48px; display:grid; place-items:center; flex:0 0 auto; border-radius:16px; background:#fff; font-size:27px; }
+    .activity-launch strong, .activity-active strong, .activity-active small { display:block; }
+    .activity-launch strong { font-size:1.05rem; }
+    .activity-active { display:flex; }
+    .activity-active-copy { min-width:0; flex:1; }
+    .activity-active small { margin-top:3px; color:var(--muted); }
+    .activity-active-actions { display:flex; gap:8px; }
+    .activity-active-actions button { width:48px; height:48px; border:0; border-radius:15px; background:#fff; color:var(--ink); font-size:21px; cursor:pointer; }
+    .activity-dialog { width:min(760px,calc(100vw - 24px)); max-height:calc(100dvh - 24px); padding:0; overflow:auto; border:0; border-radius:28px; background:var(--paper); box-shadow:0 28px 90px rgba(42,54,76,.28); }
+    .activity-dialog::backdrop { background:rgba(36,48,71,.48); backdrop-filter:blur(4px); }
+    .activity-dialog-inner { padding:22px; }
+    .activity-dialog-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .activity-dialog-head h2 { margin:0; }
+    .activity-close { width:48px; height:48px; border:1px solid var(--line); border-radius:15px; background:#fff; font-size:24px; cursor:pointer; }
+    .activity-card-grid { margin-top:18px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .activity-card { min-height:180px; padding:18px; display:flex; flex-direction:column; align-items:center; justify-content:center; border:2px solid color-mix(in srgb,var(--activity-color) 28%,white); border-radius:24px; color:var(--ink); background:color-mix(in srgb,var(--activity-color) 10%,white); cursor:pointer; text-align:center; }
+    .activity-card span { font-size:58px; }
+    .activity-card strong { margin-top:9px; font-size:1.05rem; }
+    .activity-card small { margin-top:5px; color:var(--muted); line-height:1.35; }
+
     button:disabled { opacity: 0.45; cursor: not-allowed; }
 
     @media (max-width: 980px) {
@@ -468,6 +491,13 @@
       .chooser { min-height: 100dvh; padding: 18px 14px calc(20px + env(safe-area-inset-bottom)); }
       .brand-copy span, .parent-note { display: none; }
       .chooser-title { margin: 22px 0 18px; }
+      .activity-bar { padding:0 10px 9px; }
+      .activity-card-grid { grid-template-columns:1fr 1fr; gap:9px; }
+      .activity-card { min-height:150px; padding:12px 8px; }
+      .activity-card span { font-size:48px; }
+      .activity-active { align-items:flex-start; flex-wrap:wrap; }
+      .activity-active-actions { width:100%; }
+      .activity-active-actions button { flex:1; }
       .chooser-title .visual-question { width: 56px; height: 56px; margin-bottom: 10px; font-size: 1.55rem; }
       .chooser-title h1 { font-size: 1.65rem; }
       .chooser-title p { font-size: 0.88rem; }
@@ -583,6 +613,15 @@
 
         <nav id="quick-replies" class="prompt-strip" aria-label="Идеи для разговора"></nav>
 
+        <div id="activity-bar" class="activity-bar" hidden>
+          <button id="activity-open" class="activity-launch" type="button" aria-label="Выбрать приключение"><span aria-hidden="true">✨</span><strong>Выбрать приключение</strong></button>
+          <div id="activity-active" class="activity-active" hidden>
+            <span id="activity-active-icon" class="activity-active-icon" aria-hidden="true">✨</span>
+            <div class="activity-active-copy"><strong id="activity-active-title"></strong><small id="activity-active-step"></small></div>
+            <div class="activity-active-actions"><button id="activity-leave" type="button" aria-label="Перейти к обычному разговору" title="Просто поговорить">💬</button><button id="activity-stop" type="button" aria-label="Остановить приключение" title="Остановить">■</button></div>
+          </div>
+        </div>
+
         <div id="chat-container" class="chat-container" aria-live="polite">
           <div id="welcome-card" class="welcome-card">
             <span class="welcome-symbol" aria-hidden="true">✦</span>
@@ -612,6 +651,10 @@
     </section>
   </main>
 
-  <script src="/static/app.js?v=17"></script>
+  <dialog id="activity-dialog" class="activity-dialog">
+    <div class="activity-dialog-inner"><div class="activity-dialog-head"><h2>Выбери приключение</h2><button id="activity-close" class="activity-close" type="button" aria-label="Закрыть">×</button></div><div id="activity-card-grid" class="activity-card-grid"></div></div>
+  </dialog>
+
+  <script src="/static/app.js?v=18"></script>
 </body>
 </html>

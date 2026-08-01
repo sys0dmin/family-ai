@@ -186,11 +186,22 @@ export function createMemoryScreen() {
     }
   }
 
+  function prefillLearningOutcome({ topic, summary }) {
+    resetForm();
+    setValue("memory-category", "learning_progress");
+    setValue("memory-topic", topic);
+    setValue("memory-summary", summary);
+    setValue("memory-source-type", "learning_activity");
+    setValue("memory-source-date", todayLocal());
+    setValue("memory-source-note", "Предложено после завершения короткого занятия");
+    byId("memory-topic").focus();
+  }
+
   byId("memory-refresh").onclick = load;
   byId("memory-filter").onchange = render;
   byId("memory-save").onclick = save;
   byId("memory-cancel").onclick = resetForm;
   resetForm();
 
-  return { load };
+  return { load, prefillLearningOutcome };
 }

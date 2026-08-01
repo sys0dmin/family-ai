@@ -6,6 +6,7 @@ import '../agents/agent.dart';
 import '../agents/agent_presentation.dart';
 import '../voice/voice_reply_cache.dart';
 import '../voice/voice_session.dart';
+import 'activity_models.dart';
 import 'chat_widgets.dart';
 import 'conversation_controller.dart';
 import 'conversation_gateway.dart';
@@ -119,6 +120,24 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _showActivities() async {
+    final activity = await showModalBottomSheet<ActivitySummary>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) =>
+          _ActivityPicker(activities: _conversation.activities),
+    );
+    if (activity == null || !mounted) return;
+    final message = await _conversation.startActivity(activity.id);
+    if (message != null) await _voice.replay(message);
+  }
+
+  Future<void> _stopActivity({required bool leave}) async {
+    final message = await _conversation.stopActivity(leave: leave);
+    if (message != null) await _voice.replay(message);
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -186,7 +205,19 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           if (compactInputMode)
             const Spacer()
-          else
+          else ...[
+            if (_conversation.activitySession?.isActive == true)
+              _ActiveActivityCard(
+                session: _conversation.activitySession!,
+                enabled: !_conversation.busy && !_voice.active,
+                onStop: () => _stopActivity(leave: false),
+                onLeave: () => _stopActivity(leave: true),
+              )
+            else if (_conversation.activities.isNotEmpty)
+              _ActivityLaunchButton(
+                enabled: !_conversation.busy && !_voice.active,
+                onPressed: _showActivities,
+              ),
             Expanded(
               child: ChatConversationView(
                 agent: widget.agent,
@@ -202,6 +233,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 onReplay: _voice.replay,
               ),
             ),
+          ],
           if (_conversation.error != null && !compactInputMode)
             MaterialBanner(
               content: Text(_conversation.error!),
@@ -237,6 +269,187 @@ class _ChatScreenState extends State<ChatScreen> {
             compact: compactInputMode,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActivityLaunchButton extends StatelessWidget {
+  const _ActivityLaunchButton({required this.enabled, required this.onPressed});
+
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+      child: Semantics(
+        button: true,
+        label: 'Выбрать приключение или занятие',
+        child: FilledButton.tonalIcon(
+          key: const Key('activity-launch'),
+          onPressed: enabled ? onPressed : null,
+          icon: const Text('✨', style: TextStyle(fontSize: 28)),
+          label: const Text(
+            'Приключение',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(double.infinity, 58),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveActivityCard extends StatelessWidget {
+  const _ActiveActivityCard({
+    required this.session,
+    required this.enabled,
+    required this.onStop,
+    required this.onLeave,
+  });
+
+  final ActivitySession session;
+  final bool enabled;
+  final VoidCallback onStop;
+  final VoidCallback onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = session.totalSteps == 0
+        ? 0.0
+        : session.currentStep / session.totalSteps;
+    return Container(
+      key: const Key('active-activity'),
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3D2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Text(
+            session.currentStepIcon ?? session.icon,
+            style: const TextStyle(fontSize: 34),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  session.currentStepTitle ?? session.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: progress.clamp(0, 1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ],
+            ),
+          ),
+          IconButton.filledTonal(
+            onPressed: enabled ? onLeave : null,
+            tooltip: 'Просто поговорить',
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+          ),
+          IconButton.filledTonal(
+            onPressed: enabled ? onStop : null,
+            tooltip: 'Остановить приключение',
+            icon: const Icon(Icons.stop_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityPicker extends StatelessWidget {
+  const _ActivityPicker({required this.activities});
+
+  final List<ActivitySummary> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Куда отправимся?',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 14),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.65,
+              ),
+              child: GridView.builder(
+                shrinkWrap: true,
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 220,
+                  mainAxisExtent: 190,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: activities.length,
+                itemBuilder: (context, index) {
+                  final activity = activities[index];
+                  return Semantics(
+                    button: true,
+                    label: activity.title,
+                    child: InkWell(
+                      key: Key('activity-${activity.id}'),
+                      onTap: () => Navigator.pop(context, activity),
+                      borderRadius: BorderRadius.circular(24),
+                      child: Ink(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F0FF),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              activity.icon,
+                              style: const TextStyle(fontSize: 62),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              activity.shortTitle,
+                              maxLines: 2,
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

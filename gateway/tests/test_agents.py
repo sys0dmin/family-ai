@@ -59,7 +59,9 @@ async def test_child_interface_serves_visual_first_agent_assets(
     assert "Клуб любопытных" in page.text
     assert 'id="mic-btn"' in page.text
     assert "browser-speech-toggle" in page.text
-    assert 'src="/static/app.js?v=17"' in page.text
+    assert 'id="activity-open"' in page.text
+    assert 'id="activity-dialog"' in page.text
+    assert 'src="/static/app.js?v=18"' in page.text
     assert page.text.count('class="icon-button new-conversation"') == 2
     assert 'data-state="ready"' in page.text
 

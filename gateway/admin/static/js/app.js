@@ -7,6 +7,7 @@
     import { formatDateTime, getValue, setStatus, setValue } from "./dom.js";
     import { createHistoryScreen } from "./history-screen.js";
     import { createInfrastructureScreen } from "./infrastructure-screen.js";
+    import { createActivityScreen } from "./activity-screen.js";
     import { createMemoryScreen } from "./memory-screen.js";
     import { createNavigation, hideAllScreens } from "./navigation.js";
     import { createQualityScreen } from "./quality-screen.js";
@@ -556,6 +557,12 @@
       reloadHistory: () => historyScreen.load()
     });
     const memoryScreen = createMemoryScreen();
+    const activityScreen = createActivityScreen({
+      openMemory: proposal => {
+        memoryScreen.prefillLearningOutcome(proposal);
+        switchTab("memory");
+      }
+    });
     const infrastructureScreen = createInfrastructureScreen();
     navigate = createNavigation(tab => {
       clearInterval(infrastructureTimer);
@@ -566,6 +573,7 @@
       if (tab === "studio") {
         loadStudio();
         qualityScreen.loadCases();
+        activityScreen.load();
         loadCalibrationStatus();
         loadSpeechRuntimeSettings();
         calibrationTimer = setInterval(loadCalibrationStatus, 5000);

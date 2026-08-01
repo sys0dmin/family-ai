@@ -6,6 +6,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../../features/agents/agent.dart';
 import '../../features/calibration/calibration_models.dart';
+import '../../features/conversations/activity_models.dart';
 import '../../features/conversations/conversation_models.dart';
 import '../../features/conversations/conversation_gateway.dart';
 import '../../features/voice/voice_session.dart';
@@ -48,6 +49,74 @@ class GatewayClient implements ConversationGateway {
   final http.Client _httpClient;
   final Duration timeout;
   final Duration voiceTimeout;
+
+  @override
+  Future<List<ActivitySummary>> getActivities(String agentId) async {
+    final response = await _get(
+      serverAddress.resolve(
+        '/v1/activities',
+        queryParameters: {'agent_id': agentId},
+      ),
+    );
+    final items = _decodeObject(response)['items'];
+    if (items is! List<dynamic>) {
+      throw const GatewayException('Сервер вернул неверный список занятий.');
+    }
+    return items
+        .map((item) => ActivitySummary.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<ActivitySession?> getActivityState(String conversationId) async {
+    final response = await _get(
+      serverAddress.resolve('/v1/activities/conversations/$conversationId'),
+    );
+    final session = _decodeObject(response)['session'];
+    return session == null
+        ? null
+        : ActivitySession.fromJson(session as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ActivityActionResult> startActivity(
+    String conversationId,
+    String activityId,
+  ) async {
+    final response = await _postJson(
+      serverAddress.resolve(
+        '/v1/activities/conversations/$conversationId/$activityId/start',
+      ),
+      const {},
+    );
+    return _decodeActivityAction(response);
+  }
+
+  @override
+  Future<ActivityActionResult> stopActivity(
+    String conversationId, {
+    required bool leaveForConversation,
+  }) async {
+    final response = await _postJson(
+      serverAddress.resolve(
+        '/v1/activities/conversations/$conversationId/stop',
+      ),
+      {'leave_for_conversation': leaveForConversation},
+    );
+    return _decodeActivityAction(response);
+  }
+
+  ActivityActionResult _decodeActivityAction(http.Response response) {
+    final body = _decodeObject(response);
+    return ActivityActionResult(
+      session: ActivitySession.fromJson(
+        body['session'] as Map<String, dynamic>,
+      ),
+      message: ConversationMessage.fromJson(
+        body['message'] as Map<String, dynamic>,
+      ),
+    );
+  }
 
   Future<void> checkHealth() async {
     final response = await _get(serverAddress.resolve('/healthz'));

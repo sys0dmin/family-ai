@@ -273,6 +273,7 @@ class VoiceChatController extends ChangeNotifier {
     final reply = await _loadVoiceReply(conversationId, messageId);
     if (!_isCurrent(operation)) return;
     _conversation.appendMessage(reply);
+    await _conversation.refreshActivityState();
   }
 
   Future<void> _runLegacyTurn({
@@ -305,6 +306,7 @@ class VoiceChatController extends ChangeNotifier {
     final reply = await _loadVoiceReply(conversationId, response.messageId);
     if (!_isCurrent(operation)) return;
     _conversation.appendMessage(reply);
+    await _conversation.refreshActivityState();
     _setStage(VoiceTurnStage.speaking);
     try {
       await _voiceReplyCache.write(

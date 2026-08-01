@@ -202,6 +202,20 @@
           <div id="regression-list" class="regression-list"><div class="empty">Подтверждённых проверок пока нет</div></div>
           <span id="regression-status"></span>
         </article>
+        <article class="panel activity-studio" style="margin-top:18px">
+          <div class="panel-head"><div><div class="card-kicker">Activity studio</div><h2>Голосовые приключения</h2></div><div class="row panel-actions"><span id="activity-studio-status" class="muted"></span><button id="activity-studio-refresh" class="secondary">↻ Обновить</button></div></div>
+          <p class="muted">Предпросмотр конечных конфигурационных сценариев. Состояние хранится отдельно от prompt, а учебный итог попадает в память только после проверки родителем.</p>
+          <div class="activity-studio-grid">
+            <section class="activity-preview-panel">
+              <label class="field"><span>Сценарий</span><select id="activity-preview-select"></select></label>
+              <div id="activity-preview" class="activity-preview"></div>
+            </section>
+            <section>
+              <div class="panel-head compact"><div><div class="card-kicker">Runtime state</div><h3>Состояния занятий</h3></div></div>
+              <div id="activity-session-list" class="activity-session-list"><div class="empty">Активных занятий пока нет</div></div>
+            </section>
+          </div>
+        </article>
         <article class="panel studio-controls" style="margin-top:18px">
           <div class="panel-head"><div><div class="card-kicker">Child speech lab</div><h2>Калибровка речи Леры</h2></div><span id="calibration-state" class="health-pill">Не запускалась</span></div>
           <div class="grid three">

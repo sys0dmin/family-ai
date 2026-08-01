@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from gateway.app.config import get_settings
+from gateway.app.routers.activities import router as activities_router
 from gateway.app.routers.agents import router as agents_router
 from gateway.app.routers.calibration import router as calibration_router
 from gateway.app.routers.conversations import router as conversations_router
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(agents_router)
+    app.include_router(activities_router)
     app.include_router(conversations_router)
     app.include_router(media_router)
     app.include_router(voice_router)

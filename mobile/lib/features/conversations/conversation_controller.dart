@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/network/gateway_client.dart';
 import '../agents/agent.dart';
 import '../voice/voice_reply_cache.dart';
+import 'activity_models.dart';
 import 'conversation_gateway.dart';
 import 'conversation_models.dart';
 
@@ -16,6 +17,7 @@ class ConversationController extends ChangeNotifier {
   final ConversationGateway _gateway;
   final VoiceReplyCache _voiceReplyCache;
   final List<ConversationMessage> _messages = [];
+  final List<ActivitySummary> _activities = [];
   Timer? _confirmationTimer;
   String? _conversationId;
   String? _error;
@@ -23,6 +25,7 @@ class ConversationController extends ChangeNotifier {
   bool _sendingText = false;
   bool _voiceBusy = false;
   bool _confirmNewConversation = false;
+  ActivitySession? _activitySession;
 
   UnmodifiableListView<ConversationMessage> get messages =>
       UnmodifiableListView(_messages);
@@ -33,14 +36,25 @@ class ConversationController extends ChangeNotifier {
   bool get voiceBusy => _voiceBusy;
   bool get busy => _loading || _sendingText || _voiceBusy;
   bool get confirmNewConversation => _confirmNewConversation;
+  UnmodifiableListView<ActivitySummary> get activities =>
+      UnmodifiableListView(_activities);
+  ActivitySession? get activitySession => _activitySession;
 
   Future<void> loadHistory() async {
     try {
+      try {
+        _activities
+          ..clear()
+          ..addAll(await _gateway.getActivities(_agent.id));
+      } on GatewayException {
+        // An unavailable optional catalog must not hide ordinary chat history.
+      }
       final history = await _gateway.getLatestConversation(_agent.id);
       _conversationId = history.conversationId;
       _messages
         ..clear()
         ..addAll(history.messages);
+      await refreshActivityState(notify: false);
     } on GatewayException catch (error) {
       _error = error.message;
     } finally {
@@ -66,6 +80,7 @@ class ConversationController extends ChangeNotifier {
       final conversationId = await ensureConversation();
       final reply = await _gateway.sendTextTurn(conversationId, normalized);
       _messages.add(reply);
+      await refreshActivityState(notify: false);
     } on GatewayException catch (error) {
       _error = error.message;
     } finally {
@@ -104,6 +119,7 @@ class ConversationController extends ChangeNotifier {
         question: normalized,
       );
       _messages.add(reply);
+      await refreshActivityState(notify: false);
     } on GatewayException catch (error) {
       _error = error.message;
     } finally {
@@ -141,6 +157,7 @@ class ConversationController extends ChangeNotifier {
         }
       }
       _messages.clear();
+      _activitySession = null;
       return true;
     } on GatewayException catch (error) {
       _error = error.message;
@@ -153,6 +170,66 @@ class ConversationController extends ChangeNotifier {
 
   Future<String> ensureConversation() async {
     return _conversationId ??= await _gateway.createConversation(_agent.id);
+  }
+
+  Future<void> refreshActivityState({bool notify = true}) async {
+    final conversationId = _conversationId;
+    if (conversationId == null) {
+      _activitySession = null;
+      if (notify) notifyListeners();
+      return;
+    }
+    try {
+      _activitySession = await _gateway.getActivityState(conversationId);
+      if (notify) notifyListeners();
+    } on GatewayException {
+      // A state refresh is best effort after a successful conversation turn.
+    }
+  }
+
+  Future<ConversationMessage?> startActivity(String activityId) async {
+    if (busy) return null;
+    _sendingText = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final conversationId = await ensureConversation();
+      final result = await _gateway.startActivity(conversationId, activityId);
+      _activitySession = result.session;
+      _messages.add(result.message);
+      return result.message;
+    } on GatewayException catch (error) {
+      _error = error.message;
+      return null;
+    } finally {
+      _sendingText = false;
+      notifyListeners();
+    }
+  }
+
+  Future<ConversationMessage?> stopActivity({required bool leave}) async {
+    final conversationId = _conversationId;
+    if (busy || conversationId == null || _activitySession?.isActive != true) {
+      return null;
+    }
+    _sendingText = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final result = await _gateway.stopActivity(
+        conversationId,
+        leaveForConversation: leave,
+      );
+      _activitySession = result.session;
+      _messages.add(result.message);
+      return result.message;
+    } on GatewayException catch (error) {
+      _error = error.message;
+      return null;
+    } finally {
+      _sendingText = false;
+      notifyListeners();
+    }
   }
 
   void appendMessage(ConversationMessage message) {

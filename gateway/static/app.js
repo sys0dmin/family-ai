@@ -11,6 +11,8 @@ let selectedAgent = null;
 let agentSelectionVersion = 0;
 let newConversationConfirmationTimer = null;
 let browserSpeechEnabled = loadBrowserSpeechPreference();
+let availableActivities = [];
+let currentActivity = null;
 
 const chooser = document.getElementById('chooser');
 const conversation = document.getElementById('conversation');
@@ -26,6 +28,11 @@ const textComposer = document.getElementById('text-composer');
 const voiceControls = document.getElementById('voice-controls');
 const photoBtn = document.getElementById('photo-btn');
 const photoInput = document.getElementById('photo-input');
+const activityBar = document.getElementById('activity-bar');
+const activityOpen = document.getElementById('activity-open');
+const activityActive = document.getElementById('activity-active');
+const activityDialog = document.getElementById('activity-dialog');
+const activityCardGrid = document.getElementById('activity-card-grid');
 
 const agentPresentation = {
     teacher_friend: {
@@ -346,8 +353,129 @@ function addMessage(text, role, media = []) {
 
 function clearConversationView() {
     conversationId = null;
+    currentActivity = null;
     chatContainer.querySelectorAll('.message-row, .system-message').forEach((item) => item.remove());
     document.getElementById('welcome-card').hidden = false;
+}
+
+function renderActivityState() {
+    activityBar.hidden = availableActivities.length === 0;
+    const active = currentActivity?.status === 'active';
+    activityOpen.hidden = active;
+    activityActive.hidden = !active;
+    if (!active) return;
+    document.getElementById('activity-active-icon').textContent = currentActivity.icon;
+    document.getElementById('activity-active-title').textContent = currentActivity.title;
+    document.getElementById('activity-active-step').textContent =
+        `${currentActivity.current_step_icon || '✨'} ${currentActivity.current_step_title || ''} · ${currentActivity.current_step + 1} из ${currentActivity.total_steps}`;
+}
+
+function renderActivityCards() {
+    activityCardGrid.replaceChildren();
+    for (const activity of availableActivities) {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'activity-card';
+        card.style.setProperty('--activity-color', activity.color);
+        card.setAttribute('aria-label', `${activity.title}. ${activity.description}`);
+        const icon = document.createElement('span');
+        icon.textContent = activity.icon;
+        const title = document.createElement('strong');
+        title.textContent = activity.short_title;
+        const description = document.createElement('small');
+        description.textContent = activity.description;
+        card.append(icon, title, description);
+        card.onclick = () => startActivity(activity);
+        activityCardGrid.append(card);
+    }
+}
+
+async function loadActivitiesForAgent(agentId) {
+    try {
+        const response = await fetch(`/v1/activities?agent_id=${encodeURIComponent(agentId)}`);
+        if (!response.ok) throw new Error('Activity catalog unavailable');
+        availableActivities = (await response.json()).items;
+    } catch (error) {
+        console.warn('Activity catalog loading failed:', error);
+        availableActivities = [];
+    }
+    renderActivityCards();
+    renderActivityState();
+}
+
+async function refreshActivityState() {
+    if (!conversationId) {
+        currentActivity = null;
+        renderActivityState();
+        return;
+    }
+    try {
+        const response = await fetch(`/v1/activities/conversations/${conversationId}`);
+        if (!response.ok) throw new Error('Activity state unavailable');
+        currentActivity = (await response.json()).session;
+    } catch (error) {
+        console.warn('Activity state loading failed:', error);
+        currentActivity = null;
+    }
+    renderActivityState();
+}
+
+async function startActivity(activity) {
+    if (turnInProgress) return;
+    activityDialog.close();
+    setTurnControlsDisabled(true);
+    setState('busy', 'Начинаю приключение');
+    try {
+        await ensureConversation();
+        const response = await fetch(
+            `/v1/activities/conversations/${conversationId}/${encodeURIComponent(activity.id)}/start`,
+            { method: 'POST' }
+        );
+        if (!response.ok) throw new Error('Activity start failed');
+        const data = await response.json();
+        currentActivity = data.session;
+        document.getElementById('welcome-card').hidden = true;
+        addMessage(data.message.content, 'assistant');
+        renderActivityState();
+        try {
+            await speakAssistantReply(data.message.content);
+        } catch (_) {
+            speakText(data.message.content);
+        }
+    } catch (error) {
+        console.error('Activity start failed:', error);
+        addMessage('Приключение пока не началось. Попробуем ещё раз.', 'system');
+        setState('error', 'Нет связи');
+    } finally {
+        setTurnControlsDisabled(false);
+    }
+}
+
+async function stopActivity(leaveForConversation) {
+    if (!conversationId || turnInProgress) return;
+    setTurnControlsDisabled(true);
+    try {
+        const response = await fetch(`/v1/activities/conversations/${conversationId}/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leave_for_conversation: leaveForConversation })
+        });
+        if (!response.ok) throw new Error('Activity stop failed');
+        const data = await response.json();
+        currentActivity = data.session;
+        addMessage(data.message.content, 'assistant');
+        renderActivityState();
+        try {
+            await speakAssistantReply(data.message.content);
+        } catch (_) {
+            speakText(data.message.content);
+        }
+    } catch (error) {
+        console.error('Activity stop failed:', error);
+        setState('error', 'Нет связи');
+    } finally {
+        setTurnControlsDisabled(false);
+    }
 }
 
 function resetNewConversationConfirmation() {
@@ -381,6 +509,7 @@ async function chooseAgent(agent, announce = true) {
     photoBtn.hidden = !supportsPhoto;
     voiceControls.classList.toggle('has-photo', supportsPhoto);
     renderQuickReplies();
+    await loadActivitiesForAgent(agent.id);
     chooser.hidden = true;
     conversation.hidden = false;
     setControlsEnabled(false);
@@ -399,6 +528,7 @@ async function chooseAgent(agent, announce = true) {
             addMessage(message.content, message.role, message.media || []);
         }
         const hasMessages = data.messages.length > 0;
+        await refreshActivityState();
         document.getElementById('welcome-card').hidden = hasMessages;
         setState('ready', 'Готов слушать');
         if (announce && !hasMessages) speakText(agent.greeting);
@@ -429,6 +559,7 @@ function setControlsEnabled(enabled) {
     micBtn.disabled = !enabled;
     keyboardToggle.disabled = !enabled;
     photoBtn.disabled = !enabled;
+    activityOpen.disabled = !enabled;
     quickReplies.querySelectorAll('button').forEach((button) => {
         button.disabled = !enabled;
     });
@@ -445,6 +576,9 @@ function setTurnControlsDisabled(disabled) {
     sendBtn.disabled = disabled;
     keyboardToggle.disabled = disabled;
     photoBtn.disabled = disabled;
+    activityOpen.disabled = disabled;
+    document.getElementById('activity-stop').disabled = disabled;
+    document.getElementById('activity-leave').disabled = disabled;
     document.querySelectorAll('.browser-speech-toggle').forEach((button) => {
         button.disabled = disabled;
     });
@@ -527,6 +661,8 @@ async function startNewConversation() {
         const data = await response.json();
         if (selectionVersion !== agentSelectionVersion) return;
         conversationId = data.conversation_id;
+        currentActivity = null;
+        renderActivityState();
         setState('ready', 'Готов слушать');
         speakText(agent.greeting);
     } catch (error) {
@@ -559,6 +695,7 @@ async function sendText(forcedText = null) {
         if (!response.ok) throw new Error('Message was rejected');
         const data = await response.json();
         addMessage(data.content, 'assistant', data.media);
+        await refreshActivityState();
         showTyping(false);
         if (browserSpeechEnabled) {
             try {
@@ -676,6 +813,7 @@ async function sendPhoto(file) {
         if (!response.ok) throw new Error(`Image turn failed: ${response.status}`);
         const data = await response.json();
         addMessage(data.content, 'assistant', data.media || []);
+        await refreshActivityState();
         showTyping(false);
         if (browserSpeechEnabled) {
             try {
@@ -829,6 +967,7 @@ async function sendVoice(audioBlob, mimeType) {
             }
         }
         addMessage('🔊', 'assistant', messageMedia);
+        await refreshActivityState();
         showTyping(false);
         await playAudioBlob(await response.blob());
     } catch (error) {
@@ -868,6 +1007,11 @@ micBtn.onclick = () => {
 
 photoBtn.onclick = () => photoInput.click();
 photoInput.onchange = () => sendPhoto(photoInput.files?.[0]);
+
+activityOpen.onclick = () => activityDialog.showModal();
+document.getElementById('activity-close').onclick = () => activityDialog.close();
+document.getElementById('activity-stop').onclick = () => stopActivity(false);
+document.getElementById('activity-leave').onclick = () => stopActivity(true);
 
 sendBtn.onclick = () => sendText();
 textInput.onkeydown = (event) => {

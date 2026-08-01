@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'activity_models.dart';
 import 'conversation_models.dart';
 
 class VoiceTurnAudio {
@@ -50,6 +51,20 @@ class VoiceStreamingUnavailable implements Exception {
 }
 
 abstract interface class ConversationGateway {
+  Future<List<ActivitySummary>> getActivities(String agentId);
+
+  Future<ActivitySession?> getActivityState(String conversationId);
+
+  Future<ActivityActionResult> startActivity(
+    String conversationId,
+    String activityId,
+  );
+
+  Future<ActivityActionResult> stopActivity(
+    String conversationId, {
+    required bool leaveForConversation,
+  });
+
   Future<ConversationHistory> getLatestConversation(String agentId);
 
   Future<String> createConversation(String agentId);
