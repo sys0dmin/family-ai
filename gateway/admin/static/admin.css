@@ -55,9 +55,6 @@
     button, a { -webkit-tap-highlight-color: transparent; }
     button {
       max-width: 100%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       border: 0;
       line-height: 1.25;
       text-align: center;
@@ -371,6 +368,9 @@
     button.primary, #login-btn, #save-btn, #agent-save, #agent-create-revision, #history-refresh, #change-password-btn {
       min-height: 44px;
       padding: 10px 17px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       color: #0a0c13;
       font-weight: 800;
@@ -387,6 +387,9 @@
     button.secondary {
       min-height: 42px;
       padding: 9px 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       color: var(--muted-strong);
       border: 1px solid var(--line-strong);
@@ -396,6 +399,9 @@
     button.danger {
       min-height: 42px;
       padding: 9px 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       color: #ffb0b8;
       border: 1px solid rgba(255,111,125,.3);

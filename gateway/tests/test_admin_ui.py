@@ -92,6 +92,9 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert "regression-cases" in quality.text
     assert 'actions.className = "row card-actions"' in quality.text
     assert "@media (max-width: 1100px)" in css.text
+    tab_rule = css.text.split(".tab-button {", 1)[1].split("}", 1)[0]
+    assert "display: flex" in tab_rule
+    assert "justify-content: center" not in tab_rule
 
 
 @pytest.mark.anyio
