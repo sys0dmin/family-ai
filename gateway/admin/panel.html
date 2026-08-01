@@ -196,6 +196,12 @@
           <div class="studio-actions"><button id="studio-speak" class="secondary">▶ Синтезировать и слушать</button></div>
           <audio id="studio-audio" class="studio-audio" controls></audio>
         </article>
+        <article class="panel quality-suite" style="margin-top:18px">
+          <div class="panel-head"><div><div class="card-kicker">Regression suite</div><h2>Подтверждённые проверки</h2></div><div class="row"><button id="regression-refresh" class="secondary">↻ Обновить</button><button id="regression-export" class="secondary">⇩ Экспорт JSON</button></div></div>
+          <p class="muted">Здесь находятся только случаи, текст которых родитель отдельно просмотрел, отредактировал и подтвердил. Запуск не создаёт диалог и не сохраняет новый ответ.</p>
+          <div id="regression-list" class="regression-list"><div class="empty">Подтверждённых проверок пока нет</div></div>
+          <span id="regression-status"></span>
+        </article>
         <article class="panel studio-controls" style="margin-top:18px">
           <div class="panel-head"><div><div class="card-kicker">Child speech lab</div><h2>Калибровка речи Леры</h2></div><span id="calibration-state" class="health-pill">Не запускалась</span></div>
           <div class="grid three">
@@ -345,11 +351,40 @@
           <article class="metric" style="--metric-color:var(--green)"><div class="metric-icon">✦</div><span class="muted">Ответов AI</span><div class="metric-value" id="metric-assistant">—</div></article>
           <article class="metric" style="--metric-color:var(--amber)"><div class="metric-icon">◷</div><span class="muted">Средний ответ</span><div class="metric-value" id="metric-response">—</div></article>
         </div>
+        <article class="panel quality-overview">
+          <div class="panel-head"><div><div class="card-kicker">Parent quality</div><h2>Что требует внимания</h2></div><span id="quality-summary-status" class="muted"></span></div>
+          <div class="quality-summary-grid"><div><span class="muted">Отметок за период</span><strong id="quality-feedback-total">0</strong></div><div><span class="muted">Подтверждённых тестов</span><strong id="quality-case-total">0</strong></div><div class="quality-reasons"><span class="muted">Причины</span><div id="quality-reason-list" class="quality-reason-list"></div></div></div>
+        </article>
         <div class="dashboard-grid"><article class="panel"><div class="panel-head"><div><div class="card-kicker">Activity</div><h2>Динамика общения</h2></div></div><div id="activity-chart"></div></article><article class="panel"><div class="panel-head"><div><div class="card-kicker">Interests</div><h2>Частые вопросы</h2></div></div><div id="frequent-questions" class="question-list"></div></article></div>
         <article class="panel conversation-feed"><div class="panel-head"><div><div class="card-kicker">Conversation feed</div><h2>История сообщений</h2></div><span id="conversation-total" class="muted"></span></div><div id="conversation-list" class="conversation-list"></div><div class="pagination" id="history-pagination" style="display:none"><button id="history-prev" class="secondary">← Назад</button><span id="history-page-label"></span><button id="history-next" class="secondary">Вперёд →</button></div></article>
       </section>
     </main>
   </div>
+
+  <dialog id="feedback-dialog" class="admin-dialog">
+    <form method="dialog" class="dialog-card">
+      <div class="panel-head"><div><div class="card-kicker">Parent feedback</div><h2>Отметить проблему</h2></div><button class="icon-button" value="cancel" aria-label="Закрыть">×</button></div>
+      <div id="feedback-message" class="feedback-message"></div>
+      <label class="field"><span>Что пошло не так</span><select id="feedback-reason"><option value="factual_error">Фактическая ошибка</option><option value="misunderstood">Не понял вопрос</option><option value="too_complex">Слишком сложно</option><option value="false_block">Ложная блокировка</option><option value="character_break">Нарушен характер агента</option><option value="bad_voice">Плохой голос</option><option value="bad_vision">Ошибка Vision</option><option value="other">Другая проблема</option></select></label>
+      <label class="field"><span>Заметка родителя <small>необязательно</small></span><textarea id="feedback-note" rows="4" maxlength="1000"></textarea></label>
+      <div class="dialog-actions"><button id="feedback-save" type="button" class="primary">Сохранить отметку</button><button id="feedback-to-regression" type="button" class="secondary">Создать проверку…</button><button id="feedback-delete" type="button" class="danger">Удалить отметку</button></div>
+      <span id="feedback-status"></span>
+    </form>
+  </dialog>
+
+  <dialog id="regression-dialog" class="admin-dialog wide">
+    <form method="dialog" class="dialog-card">
+      <div class="panel-head"><div><div class="card-kicker">Explicit confirmation</div><h2>Новая regression-проверка</h2></div><button class="icon-button" value="cancel" aria-label="Закрыть">×</button></div>
+      <div class="privacy-confirmation">Эта запись переживёт 10-дневную историю. Проверьте и при необходимости обезличьте весь текст перед сохранением.</div>
+      <div class="grid"><label class="field"><span>Название</span><input id="regression-title" maxlength="160"></label><label class="field"><span>Агент</span><input id="regression-agent" readonly></label></div>
+      <label class="field"><span>Тестовый вопрос</span><textarea id="regression-prompt" rows="5" maxlength="4000"></textarea></label>
+      <label class="field"><span>Ожидаемый итоговый ответ</span><textarea id="regression-expected" rows="6" maxlength="8000"></textarea></label>
+      <div class="grid three"><label class="field"><span>Safety action</span><select id="regression-safety"><option value="passed">Passed</option><option value="guardrail">Guardrail</option><option value="blocked">Blocked</option></select></label><label class="field"><span>Rule ID <small>пусто, если правила нет</small></span><input id="regression-rule" maxlength="120"></label><label class="field"><span>Технический результат</span><select id="regression-error"><option value="none">Без ошибки</option><option value="provider_error">Ошибка провайдера</option></select></label></div>
+      <label class="option-row confirmation-row"><input id="regression-confirm" type="checkbox"><span><strong>Я просмотрел весь текст</strong><small>Сохранить эту отредактированную копию как постоянную родительскую проверку</small></span></label>
+      <div class="dialog-actions"><button id="regression-save" type="button" class="primary">Подтвердить и сохранить</button><button value="cancel" class="secondary">Отмена</button></div>
+      <span id="regression-dialog-status"></span>
+    </form>
+  </dialog>
 
   <script type="module" src="/admin-assets/js/app.js"></script>
 </body>

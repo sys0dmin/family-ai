@@ -10,6 +10,11 @@ from gateway.app.models.long_term_memory import (
 )
 from gateway.app.models.message import Message, MessageRole
 from gateway.app.models.message_media import MessageMedia
+from gateway.app.models.quality import (
+    FeedbackReason,
+    MessageFeedback,
+    RegressionCase,
+)
 from gateway.app.models.safety_baseline import (
     SafetyBaselineConfiguration,
     SafetyBaselineRevision,
@@ -27,6 +32,9 @@ __all__ = [
     "Message",
     "MessageRole",
     "MessageMedia",
+    "FeedbackReason",
+    "MessageFeedback",
+    "RegressionCase",
     "SafetyBaselineConfiguration",
     "SafetyBaselineRevision",
     "TopicStatistic",

@@ -35,6 +35,10 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="server-speech"' in response.text
     assert 'id="pipeline-stt"' in response.text
     assert 'id="history-card"' in response.text
+    assert 'id="quality-feedback-total"' in response.text
+    assert 'id="feedback-dialog"' in response.text
+    assert 'id="regression-dialog"' in response.text
+    assert 'id="regression-list"' in response.text
     assert 'href="/admin-assets/admin.css"' in response.text
     assert 'type="module" src="/admin-assets/js/app.js"' in response.text
     assert 'id="image_search_provider"' in response.text
@@ -68,6 +72,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
         infrastructure = await client.get(
             "/admin-assets/js/infrastructure-screen.js"
         )
+        quality = await client.get("/admin-assets/js/quality-screen.js")
 
     assert css.status_code == 200
     assert "@media (max-width: 820px)" in css.text
@@ -81,6 +86,9 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert history.status_code == 200
     assert memory.status_code == 200
     assert infrastructure.status_code == 200
+    assert quality.status_code == 200
+    assert "/api/quality/feedback" in quality.text
+    assert "regression-cases" in quality.text
 
 
 @pytest.mark.anyio

@@ -12,6 +12,8 @@ from gateway.app.models import (  # noqa: F401
     Conversation,
     LongTermMemory,
     Message,
+    MessageFeedback,
+    RegressionCase,
     TopicStatistic,
 )
 

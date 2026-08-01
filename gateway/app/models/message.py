@@ -13,6 +13,7 @@ from gateway.app.db.base import Base
 if TYPE_CHECKING:
     from gateway.app.models.conversation import Conversation
     from gateway.app.models.message_media import MessageMedia
+    from gateway.app.models.quality import MessageFeedback
 
 
 class MessageRole(StrEnum):
@@ -50,4 +51,9 @@ class Message(Base):
         back_populates="message",
         cascade="all, delete-orphan",
         lazy="selectin",
+    )
+    feedback: Mapped["MessageFeedback | None"] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        uselist=False,
     )

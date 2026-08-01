@@ -5,12 +5,21 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
+from gateway.app.models import FeedbackReason
+
+
+class HistoryFeedbackResponse(BaseModel):
+    id: uuid.UUID
+    reason: FeedbackReason
+    note: str | None
+
 
 class HistoryMessageResponse(BaseModel):
     id: uuid.UUID
     role: str
     content: str
     created_at: datetime
+    feedback: HistoryFeedbackResponse | None = None
 
 
 class ConversationHistoryItem(BaseModel):

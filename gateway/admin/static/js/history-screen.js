@@ -1,7 +1,8 @@
 import { api } from "./api-client.js";
 import { byId, formatDateTime, getValue, setStatus } from "./dom.js";
+import { feedbackReasonLabels } from "./quality-screen.js";
 
-export function createHistoryScreen() {
+export function createHistoryScreen({ onFeedback, onPeriodChange }) {
   let page = 1;
   let totalPages = 0;
 
@@ -108,6 +109,15 @@ export function createHistoryScreen() {
           `${message.role === "child" ? "Лера" : "AI"} · ` +
           formatDateTime(message.created_at);
         bubble.append(content, messageMeta);
+        if (message.role === "assistant") {
+          const feedback = document.createElement("button");
+          feedback.className = `message-feedback${message.feedback ? " active" : ""}`;
+          feedback.textContent = message.feedback
+            ? `⚑ ${feedbackReasonLabels[message.feedback.reason] || message.feedback.reason}`
+            : "⚑ Отметить проблему";
+          feedback.onclick = () => onFeedback(message);
+          bubble.append(feedback);
+        }
         messages.append(bubble);
       }
       card.append(head, messages);
@@ -146,7 +156,10 @@ export function createHistoryScreen() {
   }
 
   byId("history-refresh").onclick = () => load(true);
-  byId("history-days").onchange = () => load(true);
+  byId("history-days").onchange = () => {
+    load(true);
+    onPeriodChange();
+  };
   byId("history-search").onkeydown = event => {
     if (event.key === "Enter") load(true);
   };

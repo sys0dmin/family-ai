@@ -7,13 +7,14 @@ from collections import Counter, defaultdict
 from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from gateway.admin.history_schemas import (
     ConversationHistoryItem,
     ConversationHistoryResponse,
     DailyActivityPoint,
     FrequentQuestion,
+    HistoryFeedbackResponse,
     HistoryMessageResponse,
     HistorySummaryResponse,
 )
@@ -138,6 +139,7 @@ class HistoryService:
         if conversation_ids:
             page_messages = self._session.scalars(
                 select(Message)
+                .options(selectinload(Message.feedback))
                 .where(
                     Message.conversation_id.in_(conversation_ids),
                     Message.created_at >= cutoff,
@@ -151,6 +153,15 @@ class HistoryService:
                         role=str(message.role),
                         content=message.content,
                         created_at=message.created_at,
+                        feedback=(
+                            HistoryFeedbackResponse(
+                                id=message.feedback.id,
+                                reason=message.feedback.reason,
+                                note=message.feedback.note,
+                            )
+                            if message.feedback is not None
+                            else None
+                        ),
                     )
                 )
 

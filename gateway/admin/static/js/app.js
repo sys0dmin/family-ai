@@ -9,6 +9,7 @@
     import { createInfrastructureScreen } from "./infrastructure-screen.js";
     import { createMemoryScreen } from "./memory-screen.js";
     import { createNavigation, hideAllScreens } from "./navigation.js";
+    import { createQualityScreen } from "./quality-screen.js";
     import { createSafetyPolicyScreen } from "./safety-policy-screen.js";
 
     const authCard = document.getElementById("auth-card");
@@ -546,7 +547,14 @@
     const safetyPolicyScreen = createSafetyPolicyScreen({
       openAgents: () => switchTab("agents")
     });
-    const historyScreen = createHistoryScreen();
+    let qualityScreen;
+    const historyScreen = createHistoryScreen({
+      onFeedback: message => qualityScreen.openFeedback(message),
+      onPeriodChange: () => qualityScreen.loadSummary()
+    });
+    qualityScreen = createQualityScreen({
+      reloadHistory: () => historyScreen.load()
+    });
     const memoryScreen = createMemoryScreen();
     const infrastructureScreen = createInfrastructureScreen();
     navigate = createNavigation(tab => {
@@ -557,6 +565,7 @@
       if (tab === "agents") loadAgents();
       if (tab === "studio") {
         loadStudio();
+        qualityScreen.loadCases();
         loadCalibrationStatus();
         loadSpeechRuntimeSettings();
         calibrationTimer = setInterval(loadCalibrationStatus, 5000);
@@ -567,7 +576,10 @@
         infrastructureScreen.load();
         infrastructureTimer = setInterval(infrastructureScreen.load, 15000);
       }
-      if (tab === "history") historyScreen.load(true);
+      if (tab === "history") {
+        historyScreen.load(true);
+        qualityScreen.loadSummary();
+      }
     });
 
     document.getElementById("login-btn").onclick = login;
