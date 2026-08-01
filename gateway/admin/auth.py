@@ -41,7 +41,6 @@ def verify_admin(
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid admin credentials",
-        headers={"WWW-Authenticate": "Basic"},
     )
 
 

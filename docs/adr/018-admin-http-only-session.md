@@ -18,6 +18,10 @@ time-limited, same-origin HttpOnly cookie. Protected endpoints accept either
 valid Basic credentials or that cookie. The token contains only its issue time
 and an HMAC signature derived from the current admin username and password.
 
+Unauthorized API responses deliberately omit `WWW-Authenticate: Basic`.
+The Basic value is sent only by the page login form for the session exchange;
+the browser must not replace that form with its native authentication dialog.
+
 The cookie uses `SameSite=Strict`, is unavailable to JavaScript and expires
 after the configurable `FAMILY_AI_ADMIN_SESSION_TTL_HOURS` period. HTTPS
 requests additionally receive the `Secure` attribute. Explicit logout removes

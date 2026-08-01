@@ -36,3 +36,27 @@ async def test_admin_session_survives_requests_without_basic_header(monkeypatch)
     assert settings_response.status_code == 200
     assert logout.status_code == 204
     assert after_logout.status_code == 401
+    assert "www-authenticate" not in after_logout.headers
+
+
+@pytest.mark.anyio
+async def test_invalid_admin_login_does_not_trigger_browser_basic_dialog(
+    monkeypatch,
+) -> None:
+    settings = Settings(
+        admin_username="admin",
+        admin_password="test-password",
+        admin_force_password_change=False,
+    )
+    monkeypatch.setattr("gateway.admin.auth.get_settings", lambda: settings)
+    credentials = base64.b64encode(b"admin:wrong-password").decode("ascii")
+    transport = ASGITransport(app=admin_app)
+
+    async with AsyncClient(transport=transport, base_url="http://admin") as client:
+        response = await client.post(
+            "/api/session",
+            headers={"Authorization": f"Basic {credentials}"},
+        )
+
+    assert response.status_code == 401
+    assert "www-authenticate" not in response.headers
