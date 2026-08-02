@@ -20,3 +20,13 @@ class AgentTestResponse(BaseModel):
 class SpeechPreviewRequest(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     voice: str = Field(min_length=1, max_length=100)
+
+
+class TranscriptionTestResponse(BaseModel):
+    text: str
+    confidence: float | None = None
+    duration_ms: int | None = None
+
+
+class VisionTestResponse(BaseModel):
+    description: str

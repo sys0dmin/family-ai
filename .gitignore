@@ -45,3 +45,6 @@ api.txt
 /recreate_messages_table.sql
 /test*.json
 /file
+
+# Generated only when a visual baseline comparison fails
+*.actual.png

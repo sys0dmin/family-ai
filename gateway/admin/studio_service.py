@@ -6,14 +6,22 @@ from gateway.admin.studio_schemas import AgentTestResponse
 from gateway.app.agents import build_agent_system_message
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.memory import MemoryService
-from gateway.app.providers.contracts import ChatProvider, SpeechSynthesisProvider
+from gateway.app.providers.contracts import (
+    ChatProvider,
+    ImageUnderstandingProvider,
+    SpeechRecognitionProvider,
+    SpeechSynthesisProvider,
+)
 from gateway.app.providers.schemas import (
     ChatMessage,
     ChatRequest,
+    ImageUnderstandingRequest,
     ProviderRole,
     ProviderTool,
     SpeechRequest,
     SpeechResponse,
+    TranscriptionRequest,
+    TranscriptionResponse,
 )
 from gateway.app.safety.contracts import PolicyAction, PolicyOutcome
 from gateway.app.services.agent_service import AgentService
@@ -23,6 +31,10 @@ SAFE_FALLBACK = (
     "Ой, я задумался о чём-то не том. "
     "Давай лучше поиграем или спросим у мамы?"
 )
+
+
+class StudioCapabilityUnavailableError(RuntimeError):
+    """Raised when an optional stateless studio provider is not configured."""
 
 
 class StudioService:
@@ -35,12 +47,16 @@ class StudioService:
         agents: AgentService,
         safety: SafetyService,
         memory: MemoryService | None = None,
+        recognition_provider: SpeechRecognitionProvider | None = None,
+        image_provider: ImageUnderstandingProvider | None = None,
     ) -> None:
         self._chat_provider = chat_provider
         self._synthesis_provider = synthesis_provider
         self._agents = agents
         self._safety = safety
         self._memory = memory
+        self._recognition_provider = recognition_provider
+        self._image_provider = image_provider
 
     async def test_agent(self, agent_id: str, prompt: str) -> AgentTestResponse:
         agent = self._agents.get_active(agent_id)
@@ -133,6 +149,44 @@ class StudioService:
         return await self._synthesis_provider.synthesize_speech(
             SpeechRequest(text=text, voice=voice)
         )
+
+    async def transcribe(
+        self,
+        audio_content: bytes,
+        *,
+        filename: str,
+        content_type: str,
+    ) -> TranscriptionResponse:
+        if self._recognition_provider is None:
+            raise StudioCapabilityUnavailableError("Speech recognition is unavailable")
+        return await self._recognition_provider.transcribe_audio(
+            TranscriptionRequest(
+                audio_content=audio_content,
+                filename=filename,
+                content_type=content_type,
+            )
+        )
+
+    async def inspect_image(
+        self,
+        image_content: bytes,
+        *,
+        content_type: str,
+        question: str,
+    ) -> str:
+        if self._image_provider is None:
+            raise StudioCapabilityUnavailableError("Image understanding is unavailable")
+        response = await self._image_provider.describe_image(
+            ImageUnderstandingRequest(
+                image_content=image_content,
+                content_type=content_type,
+                question=question,
+            )
+        )
+        description = response.description.replace("\x00", "").strip()
+        if not description:
+            raise StudioCapabilityUnavailableError("Image understanding returned no result")
+        return description
 
     @staticmethod
     def _blocked_without_model(result: PolicyOutcome) -> AgentTestResponse:

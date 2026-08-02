@@ -26,6 +26,22 @@ IMAGE_CONTEXT_TEMPLATE = (
 )
 
 
+def matches_image_signature(content: bytes, content_type: str) -> bool:
+    """Return whether bytes match one of the accepted image media types."""
+
+    if content_type == "image/jpeg":
+        return content.startswith(b"\xff\xd8\xff")
+    if content_type == "image/png":
+        return content.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/webp":
+        return (
+            len(content) >= 12
+            and content.startswith(b"RIFF")
+            and content[8:12] == b"WEBP"
+        )
+    return False
+
+
 class ImageUnderstandingUnavailableError(RuntimeError):
     """Raised when the optional vision capability is not configured."""
 
@@ -101,7 +117,7 @@ class ImageUnderstandingService:
             raise ImageUnderstandingUnavailableError
         if (
             content_type not in ALLOWED_IMAGE_TYPES
-            or not self._matches_signature(image_content, content_type)
+            or not matches_image_signature(image_content, content_type)
         ):
             raise InvalidImageError
         if len(image_content) > self._max_image_bytes:
@@ -131,17 +147,3 @@ class ImageUnderstandingService:
         policy = self._safety.evaluate_tool("image_understanding", agent.tools)
         if policy.action is PolicyAction.BLOCK:
             raise ImageUnderstandingNotAllowedError
-
-    @staticmethod
-    def _matches_signature(content: bytes, content_type: str) -> bool:
-        if content_type == "image/jpeg":
-            return content.startswith(b"\xff\xd8\xff")
-        if content_type == "image/png":
-            return content.startswith(b"\x89PNG\r\n\x1a\n")
-        if content_type == "image/webp":
-            return (
-                len(content) >= 12
-                and content.startswith(b"RIFF")
-                and content[8:12] == b"WEBP"
-            )
-        return False

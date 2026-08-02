@@ -21,6 +21,11 @@ from gateway.admin.monitoring_service import (
     NodeExporterCollector,
     parse_prometheus_text,
 )
+from gateway.admin.operational_alert_service import OperationalAlertService
+from gateway.admin.voice_observability_schemas import (
+    MetricsSource,
+    VoiceObservabilityResponse,
+)
 from gateway.app.config import Settings
 
 NODE_METRICS = """
@@ -138,6 +143,15 @@ async def test_infrastructure_api_requires_authentication() -> None:
 
 
 @pytest.mark.anyio
+async def test_operational_scan_requires_authentication() -> None:
+    transport = ASGITransport(app=admin_app)
+    async with AsyncClient(transport=transport, base_url="http://admin") as client:
+        response = await client.post("/api/infrastructure/scan")
+
+    assert response.status_code == 401
+
+
+@pytest.mark.anyio
 async def test_infrastructure_api_returns_normalized_snapshot() -> None:
     class StubService:
         def get_status(self) -> InfrastructureStatusResponse:
@@ -167,3 +181,89 @@ async def test_infrastructure_api_returns_normalized_snapshot() -> None:
     assert response.status_code == 200
     assert response.json()["nodes"][0]["id"] == "gateway"
     assert response.json()["database"]["latency_ms"] == 1.2
+
+
+def _infrastructure_snapshot(*, disk_used_percent: float | None = None):
+    disk = None
+    if disk_used_percent is not None:
+        disk = ResourceUsage(
+            used_bytes=int(disk_used_percent * 10),
+            total_bytes=1000,
+            percent=disk_used_percent,
+        )
+    return InfrastructureStatusResponse(
+        status="healthy",
+        checked_at="2026-08-02T12:00:00Z",
+        nodes=[
+            NodeStatus(
+                id="speech",
+                name="family-ai-speech",
+                role="Local STT · TTS",
+                status="healthy",
+                disk=disk,
+            )
+        ],
+        database=DatabaseStatus(status="healthy"),
+    )
+
+
+def _voice_snapshot(*, queue_depth: int = 0, recent: list[dict] | None = None):
+    return VoiceObservabilityResponse(
+        gateway=MetricsSource(status="healthy", data={"recent": recent or []}),
+        speech=MetricsSource(status="healthy", data={"queue_depth": queue_depth}),
+    )
+
+
+def test_operational_alert_lifecycle_keeps_acknowledged_technical_history(
+    db_session: Session,
+) -> None:
+    service = OperationalAlertService(db_session, Settings())
+
+    active = service.reconcile(
+        _infrastructure_snapshot(disk_used_percent=86),
+        _voice_snapshot(queue_depth=2),
+    )
+
+    assert {item.metric for item in active.active} == {"disk_free_percent", "queue_depth"}
+    disk_alert = next(item for item in active.active if item.metric == "disk_free_percent")
+    acknowledged = service.acknowledge(disk_alert.id, "parent-admin")
+    assert acknowledged is not None
+    assert acknowledged.acknowledged_by == "parent-admin"
+
+    recovered = service.reconcile(
+        _infrastructure_snapshot(disk_used_percent=50),
+        _voice_snapshot(queue_depth=0),
+    )
+
+    assert recovered.active == []
+    assert len(recovered.history) == 2
+    restored_disk = next(item for item in recovered.history if item.metric == "disk_free_percent")
+    assert restored_disk.acknowledged_at is not None
+    assert restored_disk.resolved_at is not None
+
+
+def test_operational_alert_uses_only_allowlisted_voice_error_counts(
+    db_session: Session,
+) -> None:
+    service = OperationalAlertService(db_session, Settings())
+    recent = [
+        {
+            "status": "error",
+            "error_stage": "tts",
+            "private_text": "sensitive child content",
+            "turn_id": "conversation-identifier",
+        }
+        for _ in range(3)
+    ]
+
+    result = service.reconcile(
+        _infrastructure_snapshot(),
+        _voice_snapshot(recent=recent),
+    )
+
+    assert len(result.active) == 1
+    alert = result.active[0]
+    assert alert.metric == "voice_error_streak"
+    assert alert.current_value == 3
+    assert "sensitive" not in alert.detail
+    assert "conversation" not in alert.detail

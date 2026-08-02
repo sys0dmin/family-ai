@@ -143,6 +143,9 @@ try {
         Push-Location $MobileRoot
         try {
             Invoke-Native $Flutter @("pub", "get")
+            Invoke-Native $Flutter @(
+                "test", "test/visual/mobile_visual_test.dart"
+            )
             Invoke-Native $Flutter @("build", "apk", "--release")
         } finally {
             Pop-Location

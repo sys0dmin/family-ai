@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory, Position = 0)]
-    [ValidateSet("prepare", "deploy", "activate", "migrate", "rollback", "status")]
+    [ValidateSet("prepare", "deploy", "activate", "migrate", "rollback", "smoke", "status")]
     [string]$Action,
 
     [Parameter(Mandatory, Position = 1)]
@@ -127,6 +127,10 @@ switch ($Action) {
         $Command = "bash '$Controller' rollback '$Component'"
         if ($Version) { $Command += " '$Version'" }
         Invoke-Native "ssh" ($SshOptions + @($Remote, $Command))
+    }
+    "smoke" {
+        if ($Component -ne "gateway") { throw "Full release smoke-test runs from gateway" }
+        Invoke-Native "ssh" ($SshOptions + @($Remote, "bash '$Controller' smoke gateway"))
     }
     "status" {
         Invoke-Native "ssh" ($SshOptions + @($Remote, "bash '$Controller' status '$Component'"))

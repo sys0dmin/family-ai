@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from gateway.admin.studio_service import SAFE_FALLBACK, StudioService
-from gateway.app.providers.schemas import ChatResponse, ProviderRole
+from gateway.app.providers.schemas import (
+    ChatResponse,
+    ImageUnderstandingResponse,
+    ProviderRole,
+    TranscriptionResponse,
+)
 from gateway.app.services.safety_service import SafetyService
 
 
@@ -77,3 +82,52 @@ async def test_studio_uses_same_confirmed_memory_context_as_production() -> None
         and "Подтверждённый интерес" in message.content
         for message in request.messages
     )
+
+
+@pytest.mark.anyio
+async def test_studio_transcription_is_stateless_provider_orchestration() -> None:
+    provider = AsyncMock()
+    provider.transcribe_audio.return_value = TranscriptionResponse(
+        text="Проверка связи",
+        confidence=0.91,
+    )
+    service = StudioService(
+        provider,
+        provider,
+        Mock(),
+        SafetyService(),
+        recognition_provider=provider,
+    )
+
+    result = await service.transcribe(
+        b"synthetic-audio",
+        filename="smoke.wav",
+        content_type="audio/wav",
+    )
+
+    assert result.text == "Проверка связи"
+    request = provider.transcribe_audio.await_args.args[0]
+    assert request.filename == "smoke.wav"
+
+
+@pytest.mark.anyio
+async def test_studio_vision_is_stateless_provider_orchestration() -> None:
+    provider = AsyncMock()
+    provider.describe_image.return_value = ImageUnderstandingResponse(
+        description="Синий квадрат"
+    )
+    service = StudioService(
+        provider,
+        provider,
+        Mock(),
+        SafetyService(),
+        image_provider=provider,
+    )
+
+    result = await service.inspect_image(
+        b"synthetic-image",
+        content_type="image/png",
+        question="Какого цвета квадрат?",
+    )
+
+    assert result == "Синий квадрат"

@@ -145,6 +145,19 @@ wait_for_health() {
   return 1
 }
 
+run_gateway_smoke() {
+  local release="$1"
+  [[ -x "$release/.venv/bin/python" ]] || die "smoke-test release is unavailable"
+  [[ -f "$release/gateway/smoke.py" ]] || die "release has no functional smoke-test"
+  (
+    cd "$release"
+    "$release/.venv/bin/python" -m gateway.smoke \
+      --gateway-url "http://127.0.0.1:8000" \
+      --admin-url "http://127.0.0.1:8001" \
+      --timeout 120
+  )
+}
+
 version_for_target() {
   local target="$1"
   case "$target" in
@@ -154,7 +167,7 @@ version_for_target() {
 }
 
 activate_release() {
-  local component="$1" commit="$2"
+  local component="$1" commit="$2" functional_smoke="${3:-true}"
   configure_component "$component"
   assert_commit "$commit"
   local release="$COMPONENT_ROOT/releases/$commit"
@@ -165,8 +178,12 @@ activate_release() {
     old_target="$(readlink -f "$COMPONENT_ROOT/current")"
   fi
   if [[ "$old_target" == "$release" ]]; then
+    wait_for_health || die "$component health-check failed"
+    if [[ "$component" == "gateway" && "$functional_smoke" == "true" ]]; then
+      run_gateway_smoke "$release" || die "gateway functional smoke-test failed"
+    fi
     echo "$commit" >"$COMPONENT_ROOT/deployed-version"
-    echo "$component already runs $commit"
+    echo "$component already runs verified release $commit"
     return 0
   fi
 
@@ -174,7 +191,18 @@ activate_release() {
   mv -Tf -- "$COMPONENT_ROOT/current.next" "$COMPONENT_ROOT/current"
   restart_services
 
+  local release_ready=false
   if wait_for_health; then
+    release_ready=true
+    if [[ "$component" == "gateway" && "$functional_smoke" == "true" ]]; then
+      if ! run_gateway_smoke "$release"; then
+        release_ready=false
+        echo "functional smoke-test failed" >&2
+      fi
+    fi
+  fi
+
+  if [[ "$release_ready" == true ]]; then
     if [[ -n "$old_target" ]]; then
       ln -sfn -- "$old_target" "$COMPONENT_ROOT/previous"
     fi
@@ -183,7 +211,7 @@ activate_release() {
     return 0
   fi
 
-  echo "health-check failed, restoring previous code" >&2
+  echo "release verification failed, restoring previous code" >&2
   if [[ -n "$old_target" ]]; then
     ln -sfn -- "$old_target" "$COMPONENT_ROOT/current.next"
     mv -Tf -- "$COMPONENT_ROOT/current.next" "$COMPONENT_ROOT/current"
@@ -197,7 +225,7 @@ activate_release() {
     done
     echo "unavailable" >"$COMPONENT_ROOT/deployed-version"
   fi
-  die "deployment rolled back after failed health-check"
+  die "deployment rolled back after failed release verification"
 }
 
 rollback_release() {
@@ -213,7 +241,7 @@ rollback_release() {
   [[ -x "$target/.venv/bin/python" ]] || die "rollback target is not prepared"
   case "$target" in
     "$COMPONENT_ROOT/releases/"*)
-      activate_release "$component" "$(basename "$target")"
+      activate_release "$component" "$(basename "$target")" false
       ;;
     *)
       local old_target
@@ -257,6 +285,12 @@ show_status() {
   done
 }
 
+smoke_gateway() {
+  configure_component gateway
+  [[ -L "$COMPONENT_ROOT/current" ]] || die "gateway has no active release"
+  run_gateway_smoke "$(readlink -f "$COMPONENT_ROOT/current")"
+}
+
 ACTION="${1:-}"
 COMPONENT="${2:-}"
 case "$ACTION" in
@@ -280,6 +314,11 @@ case "$ACTION" in
   migrate)
     [[ "$COMPONENT" == "gateway" ]] || die "migrations belong only to gateway"
     migrate_gateway "${3:-}"
+    ;;
+  smoke)
+    [[ $# -eq 2 ]] || die "usage: smoke gateway"
+    [[ "$COMPONENT" == "gateway" ]] || die "full smoke-test runs from gateway"
+    smoke_gateway
     ;;
   status)
     show_status "$COMPONENT"

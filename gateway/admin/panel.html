@@ -276,6 +276,18 @@
           <div><div class="card-kicker">Project runtime</div><h2 id="infrastructure-title">Проверяем инфраструктуру…</h2><p id="infrastructure-subtitle">Gateway · Database · Speech · PostgreSQL</p></div>
           <div class="health-orb" id="infrastructure-orb"><strong id="infrastructure-orb-label">Scan</strong></div>
         </div>
+        <article class="panel operational-alert-panel">
+          <div class="panel-head compact">
+            <div><div class="card-kicker">Local watch</div><h2>Эксплуатационные предупреждения</h2><p class="muted">Только технические события внутри Family AI.</p></div>
+            <span class="health-pill" id="operational-alert-count">Сканируем…</span>
+          </div>
+          <div id="operational-alert-list" class="operational-alert-list"><span class="muted">Ожидаем первый локальный снимок.</span></div>
+          <div id="operational-thresholds" class="operational-thresholds"></div>
+          <details class="operational-history">
+            <summary>История восстановлений <span id="operational-history-count">0</span></summary>
+            <div id="operational-history-list" class="operational-history-list"><span class="muted">История пока пуста.</span></div>
+          </details>
+        </article>
         <div class="server-grid">
           <article class="panel server-card" id="server-gateway">
             <div class="server-head"><div class="server-identity"><div class="server-icon">⌁</div><div><h2>family-ai-gateway</h2><span class="muted">AI Gateway · Admin · Voice</span></div></div><span class="health-pill" data-field="status">—</span></div>

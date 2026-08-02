@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -69,6 +69,13 @@ class Settings(BaseSettings):
     database_node_metrics_url: str | None = None
     speech_node_metrics_url: str | None = None
     monitoring_request_timeout_seconds: float = 2.0
+    operational_disk_warning_free_percent: float = Field(default=15.0, ge=1, le=50)
+    operational_disk_critical_free_percent: float = Field(default=8.0, ge=1, le=50)
+    operational_speech_queue_warning: int = Field(default=2, ge=1, le=100)
+    operational_speech_queue_critical: int = Field(default=4, ge=1, le=100)
+    operational_voice_error_streak_warning: int = Field(default=3, ge=1, le=100)
+    operational_voice_error_streak_critical: int = Field(default=5, ge=1, le=100)
+    operational_alert_history_days: int = Field(default=30, ge=1, le=365)
     gateway_voice_metrics_url: str | None = "http://127.0.0.1:8000/internal/voice-metrics"
     gateway_safety_policy_url: str | None = (
         "http://127.0.0.1:8000/internal/safety-policy"
@@ -80,6 +87,22 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_operational_thresholds(self) -> "Settings":
+        if (
+            self.operational_disk_critical_free_percent
+            > self.operational_disk_warning_free_percent
+        ):
+            raise ValueError("critical disk threshold must not exceed warning threshold")
+        if self.operational_speech_queue_critical < self.operational_speech_queue_warning:
+            raise ValueError("critical Speech queue threshold must not be below warning")
+        if (
+            self.operational_voice_error_streak_critical
+            < self.operational_voice_error_streak_warning
+        ):
+            raise ValueError("critical voice error streak must not be below warning")
+        return self
 
 
 @lru_cache

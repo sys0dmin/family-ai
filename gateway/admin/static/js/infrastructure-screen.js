@@ -3,6 +3,7 @@ import { byId, formatDateTime, setStatus } from "./dom.js";
 
 export function createInfrastructureScreen() {
   const history = { gateway: [], database: [], speech: [] };
+  let loading = false;
 
   function formatBytes(value) {
     if (value == null) return "—";
@@ -126,8 +127,7 @@ export function createInfrastructureScreen() {
     return value >= 1000 ? `${(value / 1000).toFixed(1)} с` : `${value} мс`;
   }
 
-  async function loadVoiceObservability() {
-    const data = await api("/api/voice-observability", { method: "GET" });
+  function renderVoiceObservability(data) {
     const gateway = data.gateway.data;
     const speech = data.speech.data;
     const healthy =
@@ -165,25 +165,131 @@ export function createInfrastructureScreen() {
       confidence == null ? "—" : `${Math.round(confidence * 100)}%`;
   }
 
+  function alertTime(alert) {
+    const start = formatDateTime(alert.first_seen_at);
+    return alert.resolved_at
+      ? `${start} → ${formatDateTime(alert.resolved_at)}`
+      : `с ${start}`;
+  }
+
+  function createAlertCard(alert, active) {
+    const card = document.createElement("article");
+    card.className = `operational-alert ${alert.severity}${alert.acknowledged_at ? " acknowledged" : ""}`;
+
+    const copy = document.createElement("div");
+    copy.className = "operational-alert-copy";
+    const heading = document.createElement("div");
+    heading.className = "operational-alert-heading";
+    const severity = document.createElement("span");
+    severity.className = `operational-severity ${alert.severity}`;
+    severity.textContent = alert.severity === "critical" ? "Критично" : "Внимание";
+    const title = document.createElement("strong");
+    title.textContent = alert.title;
+    heading.append(severity, title);
+    const detail = document.createElement("p");
+    detail.textContent = alert.detail;
+    const meta = document.createElement("span");
+    meta.className = "operational-alert-meta";
+    meta.textContent = `${alert.scope} · ${alertTime(alert)}`;
+    copy.append(heading, detail, meta);
+    card.append(copy);
+
+    if (active) {
+      const action = document.createElement("button");
+      action.className = "secondary operational-ack";
+      action.textContent = alert.acknowledged_at ? "✓ Подтверждено" : "Вижу";
+      action.disabled = Boolean(alert.acknowledged_at);
+      action.onclick = async () => {
+        action.disabled = true;
+        try {
+          await api(`/api/infrastructure/alerts/${alert.id}/acknowledge`, {
+            method: "POST"
+          });
+          await load();
+        } catch (error) {
+          action.disabled = false;
+          setStatus(byId("infrastructure-status"), `Ошибка: ${error.message}`, "err");
+        }
+      };
+      card.append(action);
+    }
+    return card;
+  }
+
+  function renderAlerts(alerts, infrastructureStatus) {
+    const active = alerts.active || [];
+    const historyItems = alerts.history || [];
+    const count = byId("operational-alert-count");
+    count.className = `health-pill ${active.some(item => item.severity === "critical") ? "down" : active.length ? "degraded" : ""}`;
+    count.textContent = active.length ? `${active.length} активно` : "Всё спокойно";
+    const hasCritical = active.some(item => item.severity === "critical");
+    const statusPriority = { healthy: 0, unconfigured: 1, degraded: 2, down: 3 };
+    const alertStatus = hasCritical ? "down" : active.length ? "degraded" : "healthy";
+    const effectiveStatus = statusPriority[alertStatus] > statusPriority[infrastructureStatus]
+      ? alertStatus
+      : infrastructureStatus;
+    if (effectiveStatus !== infrastructureStatus) {
+      byId("infrastructure-orb").className = `health-orb ${effectiveStatus}`;
+      byId("infrastructure-orb-label").textContent = healthLabel(effectiveStatus);
+      byId("infrastructure-title").textContent = hasCritical
+        ? "Инфраструктура требует вмешательства"
+        : "Инфраструктура требует внимания";
+      byId("infrastructure-subtitle").textContent = hasCritical
+        ? "Есть активное критическое техническое событие"
+        : "Один из технических сигналов достиг порога";
+    }
+
+    const list = byId("operational-alert-list");
+    list.replaceChildren();
+    if (!active.length) {
+      const empty = document.createElement("div");
+      empty.className = "operational-alert-empty";
+      empty.textContent = "Пороговые значения в норме, сервисы отвечают.";
+      list.append(empty);
+    } else {
+      active.forEach(alert => list.append(createAlertCard(alert, true)));
+    }
+
+    const thresholds = alerts.thresholds;
+    byId("operational-thresholds").textContent = thresholds
+      ? `Пороги: диск ≤ ${thresholds.disk_warning_free_percent}% / ${thresholds.disk_critical_free_percent}% свободно · очередь Speech ≥ ${thresholds.speech_queue_warning} / ${thresholds.speech_queue_critical} · ошибки подряд ≥ ${thresholds.voice_error_streak_warning} / ${thresholds.voice_error_streak_critical} · история ${thresholds.history_days} дней`
+      : "";
+
+    byId("operational-history-count").textContent = historyItems.length;
+    const history = byId("operational-history-list");
+    history.replaceChildren();
+    if (!historyItems.length) {
+      const empty = document.createElement("span");
+      empty.className = "muted";
+      empty.textContent = "История пока пуста.";
+      history.append(empty);
+    } else {
+      historyItems.forEach(alert => history.append(createAlertCard(alert, false)));
+    }
+  }
+
   async function load() {
+    if (loading) return;
+    loading = true;
     const status = byId("infrastructure-status");
     setStatus(status, "Собираем метрики…", "warn");
     try {
-      const data = await api("/api/infrastructure", { method: "GET" });
+      const overview = await api("/api/infrastructure/scan", { method: "POST" });
+      const data = overview.infrastructure;
       render(data);
-      try {
-        await loadVoiceObservability();
-      } catch (_) {
-        byId("pipeline-health").textContent = "Недоступно";
-      }
+      renderVoiceObservability(overview.voice);
+      renderAlerts(overview.alerts, data.status);
+      const hasAlerts = overview.alerts.active.length > 0;
       setStatus(
         status,
         "Live · 15 sec",
-        data.status === "healthy" ? "ok" : "warn"
+        data.status === "healthy" && !hasAlerts ? "ok" : "warn"
       );
     } catch (error) {
       setStatus(status, `Ошибка: ${error.message}`, "err");
       byId("infrastructure-title").textContent = "Не удалось получить снимок";
+    } finally {
+      loading = false;
     }
   }
 
