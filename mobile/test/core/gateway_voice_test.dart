@@ -161,6 +161,45 @@ void main() {
     );
   });
 
+  test('shows child-friendly overload and timeout messages', () async {
+    final cases = <(int, String)>[
+      (
+        429,
+        'Я сейчас отвечаю на другой вопрос. Подожди чуточку и попробуй ещё раз.',
+      ),
+      (
+        504,
+        'Ответ не успел прийти. Давай немного подождём и попробуем ещё раз.',
+      ),
+    ];
+
+    for (final testCase in cases) {
+      final gateway = GatewayClient(
+        serverAddress: ServerAddress.parse('http://server.local'),
+        httpClient: MockClient((_) async => http.Response('', testCase.$1)),
+      );
+
+      await expectLater(
+        gateway
+            .streamVoiceTurn(
+              conversationId: 'conversation-1',
+              audioBytes: Uint8List.fromList(<int>[82, 73, 70, 70]),
+              filename: 'voice.wav',
+              contentType: 'audio/wav',
+              recordingDuration: const Duration(seconds: 1),
+            )
+            .toList(),
+        throwsA(
+          isA<GatewayException>().having(
+            (error) => error.message,
+            'message',
+            testCase.$2,
+          ),
+        ),
+      );
+    }
+  });
+
   test('discovers and uploads a parent-armed calibration sample', () async {
     var activeChecks = 0;
     final gateway = GatewayClient(

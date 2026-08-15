@@ -12,7 +12,9 @@ from gateway.app.dependencies import get_voice_service
 from gateway.app.observability.request_tracing import request_trace_registry
 from gateway.app.observability.voice_metrics import voice_metrics_registry
 from gateway.app.routers.speech_response import speech_response
+from gateway.app.routers.voice_admission import admit_voice_request, release_after_stream
 from gateway.app.schemas.voice import SynthesizeTextRequest, VoicePlaybackReport
+from gateway.app.services.voice_execution import VoiceStageTimeoutError
 from gateway.app.services.voice_service import VoiceInputError, VoiceService
 from gateway.app.services.voice_streaming import (
     VOICE_STREAM_PROTOCOL,
@@ -71,11 +73,16 @@ async def voice_turn(
     """Accept one recording and return the assistant's MP3 response."""
 
     request_id = request_trace_registry.request_id(x_request_id)
-    request_trace_registry.start(request_id, "voice")
+    lease = admit_voice_request(
+        request_id,
+        mode="voice",
+        max_in_flight=settings.voice_max_in_flight,
+    )
     try:
         content, filename, content_type = await _read_audio_upload(file, settings)
     except HTTPException as exc:
         request_trace_registry.finish(request_id, "error", error_code=f"http_{exc.status_code}")
+        lease.release()
         raise
 
     try:
@@ -94,6 +101,17 @@ async def voice_turn(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Speech was not recognized",
         ) from exc
+    except VoiceStageTimeoutError as exc:
+        request_trace_registry.finish(
+            request_id,
+            "error",
+            error_code=f"{exc.stage}_timeout",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Voice response exceeded its time budget",
+            headers={"X-Request-ID": str(request_id)},
+        ) from exc
     except Exception as exc:
         request_trace_registry.finish(request_id, "error", error_code="provider_error")
         logger.exception(
@@ -104,6 +122,8 @@ async def voice_turn(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Voice provider is temporarily unavailable",
         ) from exc
+    finally:
+        lease.release()
 
     response = speech_response(result.speech, result.message_id)
     response.headers["X-Request-ID"] = str(request_id)
@@ -122,21 +142,29 @@ async def stream_voice_turn(
     """Stream safe assistant speech as independently playable NDJSON parts."""
 
     request_id = request_trace_registry.request_id(x_request_id)
-    request_trace_registry.start(request_id, "voice_stream")
+    lease = admit_voice_request(
+        request_id,
+        mode="voice_stream",
+        max_in_flight=settings.voice_max_in_flight,
+    )
     try:
         content, filename, content_type = await _read_audio_upload(file, settings)
     except HTTPException as exc:
         request_trace_registry.finish(request_id, "error", error_code=f"http_{exc.status_code}")
+        lease.release()
         raise
     return StreamingResponse(
-        voice_service.stream_voice_turn(
-            conversation_id=conversation_id,
-            audio_content=content,
-            filename=filename,
-            content_type=content_type,
-            language=settings.voice_language,
-            recording_duration_ms=recording_duration_ms,
-            request_id=request_id,
+        release_after_stream(
+            voice_service.stream_voice_turn(
+                conversation_id=conversation_id,
+                audio_content=content,
+                filename=filename,
+                content_type=content_type,
+                language=settings.voice_language,
+                recording_duration_ms=recording_duration_ms,
+                request_id=request_id,
+            ),
+            lease,
         ),
         media_type="application/x-ndjson",
         headers={
@@ -174,12 +202,17 @@ async def synthesize_text(
     conversation_id: UUID,
     payload: SynthesizeTextRequest,
     voice_service: VoiceService = Depends(get_voice_service),
+    settings: Settings = Depends(get_settings),
     x_request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> Response:
     """Speak an existing assistant reply with the conversation agent's voice."""
 
     request_id = request_trace_registry.request_id(x_request_id)
-    request_trace_registry.start(request_id, "speech_replay")
+    lease = admit_voice_request(
+        request_id,
+        mode="speech_replay",
+        max_in_flight=settings.voice_max_in_flight,
+    )
     request_trace_registry.event(request_id, "tts", "started")
     started_at = time.perf_counter()
     try:
@@ -188,6 +221,20 @@ async def synthesize_text(
             payload.text,
             request_id=request_id,
         )
+    except VoiceStageTimeoutError as exc:
+        request_trace_registry.event(
+            request_id,
+            "tts",
+            "error",
+            duration_ms=round((time.perf_counter() - started_at) * 1000),
+            error_code="timeout",
+        )
+        request_trace_registry.finish(request_id, "error", error_code="tts_timeout")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Voice response exceeded its time budget",
+            headers={"X-Request-ID": str(request_id)},
+        ) from exc
     except Exception as exc:
         request_trace_registry.event(
             request_id,
@@ -205,6 +252,8 @@ async def synthesize_text(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Voice provider is temporarily unavailable",
         ) from exc
+    finally:
+        lease.release()
     request_trace_registry.event(
         request_id,
         "tts",

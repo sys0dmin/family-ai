@@ -37,6 +37,7 @@ from gateway.app.services.multimodal_turn_service import MultimodalTurnService
 from gateway.app.services.music_recognition_service import MusicRecognitionService
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.visual_media_service import VisualMediaService
+from gateway.app.services.voice_execution import VoiceExecutionPolicy
 from gateway.app.services.voice_service import VoiceService
 from gateway.app.speech_runtime.service import SpeechRuntimeService
 
@@ -282,6 +283,7 @@ def get_voice_service(
     synthesis: SpeechSynthesisProvider = Depends(get_speech_synthesis_provider),
     conversation: ConversationService = Depends(get_conversation_service),
     music_recognition: MusicRecognitionService = Depends(get_music_recognition_service),
+    settings: Settings = Depends(get_settings),
 ) -> VoiceService:
     """Return a voice service with injected dependencies."""
     return VoiceService(
@@ -290,6 +292,11 @@ def get_voice_service(
         conversation,
         music_recognition,
         metrics=voice_metrics_registry,
+        execution_policy=VoiceExecutionPolicy(
+            stt_timeout_seconds=settings.voice_stt_timeout_seconds,
+            llm_timeout_seconds=settings.voice_llm_timeout_seconds,
+            tts_timeout_seconds=settings.voice_tts_timeout_seconds,
+        ),
     )
 
 
@@ -302,6 +309,7 @@ def get_multimodal_turn_service(
         get_image_understanding_service
     ),
     conversation: ConversationService = Depends(get_conversation_service),
+    settings: Settings = Depends(get_settings),
 ) -> MultimodalTurnService:
     """Return the provider-neutral spoken-image turn orchestrator."""
 
@@ -311,4 +319,9 @@ def get_multimodal_turn_service(
         image_understanding=image_understanding,
         conversation=conversation,
         metrics=voice_metrics_registry,
+        execution_policy=VoiceExecutionPolicy(
+            stt_timeout_seconds=settings.voice_stt_timeout_seconds,
+            llm_timeout_seconds=settings.voice_llm_timeout_seconds,
+            tts_timeout_seconds=settings.voice_tts_timeout_seconds,
+        ),
     )

@@ -28,6 +28,11 @@ from gateway.app.services.image_understanding_service import (
     InvalidImageError,
 )
 from gateway.app.services.turn_diagnostics import TurnDiagnostics
+from gateway.app.services.voice_execution import (
+    VoiceExecutionPolicy,
+    VoiceStageTimeoutError,
+    run_with_stage_timeout,
+)
 from gateway.app.services.voice_service import VoiceInputError
 from gateway.app.services.voice_streaming import (
     VOICE_RESPONSE_CONTEXT,
@@ -64,12 +69,14 @@ class MultimodalTurnService:
         image_understanding: ImageUnderstandingService,
         conversation: ConversationService,
         metrics: VoiceMetricsRegistry,
+        execution_policy: VoiceExecutionPolicy | None = None,
     ) -> None:
         self._recognition_provider = recognition_provider
         self._synthesis_provider = synthesis_provider
         self._image_understanding = image_understanding
         self._conversation = conversation
         self._metrics = metrics
+        self._execution_policy = execution_policy or VoiceExecutionPolicy()
 
     async def process_turn(
         self,
@@ -106,9 +113,29 @@ class MultimodalTurnService:
         tts_started_at = time.perf_counter()
         request_trace_registry.event(request_id, "tts", "started")
         try:
-            speech = await self._synthesis_provider.synthesize_speech(
-                SpeechRequest(text=prepared.text, voice=prepared.voice, request_id=request_id)
+            speech = await run_with_stage_timeout(
+                self._synthesis_provider.synthesize_speech(
+                    SpeechRequest(
+                        text=prepared.text,
+                        voice=prepared.voice,
+                        request_id=request_id,
+                    )
+                ),
+                seconds=self._execution_policy.tts_timeout_seconds,
+                stage="tts",
             )
+        except VoiceStageTimeoutError:
+            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
+            telemetry.record(status="error", error_stage="tts_timeout")
+            request_trace_registry.event(
+                request_id,
+                "tts",
+                "error",
+                duration_ms=telemetry.tts_duration_ms,
+                error_code="timeout",
+            )
+            request_trace_registry.finish(request_id, "error", error_code="tts_timeout")
+            raise
         except Exception:
             telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
             telemetry.record(status="error", error_stage="tts")
@@ -169,11 +196,15 @@ class MultimodalTurnService:
             )
             tts_started_at = time.perf_counter()
             request_trace_registry.event(request_id, "tts", "started")
-            async for event in stream_speech_events(
-                prepared,
-                self._synthesis_provider,
-            ):
-                yield event
+            try:
+                async with asyncio.timeout(self._execution_policy.tts_timeout_seconds):
+                    async for event in stream_speech_events(
+                        prepared,
+                        self._synthesis_provider,
+                    ):
+                        yield event
+            except TimeoutError as exc:
+                raise VoiceStageTimeoutError("tts") from exc
             request_trace_registry.event(
                 request_id,
                 "tts",
@@ -209,6 +240,18 @@ class MultimodalTurnService:
                 "error",
                 code="vision_unavailable",
                 message="Сейчас я не могу рассмотреть фотографию. Попробуем позже.",
+            )
+        except VoiceStageTimeoutError as exc:
+            telemetry.record(status="error", error_stage=f"{exc.stage}_timeout")
+            request_trace_registry.finish(
+                request_id,
+                "error",
+                error_code=f"{exc.stage}_timeout",
+            )
+            yield encode_stream_event(
+                "error",
+                code="voice_timeout",
+                message="Ответ не успел прийти. Давай немного подождём и попробуем ещё раз.",
             )
         except Exception:
             telemetry.record(status="error", error_stage="tts")
@@ -246,14 +289,18 @@ class MultimodalTurnService:
                 started_at = time.perf_counter()
                 request_trace_registry.event(request_id, "stt", "started")
                 try:
-                    return await self._recognition_provider.transcribe_audio(
-                        TranscriptionRequest(
-                            audio_content=audio_content,
-                            filename=audio_filename,
-                            content_type=audio_content_type,
-                            language=language,
-                            request_id=request_id,
-                        )
+                    return await run_with_stage_timeout(
+                        self._recognition_provider.transcribe_audio(
+                            TranscriptionRequest(
+                                audio_content=audio_content,
+                                filename=audio_filename,
+                                content_type=audio_content_type,
+                                language=language,
+                                request_id=request_id,
+                            )
+                        ),
+                        seconds=self._execution_policy.stt_timeout_seconds,
+                        stage="stt",
                     )
                 finally:
                     telemetry.stt_duration_ms = round((time.perf_counter() - started_at) * 1000)
@@ -283,7 +330,11 @@ class MultimodalTurnService:
                     "stt",
                     "error",
                     duration_ms=telemetry.stt_duration_ms,
-                    error_code="provider_error",
+                    error_code=(
+                        "timeout"
+                        if isinstance(transcription_result, VoiceStageTimeoutError)
+                        else "provider_error"
+                    ),
                 )
                 raise transcription_result
             request_trace_registry.event(
@@ -313,16 +364,20 @@ class MultimodalTurnService:
 
             error_stage = "llm"
             request_trace_registry.event(request_id, "llm", "started")
-            ai_message = await self._conversation.process_turn(
-                conversation_id,
-                transcript,
-                runtime_context=combine_runtime_context(
-                    observations_result.prompt_context,
-                    VOICE_RESPONSE_CONTEXT if optimize_for_stream else None,
+            ai_message = await run_with_stage_timeout(
+                self._conversation.process_turn(
+                    conversation_id,
+                    transcript,
+                    runtime_context=combine_runtime_context(
+                        observations_result.prompt_context,
+                        VOICE_RESPONSE_CONTEXT if optimize_for_stream else None,
+                    ),
+                    input_safety_context=observations_result.description,
+                    diagnostics=diagnostics,
+                    request_id=request_id,
                 ),
-                input_safety_context=observations_result.description,
-                diagnostics=diagnostics,
-                request_id=request_id,
+                seconds=self._execution_policy.llm_timeout_seconds,
+                stage="llm",
             )
             telemetry.llm_duration_ms = diagnostics.llm_duration_ms
             request_trace_registry.event(
@@ -333,6 +388,7 @@ class MultimodalTurnService:
                 text=ai_message.content,
                 voice=active_agent.tts_voice,
                 telemetry=telemetry,
+                request_id=request_id,
             )
         except asyncio.CancelledError:
             telemetry.record(
@@ -341,7 +397,7 @@ class MultimodalTurnService:
                 cancelled=True,
             )
             raise
-        except Exception:
+        except Exception as exc:
             telemetry.llm_duration_ms = diagnostics.llm_duration_ms
             telemetry.record(status="error", error_stage=error_stage)
             if error_stage == "llm":
@@ -350,6 +406,8 @@ class MultimodalTurnService:
                     "llm",
                     "error",
                     duration_ms=telemetry.llm_duration_ms,
-                    error_code="provider_error",
+                    error_code=(
+                        "timeout" if isinstance(exc, VoiceStageTimeoutError) else "provider_error"
+                    ),
                 )
             raise

@@ -11,6 +11,7 @@ from gateway.app.config import Settings, get_settings
 from gateway.app.dependencies import get_multimodal_turn_service
 from gateway.app.observability.request_tracing import request_trace_registry
 from gateway.app.routers.speech_response import speech_response
+from gateway.app.routers.voice_admission import admit_voice_request, release_after_stream
 from gateway.app.services.image_understanding_service import (
     ALLOWED_IMAGE_TYPES,
     ImageUnderstandingNotAllowedError,
@@ -18,6 +19,7 @@ from gateway.app.services.image_understanding_service import (
     InvalidImageError,
 )
 from gateway.app.services.multimodal_turn_service import MultimodalTurnService
+from gateway.app.services.voice_execution import VoiceStageTimeoutError
 from gateway.app.services.voice_service import VoiceInputError
 from gateway.app.services.voice_streaming import VOICE_STREAM_PROTOCOL
 from gateway.app.upload_formats import (
@@ -91,7 +93,11 @@ async def multimodal_turn(
     """Accept one image and one spoken question; return the safe spoken answer."""
 
     request_id = request_trace_registry.request_id(x_request_id)
-    request_trace_registry.start(request_id, "multimodal")
+    lease = admit_voice_request(
+        request_id,
+        mode="multimodal",
+        max_in_flight=settings.voice_max_in_flight,
+    )
     try:
         (
             image_content,
@@ -145,6 +151,12 @@ async def multimodal_turn(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Image understanding is unavailable",
             ) from exc
+        except VoiceStageTimeoutError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Voice response exceeded its time budget",
+                headers={"X-Request-ID": str(request_id)},
+            ) from exc
         except Exception as exc:
             logger.exception(
                 "multimodal_turn_failed",
@@ -162,6 +174,7 @@ async def multimodal_turn(
         request_trace_registry.finish(request_id, "error", error_code=f"http_{exc.status_code}")
         raise
     finally:
+        lease.release()
         await image.close()
         await audio.close()
 
@@ -179,7 +192,11 @@ async def stream_multimodal_turn(
     """Stream one safe spoken answer about an ephemeral image."""
 
     request_id = request_trace_registry.request_id(x_request_id)
-    request_trace_registry.start(request_id, "multimodal_stream")
+    lease = admit_voice_request(
+        request_id,
+        mode="multimodal_stream",
+        max_in_flight=settings.voice_max_in_flight,
+    )
     try:
         (
             image_content,
@@ -190,21 +207,25 @@ async def stream_multimodal_turn(
         ) = await _read_multimodal_uploads(image, audio, settings)
     except HTTPException as exc:
         request_trace_registry.finish(request_id, "error", error_code=f"http_{exc.status_code}")
+        lease.release()
         raise
     finally:
         await image.close()
         await audio.close()
     return StreamingResponse(
-        service.stream_turn(
-            conversation_id,
-            image_content=image_content,
-            image_content_type=image_type,
-            audio_content=audio_content,
-            audio_filename=audio_filename,
-            audio_content_type=audio_type,
-            language=settings.voice_language,
-            recording_duration_ms=recording_duration_ms,
-            request_id=request_id,
+        release_after_stream(
+            service.stream_turn(
+                conversation_id,
+                image_content=image_content,
+                image_content_type=image_type,
+                audio_content=audio_content,
+                audio_filename=audio_filename,
+                audio_content_type=audio_type,
+                language=settings.voice_language,
+                recording_duration_ms=recording_duration_ms,
+                request_id=request_id,
+            ),
+            lease,
         ),
         media_type="application/x-ndjson",
         headers={

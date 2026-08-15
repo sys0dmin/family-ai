@@ -80,6 +80,7 @@ class PreparedVoiceResponse:
     text: str
     voice: str
     telemetry: VoiceTurnTelemetry
+    request_id: UUID
 
 
 class VoiceStreamRegistry:
@@ -203,7 +204,11 @@ async def stream_speech_events(
     try:
         for index, chunk in enumerate(chunks):
             speech = await synthesis_provider.synthesize_speech(
-                SpeechRequest(text=chunk, voice=prepared.voice)
+                SpeechRequest(
+                    text=chunk,
+                    voice=prepared.voice,
+                    request_id=prepared.request_id,
+                )
             )
             if index == 0:
                 prepared.telemetry.first_audio_ready_ms = round(

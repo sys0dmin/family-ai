@@ -48,6 +48,10 @@ function fillSettings() {
   setValue("stt_model", "whisper-small");
   setValue("tts_model", "silero_ru");
   setValue("stt_initial_prompt", "Лера, Мурка, Байтик, Нотка");
+  setValue("voice_max_in_flight", "2");
+  setValue("voice_stt_timeout_seconds", "35");
+  setValue("voice_llm_timeout_seconds", "20");
+  setValue("voice_tts_timeout_seconds", "30");
   setValue("message_retention_days", "10");
   setValue("vision_model", "vision-test-model");
   setValue("vision_base_url", "https://vision.invalid/v1");

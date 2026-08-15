@@ -619,6 +619,24 @@ class GatewayClient implements ConversationGateway {
         await response.stream.drain<void>();
         throw const VoiceStreamingUnavailable();
       }
+      if (response.statusCode == 409) {
+        await response.stream.drain<void>();
+        throw const GatewayException(
+          'Этот вопрос уже отправлен. Давай дождёмся ответа.',
+        );
+      }
+      if (response.statusCode == 429) {
+        await response.stream.drain<void>();
+        throw const GatewayException(
+          'Я сейчас отвечаю на другой вопрос. Подожди чуточку и попробуй ещё раз.',
+        );
+      }
+      if (response.statusCode == 504) {
+        await response.stream.drain<void>();
+        throw const GatewayException(
+          'Ответ не успел прийти. Давай немного подождём и попробуем ещё раз.',
+        );
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.stream.drain<void>();
         throw GatewayException(
@@ -708,6 +726,21 @@ class GatewayClient implements ConversationGateway {
   http.Response _requireSuccess(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return response;
+    }
+    if (response.statusCode == 409) {
+      throw const GatewayException(
+        'Этот вопрос уже отправлен. Давай дождёмся ответа.',
+      );
+    }
+    if (response.statusCode == 429) {
+      throw const GatewayException(
+        'Я сейчас отвечаю на другой вопрос. Подожди чуточку и попробуй ещё раз.',
+      );
+    }
+    if (response.statusCode == 504) {
+      throw const GatewayException(
+        'Ответ не успел прийти. Давай немного подождём и попробуем ещё раз.',
+      );
     }
     throw GatewayException('Сервер ответил с ошибкой ${response.statusCode}.');
   }

@@ -155,6 +155,13 @@ export function createInfrastructureScreen() {
     byId("pipeline-errors").textContent = gateway?.errors ?? "—";
     byId("pipeline-cancellations").textContent =
       gateway?.cancellations ?? "—";
+    const admission = gateway?.admission;
+    byId("voice-admission").textContent = admission
+      ? `${admission.active}/${admission.capacity}`
+      : "—";
+    byId("voice-rejections").textContent = admission
+      ? (admission.capacity_rejections || 0) + (admission.duplicate_rejections || 0)
+      : "—";
     const recent = gateway?.recent || [];
     const latest = recent.length ? recent[recent.length - 1] : null;
     byId("pipeline-chunks").textContent = latest?.chunk_count ?? "—";

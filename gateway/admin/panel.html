@@ -98,6 +98,15 @@
               <label class="field"><span>Формат</span><select id="tts_response_format"><option value="wav">WAV</option><option value="mp3">MP3</option></select></label>
             </div>
             <label class="field" id="tts_voice_custom_field" hidden><span>ID другого голоса</span><input id="tts_voice_custom" placeholder="Например: custom-voice-id"></label>
+            <hr class="soft-divider">
+            <div class="card-kicker">Защита от перегрузки</div>
+            <div class="grid">
+              <label class="field"><span>Одновременных voice-запросов</span><input id="voice_max_in_flight" type="number" min="1" max="8"></label>
+              <label class="field"><span>Бюджет STT, секунд</span><input id="voice_stt_timeout_seconds" type="number" min="5" max="120" step="1"></label>
+              <label class="field"><span>Бюджет LLM, секунд</span><input id="voice_llm_timeout_seconds" type="number" min="5" max="120" step="1"></label>
+              <label class="field"><span>Бюджет TTS, секунд</span><input id="voice_tts_timeout_seconds" type="number" min="5" max="120" step="1"></label>
+            </div>
+            <p class="muted">Третий запрос при лимите 2 не ждёт длинную очередь. Изменение применяется через безопасный перезапуск Gateway.</p>
             <label class="field"><span>Общий Speech API-ключ <small>резерв для STT и TTS</small></span><input id="speech_api_key" type="password" autocomplete="new-password"></label>
             <div class="grid">
               <div><label class="field"><span>STT API-ключ <small>пусто — не менять</small></span><input id="stt_api_key" type="password" autocomplete="new-password"></label><label class="option-row"><input id="clear_stt_api_key" type="checkbox"><span>Сбросить и использовать общий ключ</span></label></div>
@@ -345,7 +354,7 @@
             <div class="pipeline-stage"><span>Первый звук</span><strong id="pipeline-first-playback">—</strong></div>
             <div class="pipeline-stage"><span>Всего</span><strong id="pipeline-total">—</strong></div>
           </div>
-          <div class="queue-strip"><span>Очередь Speech: <strong id="speech-queue">—</strong></span><span>Сейчас: <strong id="speech-active">—</strong></span><span>Ошибки Gateway: <strong id="pipeline-errors">—</strong></span><span>Отмены: <strong id="pipeline-cancellations">—</strong></span><span>Части: <strong id="pipeline-chunks">—</strong></span><span>STT confidence: <strong id="pipeline-confidence">—</strong></span></div>
+          <div class="queue-strip"><span>Очередь Speech: <strong id="speech-queue">—</strong></span><span>Сейчас: <strong id="speech-active">—</strong></span><span>Voice slots: <strong id="voice-admission">—</strong></span><span>Отклонено: <strong id="voice-rejections">—</strong></span><span>Ошибки Gateway: <strong id="pipeline-errors">—</strong></span><span>Отмены: <strong id="pipeline-cancellations">—</strong></span><span>Части: <strong id="pipeline-chunks">—</strong></span><span>STT confidence: <strong id="pipeline-confidence">—</strong></span></div>
         </article>
         <div class="ops-footnote" id="infrastructure-checked">Ожидаем первый снимок</div>
       </section>

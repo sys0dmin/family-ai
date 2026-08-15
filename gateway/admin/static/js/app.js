@@ -486,6 +486,10 @@
       applyTtsVoice(data.tts_voice);
       setValue("tts_response_format", data.tts_response_format);
       setValue("message_retention_days", data.message_retention_days);
+      setValue("voice_max_in_flight", data.voice_max_in_flight || 2);
+      setValue("voice_stt_timeout_seconds", data.voice_stt_timeout_seconds || 35);
+      setValue("voice_llm_timeout_seconds", data.voice_llm_timeout_seconds || 20);
+      setValue("voice_tts_timeout_seconds", data.voice_tts_timeout_seconds || 30);
       setValue("openai_api_key", "");
       setValue("speech_api_key", "");
       setValue("stt_api_key", "");
@@ -535,6 +539,10 @@
         tts_voice: getTtsVoice(),
         tts_response_format: getValue("tts_response_format"),
         message_retention_days: Number(getValue("message_retention_days")),
+        voice_max_in_flight: Number(getValue("voice_max_in_flight")),
+        voice_stt_timeout_seconds: Number(getValue("voice_stt_timeout_seconds")),
+        voice_llm_timeout_seconds: Number(getValue("voice_llm_timeout_seconds")),
+        voice_tts_timeout_seconds: Number(getValue("voice_tts_timeout_seconds")),
         openai_api_key: getValue("openai_api_key").trim() || null,
         speech_api_key: getValue("speech_api_key").trim() || null,
         stt_api_key: getValue("stt_api_key").trim() || null,

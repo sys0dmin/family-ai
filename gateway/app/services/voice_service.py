@@ -22,6 +22,11 @@ from gateway.app.providers.schemas import (
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.music_recognition_service import MusicRecognitionService
 from gateway.app.services.turn_diagnostics import TurnDiagnostics
+from gateway.app.services.voice_execution import (
+    VoiceExecutionPolicy,
+    VoiceStageTimeoutError,
+    run_with_stage_timeout,
+)
 from gateway.app.services.voice_streaming import (
     VOICE_RESPONSE_CONTEXT,
     PreparedVoiceResponse,
@@ -57,12 +62,14 @@ class VoiceService:
         conversation_service: ConversationService,
         music_recognition_service: MusicRecognitionService | None = None,
         metrics: VoiceMetricsRegistry | None = None,
+        execution_policy: VoiceExecutionPolicy | None = None,
     ) -> None:
         self._recognition_provider = recognition_provider
         self._synthesis_provider = synthesis_provider
         self._conversation_service = conversation_service
         self._music_recognition_service = music_recognition_service
         self._metrics = metrics or VoiceMetricsRegistry()
+        self._execution_policy = execution_policy or VoiceExecutionPolicy()
 
     async def process_voice_turn(
         self,
@@ -96,13 +103,29 @@ class VoiceService:
         tts_started_at = time.perf_counter()
         request_trace_registry.event(request_id, "tts", "started")
         try:
-            speech = await self._synthesis_provider.synthesize_speech(
-                SpeechRequest(
-                    text=prepared.text,
-                    voice=prepared.voice,
-                    request_id=request_id,
-                )
+            speech = await run_with_stage_timeout(
+                self._synthesis_provider.synthesize_speech(
+                    SpeechRequest(
+                        text=prepared.text,
+                        voice=prepared.voice,
+                        request_id=request_id,
+                    )
+                ),
+                seconds=self._execution_policy.tts_timeout_seconds,
+                stage="tts",
             )
+        except VoiceStageTimeoutError:
+            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
+            telemetry.record(status="error", error_stage="tts_timeout")
+            request_trace_registry.event(
+                request_id,
+                "tts",
+                "error",
+                duration_ms=telemetry.tts_duration_ms,
+                error_code="timeout",
+            )
+            request_trace_registry.finish(request_id, "error", error_code="tts_timeout")
+            raise
         except Exception:
             telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
             telemetry.record(status="error", error_stage="tts")
@@ -165,11 +188,15 @@ class VoiceService:
             )
             tts_started_at = time.perf_counter()
             request_trace_registry.event(request_id, "tts", "started")
-            async for event in stream_speech_events(
-                prepared,
-                self._synthesis_provider,
-            ):
-                yield event
+            try:
+                async with asyncio.timeout(self._execution_policy.tts_timeout_seconds):
+                    async for event in stream_speech_events(
+                        prepared,
+                        self._synthesis_provider,
+                    ):
+                        yield event
+            except TimeoutError as exc:
+                raise VoiceStageTimeoutError("tts") from exc
             request_trace_registry.event(
                 request_id,
                 "tts",
@@ -191,6 +218,18 @@ class VoiceService:
                 "error",
                 code="speech_not_recognized",
                 message="Не удалось расслышать вопрос. Попробуем ещё раз.",
+            )
+        except VoiceStageTimeoutError as exc:
+            telemetry.record(status="error", error_stage=f"{exc.stage}_timeout")
+            request_trace_registry.finish(
+                request_id,
+                "error",
+                error_code=f"{exc.stage}_timeout",
+            )
+            yield encode_stream_event(
+                "error",
+                code="voice_timeout",
+                message="Ответ не успел прийти. Давай немного подождём и попробуем ещё раз.",
             )
         except Exception:
             telemetry.record(status="error", error_stage="tts")
@@ -231,7 +270,20 @@ class VoiceService:
             started_at = time.perf_counter()
             request_trace_registry.event(request_id, "stt", "started")
             try:
-                result = await self._recognition_provider.transcribe_audio(transcription_request)
+                result = await run_with_stage_timeout(
+                    self._recognition_provider.transcribe_audio(transcription_request),
+                    seconds=self._execution_policy.stt_timeout_seconds,
+                    stage="stt",
+                )
+            except VoiceStageTimeoutError:
+                request_trace_registry.event(
+                    request_id,
+                    "stt",
+                    "error",
+                    duration_ms=round((time.perf_counter() - started_at) * 1000),
+                    error_code="timeout",
+                )
+                raise
             except Exception:
                 request_trace_registry.event(
                     request_id,
@@ -290,15 +342,19 @@ class VoiceService:
 
             stage = "llm"
             request_trace_registry.event(request_id, "llm", "started")
-            ai_message = await self._conversation_service.process_turn(
-                conversation_id=conversation_id,
-                text=transcript,
-                runtime_context=combine_runtime_context(
-                    recognition.prompt_context if recognition else None,
-                    VOICE_RESPONSE_CONTEXT if optimize_for_stream else None,
+            ai_message = await run_with_stage_timeout(
+                self._conversation_service.process_turn(
+                    conversation_id=conversation_id,
+                    text=transcript,
+                    runtime_context=combine_runtime_context(
+                        recognition.prompt_context if recognition else None,
+                        VOICE_RESPONSE_CONTEXT if optimize_for_stream else None,
+                    ),
+                    diagnostics=diagnostics,
+                    request_id=request_id,
                 ),
-                diagnostics=diagnostics,
-                request_id=request_id,
+                seconds=self._execution_policy.llm_timeout_seconds,
+                stage="llm",
             )
             telemetry.llm_duration_ms = diagnostics.llm_duration_ms
             request_trace_registry.event(
@@ -312,6 +368,7 @@ class VoiceService:
                 text=ai_message.content,
                 voice=active_agent.tts_voice,
                 telemetry=telemetry,
+                request_id=request_id,
             )
         except asyncio.CancelledError:
             telemetry.record(
@@ -320,7 +377,7 @@ class VoiceService:
                 cancelled=True,
             )
             raise
-        except Exception:
+        except Exception as exc:
             telemetry.llm_duration_ms = diagnostics.llm_duration_ms
             telemetry.record(status="error", error_stage=stage)
             if stage == "llm":
@@ -329,7 +386,9 @@ class VoiceService:
                     "llm",
                     "error",
                     duration_ms=telemetry.llm_duration_ms,
-                    error_code="provider_error",
+                    error_code=(
+                        "timeout" if isinstance(exc, VoiceStageTimeoutError) else "provider_error"
+                    ),
                 )
             raise
 
@@ -342,10 +401,14 @@ class VoiceService:
         """Speak existing assistant text with the agent bound to the conversation."""
 
         active_agent = self._conversation_service.get_conversation_agent(conversation_id)
-        return await self._synthesis_provider.synthesize_speech(
-            SpeechRequest(
-                text=text.strip(),
-                voice=active_agent.tts_voice,
-                request_id=request_id,
-            )
+        return await run_with_stage_timeout(
+            self._synthesis_provider.synthesize_speech(
+                SpeechRequest(
+                    text=text.strip(),
+                    voice=active_agent.tts_voice,
+                    request_id=request_id,
+                )
+            ),
+            seconds=self._execution_policy.tts_timeout_seconds,
+            stage="tts",
         )

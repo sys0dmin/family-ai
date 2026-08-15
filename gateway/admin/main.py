@@ -98,6 +98,10 @@ class SettingsResponse(BaseModel):
     has_acrcloud_access_secret: bool
     acrcloud_access_secret_preview: str
     music_recognition_timeout_seconds: float
+    voice_max_in_flight: int
+    voice_stt_timeout_seconds: float
+    voice_llm_timeout_seconds: float
+    voice_tts_timeout_seconds: float
     must_change_password: bool
 
 
@@ -137,6 +141,10 @@ class SettingsUpdateRequest(BaseModel):
     acrcloud_access_key: str | None = Field(default=None, max_length=500)
     acrcloud_access_secret: str | None = Field(default=None, max_length=500)
     music_recognition_timeout_seconds: float = Field(default=8.0, ge=1, le=30)
+    voice_max_in_flight: int = Field(default=2, ge=1, le=8)
+    voice_stt_timeout_seconds: float = Field(default=35.0, ge=5, le=120)
+    voice_llm_timeout_seconds: float = Field(default=20.0, ge=5, le=120)
+    voice_tts_timeout_seconds: float = Field(default=30.0, ge=5, le=120)
 
     @field_validator("*", mode="before")
     @classmethod
@@ -321,6 +329,10 @@ def _settings_response(settings: Any) -> SettingsResponse:
         has_acrcloud_access_secret=bool(acrcloud_access_secret),
         acrcloud_access_secret_preview=_mask_secret(acrcloud_access_secret),
         music_recognition_timeout_seconds=settings.music_recognition_timeout_seconds,
+        voice_max_in_flight=settings.voice_max_in_flight,
+        voice_stt_timeout_seconds=settings.voice_stt_timeout_seconds,
+        voice_llm_timeout_seconds=settings.voice_llm_timeout_seconds,
+        voice_tts_timeout_seconds=settings.voice_tts_timeout_seconds,
         must_change_password=_must_change_password(settings),
     )
 
@@ -385,6 +397,10 @@ def _settings_updates(payload: SettingsUpdateRequest) -> dict[str, str]:
         "FAMILY_AI_MUSIC_RECOGNITION_TIMEOUT_SECONDS": str(
             payload.music_recognition_timeout_seconds
         ),
+        "FAMILY_AI_VOICE_MAX_IN_FLIGHT": str(payload.voice_max_in_flight),
+        "FAMILY_AI_VOICE_STT_TIMEOUT_SECONDS": str(payload.voice_stt_timeout_seconds),
+        "FAMILY_AI_VOICE_LLM_TIMEOUT_SECONDS": str(payload.voice_llm_timeout_seconds),
+        "FAMILY_AI_VOICE_TTS_TIMEOUT_SECONDS": str(payload.voice_tts_timeout_seconds),
     }
 
     if payload.openai_api_key and payload.openai_api_key.strip():

@@ -317,6 +317,10 @@ Vision-агенту, текстовый и голосовой диалог.
   запись, restart и readiness-check. При ошибке Gateway возвращается к прежним
   managed-значениям, не затрагивая БД, пароль Admin и monitoring. Подробности —
   в [`docs/runtime-configuration.md`](docs/runtime-configuration.md).
+- Voice защищён общим лимитом одновременных turn, повторной отправкой
+  `X-Request-ID` и отдельными бюджетами STT/LLM/TTS. Параметры доступны через
+  безопасный Admin lifecycle, а эксплуатационная проверка описана в
+  [`docs/voice-load-control.md`](docs/voice-load-control.md).
 - Полное восстановление трёх чистых VM и перенос доступной старой PostgreSQL
   описаны в [`docs/disaster-recovery.md`](docs/disaster-recovery.md); критерии
   fire drill находятся в
