@@ -298,6 +298,20 @@
           <div><div class="card-kicker">Project runtime</div><h2 id="infrastructure-title">Проверяем инфраструктуру…</h2><p id="infrastructure-subtitle">Gateway · Database · Speech · PostgreSQL</p></div>
           <div class="health-orb" id="infrastructure-orb"><strong id="infrastructure-orb-label">Scan</strong></div>
         </div>
+        <article class="panel release-passport-panel">
+          <div class="panel-head">
+            <div><div class="card-kicker">Release passport</div><h2>Что реально запущено</h2><p class="muted">Коммиты, схема БД и обезличенная версия приложения.</p></div>
+            <span id="release-passport-status" class="health-pill">Проверяем…</span>
+          </div>
+          <div class="release-passport-grid">
+            <section class="release-identity" id="release-gateway"><div class="release-identity-head"><strong>Gateway</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">—</span><code data-field="commit">—</code><small data-field="detail">Ожидаем данные</small></section>
+            <section class="release-identity" id="release-speech"><div class="release-identity-head"><strong>Speech</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">—</span><code data-field="commit">—</code><small data-field="detail">Ожидаем данные</small></section>
+            <section class="release-identity" id="release-database"><div class="release-identity-head"><strong>PostgreSQL schema</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">Alembic</span><code data-field="commit">—</code><small data-field="detail">Ожидаем данные</small></section>
+            <section class="release-identity" id="release-android"><div class="release-identity-head"><strong>Android</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">—</span><code data-field="commit">—</code><small data-field="detail">Последняя замеченная сборка</small></section>
+            <section class="release-identity release-configuration" id="release-configuration"><div class="release-identity-head"><strong>Конфигурация</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">Без секретов</span><code data-field="commit">—</code><small data-field="detail">SHA-256 effective config</small></section>
+          </div>
+          <div class="ops-footnote" id="release-passport-checked">Ожидаем снимок паспорта</div>
+        </article>
         <article class="panel operational-alert-panel">
           <div class="panel-head compact">
             <div><div class="card-kicker">Local watch</div><h2>Эксплуатационные предупреждения</h2><p class="muted">Только технические события внутри Family AI.</p></div>

@@ -172,6 +172,71 @@ export function createInfrastructureScreen() {
       confidence == null ? "—" : `${Math.round(confidence * 100)}%`;
   }
 
+  function shortCommit(value) {
+    return value ? value.slice(0, 8) : "—";
+  }
+
+  function passportLabel(status) {
+    return {
+      aligned: "Совпадает",
+      drift: "Drift",
+      unavailable: "Нет данных",
+      observed: "Замечен"
+    }[status] || status;
+  }
+
+  function setPassportStatus(element, status) {
+    const visual = status === "aligned" || status === "observed"
+      ? "healthy"
+      : status === "drift" ? "down" : "unconfigured";
+    element.className = `health-pill ${visual}`;
+    element.textContent = passportLabel(status);
+  }
+
+  function renderComponentRelease(id, component) {
+    const card = byId(id);
+    setPassportStatus(card.querySelector('[data-field="status"]'), component.status);
+    card.querySelector('[data-field="version"]').textContent =
+      component.app_version ? `API ${component.app_version}` : "Версия неизвестна";
+    card.querySelector('[data-field="commit"]').textContent = shortCommit(component.actual_commit);
+    card.querySelector('[data-field="commit"]').title = component.actual_commit || "";
+    card.querySelector('[data-field="detail"]').textContent = component.expected_commit
+      ? `Ожидается ${shortCommit(component.expected_commit)} · uptime ${formatDuration(component.uptime_seconds)}`
+      : `Ожидаемый commit недоступен · uptime ${formatDuration(component.uptime_seconds)}`;
+  }
+
+  function renderReleasePassport(data) {
+    setPassportStatus(byId("release-passport-status"), data.status);
+    renderComponentRelease("release-gateway", data.gateway);
+    renderComponentRelease("release-speech", data.speech);
+
+    const database = byId("release-database");
+    setPassportStatus(database.querySelector('[data-field="status"]'), data.database.status);
+    database.querySelector('[data-field="commit"]').textContent = data.database.current_revision || "—";
+    database.querySelector('[data-field="detail"]').textContent =
+      `Code head: ${data.database.code_head || "недоступен"}`;
+
+    const android = byId("release-android");
+    setPassportStatus(android.querySelector('[data-field="status"]'), data.android.status);
+    android.querySelector('[data-field="version"]').textContent = data.android.version || "Приложение ещё не подключалось";
+    android.querySelector('[data-field="commit"]').textContent = shortCommit(data.android.source_commit);
+    android.querySelector('[data-field="detail"]').textContent = data.android.observed_at
+      ? `Замечен ${formatDateTime(data.android.observed_at)}`
+      : "Появится после первого запроса из release APK";
+
+    const configuration = byId("release-configuration");
+    setPassportStatus(configuration.querySelector('[data-field="status"]'), data.configuration.status);
+    const fingerprint = configuration.querySelector('[data-field="commit"]');
+    fingerprint.textContent = data.configuration.fingerprint || "—";
+    fingerprint.title = data.configuration.fingerprint || "";
+    configuration.querySelector('[data-field="detail"]').textContent =
+      data.configuration.fingerprint
+        ? "Показан необратимый fingerprint без ключей и значений"
+        : "Runtime fingerprint недоступен";
+    byId("release-passport-checked").textContent =
+      `Паспорт проверен: ${formatDateTime(data.checked_at)}`;
+  }
+
   function alertTime(alert) {
     const start = formatDateTime(alert.first_seen_at);
     return alert.resolved_at
@@ -358,11 +423,15 @@ export function createInfrastructureScreen() {
     const status = byId("infrastructure-status");
     setStatus(status, "Собираем метрики…", "warn");
     try {
-      const overview = await api("/api/infrastructure/scan", { method: "POST" });
+      const [overview, passport] = await Promise.all([
+        api("/api/infrastructure/scan", { method: "POST" }),
+        api("/api/infrastructure/release-passport")
+      ]);
       const data = overview.infrastructure;
       render(data);
       renderVoiceObservability(overview.voice);
       renderAlerts(overview.alerts, data.status);
+      renderReleasePassport(passport);
       await loadDiagnosticTraces();
       const hasAlerts = overview.alerts.active.length > 0;
       setStatus(

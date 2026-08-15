@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     operational_voice_error_streak_critical: int = Field(default=5, ge=1, le=100)
     operational_alert_history_days: int = Field(default=30, ge=1, le=365)
     gateway_voice_metrics_url: str | None = "http://127.0.0.1:8000/internal/voice-metrics"
+    gateway_runtime_identity_url: str | None = (
+        "http://127.0.0.1:8000/internal/runtime-identity"
+    )
     gateway_safety_policy_url: str | None = (
         "http://127.0.0.1:8000/internal/safety-policy"
     )

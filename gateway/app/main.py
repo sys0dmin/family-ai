@@ -2,11 +2,12 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from gateway.app.config import get_settings
+from gateway.app.observability.runtime_identity import client_build_registry
 from gateway.app.routers.activities import router as activities_router
 from gateway.app.routers.agents import router as agents_router
 from gateway.app.routers.calibration import router as calibration_router
@@ -31,6 +32,14 @@ def create_app() -> FastAPI:
 
     static_dir = Path(__file__).resolve().parents[1] / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    @app.middleware("http")
+    async def observe_client_build(request: Request, call_next):
+        client_build_registry.observe(
+            request.headers.get("X-Family-AI-App-Version"),
+            request.headers.get("X-Family-AI-App-Commit"),
+        )
+        return await call_next(request)
 
     @app.get("/")
     async def read_index() -> FileResponse:

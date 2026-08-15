@@ -51,6 +51,16 @@ class StageRuntimeMetrics(BaseModel):
     last_queue_wait_ms: float | None
 
 
+class RuntimeIdentityResponse(BaseModel):
+    """Content-free immutable release identity."""
+
+    component: Literal["speech"]
+    app_version: str
+    actual_commit: str | None
+    expected_commit: str | None
+    matches_expected: bool | None
+
+
 class SpeechRuntimeMetricsResponse(BaseModel):
     """Current queue and inference statistics without audio or text."""
 
@@ -60,6 +70,7 @@ class SpeechRuntimeMetricsResponse(BaseModel):
     active_stage: Literal["stt", "tts"] | None
     stt: StageRuntimeMetrics
     tts: StageRuntimeMetrics
+    runtime: RuntimeIdentityResponse | None = None
 
 
 class CalibrationPrompt(BaseModel):

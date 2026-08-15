@@ -12,6 +12,8 @@ void main() {
       serverAddress: ServerAddress.parse('192.168.31.173:8000'),
       httpClient: MockClient((request) async {
         expect(request.url.path, '/healthz');
+        expect(request.headers['X-Family-AI-App-Version'], 'development');
+        expect(request.headers['X-Family-AI-App-Commit'], 'development');
         return http.Response(
           jsonEncode({'status': 'ok', 'service': 'ai-gateway'}),
           200,

@@ -281,6 +281,8 @@ def test_internal_metrics_require_bearer_token() -> None:
     assert denied.status_code == 401
     assert allowed.status_code == 200
     assert allowed.json()["queue_depth"] == 0
+    assert allowed.json()["runtime"]["component"] == "speech"
+    assert allowed.json()["runtime"]["app_version"] == "0.1.0"
 
 
 def test_transcription_rejects_oversized_audio() -> None:

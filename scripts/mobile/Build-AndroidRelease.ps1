@@ -122,6 +122,15 @@ try {
         [Text.UTF8Encoding]::new($false)
     )
 
+    $VersionLine = Get-Content `
+        -LiteralPath (Join-Path $MobileRoot "pubspec.yaml") |
+        Where-Object { $_ -match "^version:\s*(\S+)\s*$" } |
+        Select-Object -First 1
+    if ($VersionLine -notmatch "^version:\s*(\S+)\s*$") {
+        throw "Cannot determine Android version from pubspec.yaml"
+    }
+    $Version = $Matches[1]
+
     $PreviousEnvironment = @{
         ANDROID_HOME = $env:ANDROID_HOME
         ANDROID_SDK_ROOT = $env:ANDROID_SDK_ROOT
@@ -146,7 +155,11 @@ try {
             Invoke-Native $Flutter @(
                 "test", "test/visual/mobile_visual_test.dart"
             )
-            Invoke-Native $Flutter @("build", "apk", "--release")
+            Invoke-Native $Flutter @(
+                "build", "apk", "--release",
+                "--dart-define=FAMILY_AI_APP_VERSION=$Version",
+                "--dart-define=FAMILY_AI_SOURCE_COMMIT=$ResolvedCommit"
+            )
         } finally {
             Pop-Location
         }
@@ -168,14 +181,6 @@ try {
         throw "Flutter did not create the expected release APK"
     }
 
-    $VersionLine = Get-Content `
-        -LiteralPath (Join-Path $MobileRoot "pubspec.yaml") |
-        Where-Object { $_ -match "^version:\s*(\S+)\s*$" } |
-        Select-Object -First 1
-    if ($VersionLine -notmatch "^version:\s*(\S+)\s*$") {
-        throw "Cannot determine Android version from pubspec.yaml"
-    }
-    $Version = $Matches[1]
     $ShortCommit = $ResolvedCommit.Substring(0, 8)
     $ArtifactName = "family-ai-$Version-$ShortCommit-release.apk"
     $ArtifactPath = Join-Path $ResolvedOutputDirectory $ArtifactName

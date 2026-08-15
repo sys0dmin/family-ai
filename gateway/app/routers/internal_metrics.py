@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from gateway.app.config import Settings, get_settings
+from gateway.app.observability.runtime_identity import runtime_identity
 from gateway.app.observability.voice_metrics import voice_metrics_registry
 from gateway.app.safety.metrics import safety_metrics_registry
 from gateway.app.safety.reporting import policy_snapshot, scenario_report
@@ -30,6 +31,17 @@ async def voice_metrics(
         max_in_flight=settings.voice_max_in_flight
     )
     return snapshot
+
+
+@router.get("/runtime-identity")
+async def get_runtime_identity(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    """Expose release identity only to the colocated Admin process."""
+
+    _require_loopback(request)
+    return runtime_identity(settings)
 
 
 @router.get("/safety-policy")

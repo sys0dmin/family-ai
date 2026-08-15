@@ -40,6 +40,12 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="operational-self-test"' in response.text
     assert 'id="diagnostic-trace-list"' in response.text
     assert 'id="diagnostic-bundle-export"' in response.text
+    assert 'id="release-passport-status"' in response.text
+    assert 'id="release-gateway"' in response.text
+    assert 'id="release-speech"' in response.text
+    assert 'id="release-database"' in response.text
+    assert 'id="release-android"' in response.text
+    assert 'id="release-configuration"' in response.text
     assert 'id="history-card"' in response.text
     assert 'id="quality-feedback-total"' in response.text
     assert 'id="feedback-dialog"' in response.text
@@ -109,6 +115,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert "/alerts/self-test" in infrastructure.text
     assert "/api/diagnostics/traces" in infrastructure.text
     assert "/api/diagnostics/bundle" in infrastructure.text
+    assert "/api/infrastructure/release-passport" in infrastructure.text
     assert "/api/settings/preview" in app.text
     assert "/api/settings/revisions" in app.text
     assert quality.status_code == 200

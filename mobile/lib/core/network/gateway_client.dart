@@ -31,6 +31,14 @@ class SpeechAudio {
 
 class GatewayClient implements ConversationGateway {
   static final Random _secureRandom = Random.secure();
+  static const String _appVersion = String.fromEnvironment(
+    'FAMILY_AI_APP_VERSION',
+    defaultValue: 'development',
+  );
+  static const String _sourceCommit = String.fromEnvironment(
+    'FAMILY_AI_SOURCE_COMMIT',
+    defaultValue: 'development',
+  );
 
   static String _newRequestId() {
     final bytes = List<int>.generate(16, (_) => _secureRandom.nextInt(256));
@@ -43,9 +51,15 @@ class GatewayClient implements ConversationGateway {
         '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
   }
 
-  static Map<String, String> _traceHeaders({bool json = false}) => {
-    'X-Request-ID': _newRequestId(),
+  static Map<String, String> _identityHeaders({bool json = false}) => {
+    'X-Family-AI-App-Version': _appVersion,
+    'X-Family-AI-App-Commit': _sourceCommit,
     if (json) 'Content-Type': 'application/json',
+  };
+
+  static Map<String, String> _traceHeaders({bool json = false}) => {
+    ..._identityHeaders(json: json),
+    'X-Request-ID': _newRequestId(),
   };
   factory GatewayClient({
     required ServerAddress serverAddress,
@@ -159,7 +173,10 @@ class GatewayClient implements ConversationGateway {
   Future<ActiveCalibration> getActiveCalibration() async {
     try {
       final response = await _httpClient
-          .get(serverAddress.resolve('/v1/stt-calibration/active'))
+          .get(
+            serverAddress.resolve('/v1/stt-calibration/active'),
+            headers: _identityHeaders(),
+          )
           .timeout(timeout);
       if (response.statusCode == 404) {
         return const ActiveCalibration.inactive();
@@ -195,6 +212,7 @@ class GatewayClient implements ConversationGateway {
       'POST',
       serverAddress.resolve('/v1/stt-calibration/$sessionId/samples/$promptId'),
     );
+    request.headers.addAll(_identityHeaders());
     request.files.add(
       http.MultipartFile.fromBytes(
         'file',
@@ -549,7 +567,10 @@ class GatewayClient implements ConversationGateway {
   Future<void> cancelVoiceStream(String turnId) async {
     try {
       await _httpClient
-          .delete(serverAddress.resolve('/v1/voice/streams/$turnId'))
+          .delete(
+            serverAddress.resolve('/v1/voice/streams/$turnId'),
+            headers: _identityHeaders(),
+          )
           .timeout(timeout);
     } catch (_) {
       // Cancellation is best effort; the local player already stopped.
@@ -701,7 +722,9 @@ class GatewayClient implements ConversationGateway {
 
   Future<http.Response> _get(Uri uri) async {
     try {
-      final response = await _httpClient.get(uri).timeout(timeout);
+      final response = await _httpClient
+          .get(uri, headers: _identityHeaders())
+          .timeout(timeout);
       return _requireSuccess(response);
     } on GatewayException {
       rethrow;

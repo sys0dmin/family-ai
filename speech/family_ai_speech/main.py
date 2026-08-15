@@ -18,6 +18,7 @@ from family_ai_speech.calibration import (
     CalibrationNotFoundError,
 )
 from family_ai_speech.config import SpeechSettings
+from family_ai_speech.runtime_identity import runtime_identity
 from family_ai_speech.runtime_settings import (
     RuntimeSettingsApplyError,
     SpeechRuntimeSettingsManager,
@@ -153,7 +154,9 @@ def create_app(
     async def runtime_metrics(
         speech_service: LocalSpeechService = Depends(get_service),
     ) -> SpeechRuntimeMetricsResponse:
-        return speech_service.metrics_snapshot()
+        return speech_service.metrics_snapshot().model_copy(
+            update={"runtime": runtime_identity()}
+        )
 
     @app.post(
         "/v1/audio/transcriptions",

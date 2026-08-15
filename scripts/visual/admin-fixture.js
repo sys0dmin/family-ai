@@ -175,6 +175,31 @@ function fillInfrastructure() {
   setText("pipeline-cancellations", "0");
   setText("pipeline-chunks", "3");
   setText("pipeline-confidence", "91%");
+  setText("release-passport-status", "Совпадает");
+  document.getElementById("release-passport-status").className = "health-pill healthy";
+  for (const id of ["release-gateway", "release-speech"]) {
+    const card = document.getElementById(id);
+    card.querySelector('[data-field="status"]').textContent = "Совпадает";
+    card.querySelector('[data-field="status"]').className = "health-pill healthy";
+    card.querySelector('[data-field="version"]').textContent = "API 0.1.0";
+    card.querySelector('[data-field="commit"]').textContent = id === "release-gateway" ? "9299329f" : "e11457aa";
+    card.querySelector('[data-field="detail"]').textContent = "Ожидаемый commit совпадает · uptime 12 д 4 ч";
+  }
+  const databaseRelease = document.getElementById("release-database");
+  databaseRelease.querySelector('[data-field="status"]').textContent = "Совпадает";
+  databaseRelease.querySelector('[data-field="status"]').className = "health-pill healthy";
+  databaseRelease.querySelector('[data-field="commit"]').textContent = "018_add_operational_alerts";
+  databaseRelease.querySelector('[data-field="detail"]').textContent = "Code head: 018_add_operational_alerts";
+  const androidRelease = document.getElementById("release-android");
+  androidRelease.querySelector('[data-field="status"]').textContent = "Замечен";
+  androidRelease.querySelector('[data-field="status"]').className = "health-pill healthy";
+  androidRelease.querySelector('[data-field="version"]').textContent = "1.6.0+8";
+  androidRelease.querySelector('[data-field="commit"]').textContent = "a248c76a";
+  const configRelease = document.getElementById("release-configuration");
+  configRelease.querySelector('[data-field="status"]').textContent = "Совпадает";
+  configRelease.querySelector('[data-field="status"]').className = "health-pill healthy";
+  configRelease.querySelector('[data-field="commit"]').textContent = "9d4e72c1d4b8…";
+  setText("release-passport-checked", "Паспорт проверен: 15.08.2026, 16:30");
   setText("infrastructure-checked", "Последняя проверка: 02.08.2026, 12:00");
 }
 

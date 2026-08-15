@@ -708,6 +708,15 @@
     .operational-history summary span { margin-left:6px; color:var(--muted); }
     .operational-history-list { padding-top:10px; }
     .diagnostic-trace-panel { margin-bottom:18px; }
+    .release-passport-panel { margin-bottom:18px; padding:22px; }
+    .release-passport-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-top:16px; }
+    .release-identity { min-width:0; padding:15px; border:1px solid var(--line); border-radius:16px; background:var(--surface-soft); }
+    .release-identity-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .release-identity > span, .release-identity > code, .release-identity > small { display:block; margin-top:9px; }
+    .release-identity > span { color:var(--muted-strong); font-size:12px; }
+    .release-identity > code { overflow:hidden; color:var(--cyan); font:700 13px ui-monospace,SFMono-Regular,Consolas,monospace; text-overflow:ellipsis; white-space:nowrap; }
+    .release-identity > small { color:var(--muted); line-height:1.4; overflow-wrap:anywhere; }
+    .release-configuration { grid-column:span 2; }
     .diagnostic-trace-list { display:flex; flex-direction:column; gap:10px; }
     .diagnostic-trace { padding:14px 15px; border:1px solid rgba(255,111,125,.22); border-radius:15px; background:rgba(255,111,125,.035); }
     .diagnostic-trace-heading { display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:11px; flex-wrap:wrap; }
@@ -896,6 +905,7 @@
       .regression-case-head .card-actions { width:100%; }
       .safety-overview { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .pipeline-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .release-passport-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
     @media (max-width: 520px) {
       .panel-head > .panel-actions { width:100%; margin-left:0; justify-content:stretch; }
@@ -911,4 +921,6 @@
       .operational-ack { width:100%; }
       .operational-alert-actions { width:100%; margin-left:0; align-items:stretch; flex-direction:column; }
       .operational-alert-actions > * { width:100%; flex:1 1 auto; }
+      .release-passport-grid { grid-template-columns:1fr; }
+      .release-configuration { grid-column:auto; }
     }

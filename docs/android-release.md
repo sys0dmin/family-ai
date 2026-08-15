@@ -63,6 +63,12 @@ git fetch origin
 6. создаёт APK, `.sha256` и JSON manifest;
 7. удаляет временный source tree даже после ошибки.
 
+Во время build скрипт также встраивает version и полный source commit через
+compile-time Dart definitions. Release-приложение передаёт эту build-wide
+identity Gateway без device ID; последняя замеченная сборка видна в
+Admin-паспорте. Подробности — в
+[`release-passport.md`](release-passport.md).
+
 Результат находится в `.artifacts\android` и не добавляется в Git. JSON manifest
 фиксирует commit, версию, SHA-256 APK и fingerprint сертификата.
 
