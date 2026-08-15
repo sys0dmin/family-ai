@@ -103,11 +103,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
 ```text
 FAMILY_AI_ADMIN_ENV_FILE=/etc/family-ai/gateway.env
 FAMILY_AI_ADMIN_CONFIG_HISTORY_DIR=/var/lib/family-ai-config/gateway
-ReadWritePaths=/etc/family-ai/gateway.env /var/lib/family-ai-config/gateway
+ReadWritePaths=/etc/family-ai /var/lib/family-ai-config/gateway
 ```
 
 Произвольная команда от веб-процесса не выполняется. Sudoers по-прежнему разрешает
 только точный restart известной Gateway-службы.
+
+Для атомарного `rename(2)` Gateway-каталог `/etc/family-ai` принадлежит
+`root:familyai-deploy` и имеет режим `0770`. Systemd делает его writable только
+в sandbox Admin unit. На Gateway-хосте каталог предназначен для управляемого
+`gateway.env`; Speech-конфигурация находится на отдельном Speech-хосте.
 
 ## Проверка
 

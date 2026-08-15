@@ -60,5 +60,8 @@ previous validated beam/VAD values if restart verification fails.
   environment; revision history is operational convenience, not a backup.
 - Provider secrets exist in protected host-local revision files, so directory
   ownership and `0600` permissions are part of the deployment contract.
+- Atomic replacement requires write permission on `/etc/family-ai`, not only on
+  the target file. On the Gateway host the directory is `root:familyai-deploy`
+  `0770` and writable only inside the Admin systemd sandbox.
 - Provider correctness beyond process readiness is still checked by Test Studio
   and the release smoke-test; apply does not make paid LLM/TTS/STT calls.

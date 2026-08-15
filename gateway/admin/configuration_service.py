@@ -120,7 +120,14 @@ class GatewayConfigurationService:
                 managed_values=candidate,
                 changes=changes,
             )
-            self._write_env_atomic(candidate_text)
+            try:
+                self._write_env_atomic(candidate_text)
+            except OSError as exc:
+                failed = revision.model_copy(update={"status": "rolled_back"})
+                self._persist_revision(failed, candidate, store_snapshot=False)
+                raise ConfigurationApplyError(
+                    "Gateway configuration could not be persisted"
+                ) from exc
             try:
                 self._system_service.restart_gateway_verified()
             except GatewayRestartError as exc:
@@ -179,7 +186,14 @@ class GatewayConfigurationService:
                 changes=changes,
                 source_revision_id=revision_id,
             )
-            self._write_env_atomic(candidate_text)
+            try:
+                self._write_env_atomic(candidate_text)
+            except OSError as exc:
+                failed = applied.model_copy(update={"status": "rolled_back"})
+                self._persist_revision(failed, candidate, store_snapshot=False)
+                raise ConfigurationApplyError(
+                    "Gateway configuration could not be persisted"
+                ) from exc
             try:
                 self._system_service.restart_gateway_verified()
             except GatewayRestartError as exc:
@@ -300,7 +314,10 @@ class GatewayConfigurationService:
             temporary.chmod(0o600)
             temporary.replace(self._env_path)
         finally:
-            temporary.unlink(missing_ok=True)
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def _restore_full_env(self, previous: bytes | None) -> None:
         if previous is None:

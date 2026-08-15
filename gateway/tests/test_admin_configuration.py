@@ -216,6 +216,26 @@ def test_failed_apply_restores_previous_file_and_records_attempt(tmp_path: Path)
     assert any(item.status == "active" for item in service.list_revisions())
 
 
+def test_environment_write_failure_is_reported_without_restart(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, env_path, _history, restarter = _service(tmp_path)
+    before = env_path.read_bytes()
+
+    def reject_write(_content: str) -> None:
+        raise OSError("read-only")
+
+    monkeypatch.setattr(service, "_write_env_atomic", reject_write)
+
+    with pytest.raises(ConfigurationApplyError, match="persisted"):
+        service.apply({"FAMILY_AI_OPENAI_MODEL": "model-b"}, actor="admin")
+
+    assert env_path.read_bytes() == before
+    assert restarter.calls == 0
+    assert any(item.status == "rolled_back" for item in service.list_revisions())
+
+
 def test_admin_settings_reload_values_from_authoritative_env_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

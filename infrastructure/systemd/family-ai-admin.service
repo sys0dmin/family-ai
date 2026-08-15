@@ -19,7 +19,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=read-only
-ReadWritePaths=/etc/family-ai/gateway.env /var/lib/family-ai-config/gateway
+ReadWritePaths=/etc/family-ai /var/lib/family-ai-config/gateway
 
 [Install]
 WantedBy=multi-user.target

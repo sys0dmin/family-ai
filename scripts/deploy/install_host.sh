@@ -25,6 +25,8 @@ install_unit() {
 
 case "$COMPONENT" in
   gateway)
+    chown root:"$DEPLOY_USER" /etc/family-ai
+    chmod 0770 /etc/family-ai
     install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 \
       /var/lib/family-ai-config \
       /var/lib/family-ai-config/gateway
