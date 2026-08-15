@@ -45,3 +45,20 @@ def test_speech_archive_has_component_as_its_root(tmp_path: Path) -> None:
     assert "pyproject.toml" in names
     assert "uv.lock" in names
     assert not any(name.startswith("speech/") for name in names)
+
+
+def test_gateway_admin_restart_contract_is_fixed_and_unprivileged() -> None:
+    admin_unit = (
+        REPOSITORY / "infrastructure/systemd/family-ai-admin.service"
+    ).read_text(encoding="utf-8")
+    restart_unit = (
+        REPOSITORY / "infrastructure/systemd/family-ai-gateway-admin.service"
+    ).read_text(encoding="utf-8")
+    restart_script = (
+        REPOSITORY / "scripts/gateway/apply-admin-restart.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "NoNewPrivileges=true" in admin_unit
+    assert "NoNewPrivileges=true" in restart_unit
+    assert "/usr/bin/systemctl restart family-ai-gateway.service" in restart_script
+    assert "$1" not in restart_script

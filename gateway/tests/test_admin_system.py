@@ -1,5 +1,6 @@
 """Tests for narrowly scoped operational actions in the admin panel."""
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -28,8 +29,15 @@ class FailedSystemService:
         raise GatewayRestartError("rejected")
 
 
-def test_system_service_uses_only_fixed_non_shell_commands(monkeypatch) -> None:
+def test_system_service_uses_nonce_request_without_privileged_command(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     calls: list[tuple[str, ...]] = []
+    request_path = tmp_path / "restart.request"
+    ack_path = tmp_path / "restart.ack"
+    nonce = "a" * 32
+    ack_path.write_text(nonce + "\n", encoding="ascii")
 
     def fake_run(
         command: tuple[str, ...],
@@ -45,18 +53,19 @@ def test_system_service_uses_only_fixed_non_shell_commands(monkeypatch) -> None:
         "gateway.admin.system_service.subprocess.run",
         fake_run,
     )
+    monkeypatch.setattr(
+        "gateway.admin.system_service.secrets.token_hex",
+        lambda _size: nonce,
+    )
 
-    result = GatewaySystemService().restart_gateway()
+    result = GatewaySystemService(
+        request_path=request_path,
+        ack_path=ack_path,
+    ).restart_gateway()
 
     assert result.active
+    assert request_path.read_text(encoding="ascii") == nonce + "\n"
     assert calls == [
-        (
-            "/usr/bin/sudo",
-            "-n",
-            "/usr/bin/systemctl",
-            "restart",
-            "family-ai-gateway.service",
-        ),
         (
             "/usr/bin/systemctl",
             "is-active",
@@ -64,6 +73,19 @@ def test_system_service_uses_only_fixed_non_shell_commands(monkeypatch) -> None:
             "family-ai-gateway.service",
         ),
     ]
+
+
+def test_system_service_rejects_missing_acknowledgement(tmp_path: Path) -> None:
+    service = GatewaySystemService(
+        request_path=tmp_path / "restart.request",
+        ack_path=tmp_path / "restart.ack",
+    )
+
+    with pytest.raises(
+        GatewayRestartError,
+        match="acknowledgement timed out",
+    ):
+        service._wait_for_ack("a" * 32, timeout_seconds=0)
 
 
 def test_verified_restart_waits_for_loopback_gateway_health(monkeypatch) -> None:

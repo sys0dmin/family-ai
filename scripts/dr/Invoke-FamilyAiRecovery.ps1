@@ -360,14 +360,6 @@ try {
         -IdentityFile $IdentityFile
     if ($LASTEXITCODE -ne 0) { throw "Gateway activation failed" }
 
-    Copy-ToRemote `
-        (Join-Path $RepoRoot "infrastructure\sudoers\family-ai-admin") `
-        $GatewayHost `
-        $SshUser `
-        "/tmp/family-ai-admin.sudoers"
-    Invoke-Remote $GatewayHost $SshUser `
-        "sudo install -o root -g root -m 0440 /tmp/family-ai-admin.sudoers /etc/sudoers.d/family-ai-admin && sudo visudo -cf /etc/sudoers.d/family-ai-admin >/dev/null && rm -f /tmp/family-ai-admin.sudoers"
-
     Invoke-Remote $GatewayHost $SshUser `
         "timeout 90 bash -c 'until curl --silent --fail http://127.0.0.1:8000/healthz >/dev/null && curl --silent --fail http://127.0.0.1:8001/api/healthz >/dev/null; do sleep 2; done'"
     Invoke-Remote $SpeechHost $SshUser `

@@ -1,46 +1,22 @@
-# Контролируемый перезапуск Gateway из админки
+# Controlled Gateway restart from Admin
 
 ## Status
 
-Accepted
+Superseded by [ADR 039](039-root-mediated-gateway-restart.md)
 
 ## Context
 
-Родителю-администратору нужен явный способ перезапустить AI Gateway после
-операционных изменений. Admin UI и Gateway работают отдельными systemd-службами
-от непривилегированного пользователя `familyai-deploy`. Выдавать веб-процессу
-общий root-доступ или возможность выполнять произвольные команды нельзя.
+Admin needs a narrow way to restart the child-facing Gateway after an
+operational configuration change. The original implementation invoked one
+fixed `sudo systemctl restart family-ai-gateway.service` command.
 
 ## Decision
 
-Добавить защищённый endpoint `POST /api/system/gateway/restart`. Он вызывает
-фиксированный список аргументов без shell:
-
-```text
-/usr/bin/sudo -n /usr/bin/systemctl restart family-ai-gateway.service
-```
-
-Файл `infrastructure/sudoers/family-ai-admin` разрешает пользователю
-`familyai-deploy` без пароля только эту точную команду. Имя службы и аргументы
-не принимаются от браузера. Ошибки команды журналируются без вывода stderr в
-API-ответ.
-
-Кнопка требует подтверждения, потому что перезапуск может прервать текущий
-текстовый или голосовой запрос. Admin UI остаётся доступным, так как работает
-отдельной службой.
-
-## Alternatives
-
-- Общий `sudo` для пользователя службы: отклонён из-за избыточных привилегий.
-- Выполнение строки через shell: отклонено из-за риска командной инъекции.
-- Перезапуск самой admin-службы: отклонён, потому что ответ HTTP оборвётся и
-  целевой runtime Gateway не будет обновлён.
-- Только ручной SSH: безопасно, но не решает задачу управления из админки.
+The original decision allowed only that exact command through a dedicated
+sudoers rule. It did not accept a service name or command from the browser.
 
 ## Consequences
 
-Положительные: одна операционная команда доступна из защищённой панели без
-общих root-прав; Gateway и Admin остаются независимыми службами.
-
-Отрицательные: на сервере требуется один раз установить и проверить отдельный
-файл sudoers; перезапуск может прервать активный запрос.
+The contract was narrow, but incompatible with the Admin unit's required
+`NoNewPrivileges=true` hardening. ADR 039 replaces it with a root-owned systemd
+path unit and removes the web process from the privilege-escalation path.

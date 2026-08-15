@@ -195,6 +195,10 @@ readiness-check и автоматическим возвратом. Это не 
 На Gateway-хосте `/etc/family-ai` имеет владельца `root:familyai-deploy` и режим
 `0770`: это требуется для атомарного создания и `rename` временного env-файла.
 Запись каталога доступна только Admin unit через явный `ReadWritePaths`.
+В этом же закрытом каталоге находятся одноразовые `restart.request` и
+`restart.ack`. Root-owned `family-ai-gateway-admin.path` запускает фиксированный
+helper только для `family-ai-gateway.service`; Admin не вызывает `sudo`, а его
+`NoNewPrivileges=true` не отключается.
 
 Скрипты не печатают содержимое env-файлов. В архив допускаются только явно
 перечисленные runtime-пути из Git commit; `.env`, `.git` и локальные файлы туда

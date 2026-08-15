@@ -106,8 +106,10 @@ FAMILY_AI_ADMIN_CONFIG_HISTORY_DIR=/var/lib/family-ai-config/gateway
 ReadWritePaths=/etc/family-ai /var/lib/family-ai-config/gateway
 ```
 
-Произвольная команда от веб-процесса не выполняется. Sudoers по-прежнему разрешает
-только точный restart известной Gateway-службы.
+Произвольная команда от веб-процесса не выполняется. Admin с
+`NoNewPrivileges=true` атомарно пишет одноразовый nonce в закрытый
+`restart.request`. Root-owned path unit перезапускает только известную
+Gateway-службу и подтверждает выполнение тем же nonce в `restart.ack`.
 
 Для атомарного `rename(2)` Gateway-каталог `/etc/family-ai` принадлежит
 `root:familyai-deploy` и имеет режим `0770`. Systemd делает его writable только
@@ -131,4 +133,5 @@ ReadWritePaths=/etc/family-ai /var/lib/family-ai-config/gateway
 5. вернуть baseline и убедиться, что Gateway снова готов;
 6. проверить «Тест-студию» для LLM/TTS/STT/Vision.
 
-Архитектурное решение: [ADR 038](adr/038-safe-runtime-configuration-lifecycle.md).
+Архитектурные решения: [ADR 038](adr/038-safe-runtime-configuration-lifecycle.md)
+и [ADR 039](adr/039-root-mediated-gateway-restart.md).

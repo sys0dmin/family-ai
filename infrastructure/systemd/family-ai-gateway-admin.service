@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply a fixed Family AI Gateway restart requested by Admin
+After=family-ai-gateway.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/family-ai-gateway-admin-restart
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/family-ai-config/gateway

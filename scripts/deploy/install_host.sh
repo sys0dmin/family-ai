@@ -50,10 +50,18 @@ case "$COMPONENT" in
     fi
     install_unit family-ai-gateway.service
     install_unit family-ai-admin.service
+    install_unit family-ai-gateway-admin.service
+    install_unit family-ai-gateway-admin.path
     install_unit family-ai-retention.service
     install_unit family-ai-retention.timer
+    install -o root -g root -m 0755 \
+      "$ASSETS/apply-admin-restart.sh" \
+      /usr/local/sbin/family-ai-gateway-admin-restart
+    rm -f /etc/sudoers.d/family-ai-admin
+    systemctl daemon-reload
     systemctl enable family-ai-gateway.service family-ai-admin.service \
-      family-ai-retention.timer >/dev/null
+      family-ai-gateway-admin.path family-ai-retention.timer >/dev/null
+    systemctl restart family-ai-gateway-admin.path
     ;;
   speech)
     [[ -f /etc/family-ai/speech.env ]] ||
@@ -68,6 +76,7 @@ case "$COMPONENT" in
       fi
     fi
     install_unit family-ai-speech.service
+    systemctl daemon-reload
     systemctl enable family-ai-speech.service >/dev/null
     ;;
   *)

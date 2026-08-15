@@ -325,18 +325,18 @@ sudo systemctl restart family-ai-admin
 sudo journalctl -u family-ai-admin -n 100 --no-pager
 ```
 
-Для кнопки перезапуска Gateway один раз установить узкое правило `sudoers`:
+Кнопка перезапуска Gateway не вызывает `sudo` из веб-процесса. Обычный deploy
+устанавливает root-owned `family-ai-gateway-admin.path` и фиксированный helper:
 
 ```bash
-sudo install -o root -g root -m 0440 \
-  infrastructure/sudoers/family-ai-admin \
-  /etc/sudoers.d/family-ai-admin
-sudo visudo -cf /etc/sudoers.d/family-ai-admin
+sudo systemctl status family-ai-gateway-admin.path
+sudo journalctl -u family-ai-gateway-admin.service -n 50 --no-pager
 ```
 
-Правило разрешает пользователю `familyai-deploy` только точную команду
-`systemctl restart family-ai-gateway.service`. Произвольные команды и другие
-службы через админку недоступны.
+Admin атомарно пишет одноразовый nonce в закрытый `restart.request`. Path unit
+перезапускает только `family-ai-gateway.service` и возвращает подтверждение с
+тем же nonce. Произвольные команды и другие службы через админку недоступны;
+`NoNewPrivileges=true` остаётся включённым.
 
 ### Управление Gateway через systemd
 

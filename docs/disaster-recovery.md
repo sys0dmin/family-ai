@@ -178,7 +178,7 @@ Orchestrator:
 5. подготавливает Gateway и Speech из указанного commit;
 6. выполняет `alembic upgrade head` на пустой БД;
 7. сначала запускает Speech, потом Gateway/Admin;
-8. устанавливает Speech admin-control и узкий Gateway sudoers;
+8. устанавливает Speech admin-control и root-owned Gateway restart path unit;
 9. проверяет три сервиса и Alembic;
 10. включает nftables для DB/Speech;
 11. повторно проверяет связность от Gateway;

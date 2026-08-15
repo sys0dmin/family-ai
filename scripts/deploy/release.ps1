@@ -43,6 +43,8 @@ function Install-HostContract {
         @(
             "family-ai-gateway.service",
             "family-ai-admin.service",
+            "family-ai-gateway-admin.service",
+            "family-ai-gateway-admin.path",
             "family-ai-retention.service",
             "family-ai-retention.timer"
         )
@@ -53,6 +55,12 @@ function Install-HostContract {
         Invoke-Native "scp" ($SshOptions + @(
             (Join-Path $RepoRoot "infrastructure\systemd\$Unit"),
             "$Remote`:$Bootstrap/$Unit"
+        ))
+    }
+    if ($Component -eq "gateway") {
+        Invoke-Native "scp" ($SshOptions + @(
+            (Join-Path $RepoRoot "scripts\gateway\apply-admin-restart.sh"),
+            "$Remote`:$Bootstrap/apply-admin-restart.sh"
         ))
     }
     Invoke-Native "ssh" ($SshOptions + @(
