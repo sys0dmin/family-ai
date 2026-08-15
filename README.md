@@ -307,6 +307,10 @@ Vision-агенту, текстовый и голосовой диалог.
 - Код запускается из неизменяемых релизов `/srv/family-ai/*/releases/<commit>`.
 - Сборка из точного Git commit, миграции, health-check, статус и rollback
   описаны в [`docs/deployment.md`](docs/deployment.md).
+- Настройки из Admin проходят redacted preview, локальную ревизию, атомарную
+  запись, restart и readiness-check. При ошибке Gateway возвращается к прежним
+  managed-значениям, не затрагивая БД, пароль Admin и monitoring. Подробности —
+  в [`docs/runtime-configuration.md`](docs/runtime-configuration.md).
 - Полное восстановление трёх чистых VM и перенос доступной старой PostgreSQL
   описаны в [`docs/disaster-recovery.md`](docs/disaster-recovery.md); критерии
   fire drill находятся в

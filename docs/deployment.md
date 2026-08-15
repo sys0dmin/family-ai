@@ -183,7 +183,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
 - `/etc/family-ai/speech.env` — основной Speech-конфиг;
 - `/var/lib/family-ai-speech/runtime.env` — управляемые из админки VAD/beam;
 - `/var/lib/family-ai-speech/models` — кеш моделей;
+- `/var/lib/family-ai-config/gateway` — последние 20 локальных ревизий только
+  управляемой части Gateway-конфигурации; каталог `0700`, файлы `0600`;
 - PostgreSQL — история и конфигурация агентов.
+
+Admin применяет runtime-настройки через безопасный lifecycle с redacted preview,
+readiness-check и автоматическим возвратом. Это не заменяет release rollback и не
+является резервной копией. Подробности — в
+[`runtime-configuration.md`](runtime-configuration.md).
 
 Скрипты не печатают содержимое env-файлов. В архив допускаются только явно
 перечисленные runtime-пути из Git commit; `.env`, `.git` и локальные файлы туда

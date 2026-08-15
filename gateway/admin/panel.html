@@ -145,8 +145,21 @@
             </div>
           </article>
         </div>
-        <div class="save-dock"><div><strong>Runtime configuration</strong><div id="summary" class="muted"></div><span id="save-status"></span></div><button id="save-btn" class="primary">Сохранить изменения</button></div>
+        <article class="panel config-lifecycle-panel">
+          <div class="panel-head"><div><div class="card-kicker">Safe apply</div><h2>История конфигурации</h2><p class="muted">Только управляемые параметры. Секреты в журнале не отображаются.</p></div><button id="config-revisions-reload" class="secondary">↻ Обновить</button></div>
+          <div id="config-revision-list" class="config-revision-list"><span class="muted">История ещё не загружена</span></div>
+        </article>
+        <div class="save-dock"><div><strong>Runtime configuration</strong><div id="summary" class="muted"></div><span id="save-status"></span></div><button id="save-btn" class="primary">Проверить и применить</button></div>
       </section>
+
+      <dialog id="config-preview-dialog" class="admin-dialog config-preview-dialog">
+        <form method="dialog" class="dialog-card">
+          <div class="panel-head"><div><div class="card-kicker">Validated diff</div><h2>Применить настройки?</h2></div><button value="cancel" class="icon-button" aria-label="Закрыть">×</button></div>
+          <p class="muted">Gateway будет перезапущен и принят только после успешного health-check. При ошибке вернётся предыдущая ревизия.</p>
+          <div id="config-preview-list" class="config-preview-list"></div>
+          <div class="row dialog-actions"><button value="cancel" class="secondary">Отмена</button><button id="config-preview-apply" value="apply" class="primary">Применить и проверить</button></div>
+        </form>
+      </dialog>
 
       <section id="agents-card" style="display:none">
         <div class="section-intro"><p>Персонажи — конфигурация, а не код. Настраивайте характер, голос и безопасный системный промпт.</p><div class="row"><span id="agents-status"></span><button id="gateway-restart" class="danger">↻ Перезапустить Gateway</button></div></div>

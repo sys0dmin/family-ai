@@ -1,6 +1,8 @@
 """Application configuration loaded from environment variables."""
 
+import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
@@ -62,6 +64,7 @@ class Settings(BaseSettings):
     admin_password: SecretStr = SecretStr("change-me")
     admin_force_password_change: bool = True
     admin_env_file: str = ".env"
+    admin_config_history_dir: str = ".artifacts/config-history/gateway"
     admin_session_ttl_hours: int = 12
 
     # Project infrastructure monitoring (node_exporter endpoints)
@@ -109,4 +112,34 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return the singleton settings instance for the current process."""
 
-    return Settings()
+    env_file = os.environ.get("FAMILY_AI_ADMIN_ENV_FILE")
+    if not env_file:
+        return Settings()
+
+    path = Path(env_file)
+    if not path.is_file():
+        return Settings()
+
+    file_values = _read_admin_env(path)
+    overrides: dict[str, str] = {}
+    for field_name in Settings.model_fields:
+        env_key = f"FAMILY_AI_{field_name.upper()}"
+        if env_key in file_values:
+            overrides[field_name] = file_values[env_key]
+    return Settings(**overrides)
+
+
+def _read_admin_env(path: Path) -> dict[str, str]:
+    """Read Admin's authoritative env file without logging sensitive values."""
+
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values

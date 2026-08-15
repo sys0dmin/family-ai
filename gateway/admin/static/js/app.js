@@ -25,6 +25,7 @@
     let selectedAgentId = null;
     let infrastructureTimer = null;
     let calibrationTimer = null;
+    let pendingSettingsPayload = null;
     let navigate;
 
     function setSaveStatus(text, mode) {
@@ -512,6 +513,167 @@
       document.querySelector(".retention-ring").textContent = `${data.message_retention_days}d`;
     }
 
+    function collectSettingsPayload() {
+      return {
+        openai_model: getValue("openai_model").trim(),
+        openai_base_url: getValue("openai_base_url").trim() || null,
+        web_search_tool_type: getValue("web_search_tool_type"),
+        image_search_provider: getValue("image_search_provider"),
+        image_search_timeout_seconds: Number(getValue("image_search_timeout_seconds")),
+        vision_provider: getValue("vision_provider"),
+        vision_base_url: getValue("vision_base_url").trim() || null,
+        vision_model: getValue("vision_model").trim(),
+        vision_max_image_bytes: Math.round(Number(getValue("vision_max_image_mb")) * 1048576),
+        vision_api_key: getValue("vision_api_key").trim() || null,
+        clear_vision_api_key: document.getElementById("clear_vision_api_key").checked,
+        speech_base_url: getValue("speech_base_url").trim() || null,
+        stt_base_url: getValue("stt_base_url").trim() || null,
+        tts_base_url: getValue("tts_base_url").trim() || null,
+        stt_model: getValue("stt_model").trim(),
+        stt_initial_prompt: getValue("stt_initial_prompt").trim(),
+        tts_model: getValue("tts_model").trim(),
+        tts_voice: getTtsVoice(),
+        tts_response_format: getValue("tts_response_format"),
+        message_retention_days: Number(getValue("message_retention_days")),
+        openai_api_key: getValue("openai_api_key").trim() || null,
+        speech_api_key: getValue("speech_api_key").trim() || null,
+        stt_api_key: getValue("stt_api_key").trim() || null,
+        tts_api_key: getValue("tts_api_key").trim() || null,
+        clear_stt_api_key: document.getElementById("clear_stt_api_key").checked,
+        clear_tts_api_key: document.getElementById("clear_tts_api_key").checked,
+        music_recognition_provider: getValue("music_recognition_provider"),
+        acrcloud_host: getValue("acrcloud_host").trim() || null,
+        acrcloud_access_key: getValue("acrcloud_access_key").trim() || null,
+        acrcloud_access_secret: getValue("acrcloud_access_secret").trim() || null,
+        music_recognition_timeout_seconds: Number(getValue("music_recognition_timeout_seconds"))
+      };
+    }
+
+    function renderConfigurationChanges(changes) {
+      const list = document.getElementById("config-preview-list");
+      list.replaceChildren();
+      for (const change of changes) {
+        const row = document.createElement("div");
+        row.className = "config-change";
+        const key = document.createElement("strong");
+        key.textContent = change.key.replaceAll("_", " ");
+        const before = document.createElement("span");
+        before.textContent = change.before;
+        const arrow = document.createElement("i");
+        arrow.textContent = "→";
+        const after = document.createElement("span");
+        after.textContent = change.after;
+        row.append(key, before, arrow, after);
+        list.append(row);
+      }
+    }
+
+    async function previewSettingsChange() {
+      const button = document.getElementById("save-btn");
+      button.disabled = true;
+      setSaveStatus("Проверяем конфигурацию…", "warn");
+      try {
+        const payload = collectSettingsPayload();
+        const preview = await api("/api/settings/preview", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        if (!preview.changes.length) {
+          setSaveStatus("Изменений нет", "ok");
+          return;
+        }
+        pendingSettingsPayload = payload;
+        renderConfigurationChanges(preview.changes);
+        document.getElementById("config-preview-dialog").showModal();
+        setSaveStatus(`Проверено изменений: ${preview.changes.length}`, "ok");
+      } catch (error) {
+        setSaveStatus(`Проверка не пройдена: ${error.message}`, "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function applyPendingSettings(event) {
+      event.preventDefault();
+      if (!pendingSettingsPayload) return;
+      const button = document.getElementById("config-preview-apply");
+      button.disabled = true;
+      setSaveStatus("Сохраняем, перезапускаем Gateway и ждём health-check…", "warn");
+      try {
+        const data = await api("/api/settings", {
+          method: "POST",
+          body: JSON.stringify(pendingSettingsPayload)
+        });
+        pendingSettingsPayload = null;
+        document.getElementById("config-preview-dialog").close();
+        applySettings(data);
+        await loadConfigurationRevisions();
+        setSaveStatus("Применено: Gateway перезапущен и прошёл health-check", "ok");
+      } catch (error) {
+        setSaveStatus(`Изменения отклонены: ${error.message}`, "err");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function rollbackConfiguration(revision) {
+      if (!confirm(`Вернуть конфигурацию ${revision.id}? Gateway будет перезапущен и проверен.`)) return;
+      setSaveStatus("Восстанавливаем выбранную ревизию…", "warn");
+      try {
+        await api(`/api/settings/revisions/${encodeURIComponent(revision.id)}/rollback`, {
+          method: "POST"
+        });
+        await loadSettings();
+        await loadConfigurationRevisions();
+        setSaveStatus("Ревизия восстановлена, Gateway прошёл health-check", "ok");
+      } catch (error) {
+        setSaveStatus(`Rollback не выполнен: ${error.message}`, "err");
+      }
+    }
+
+    async function loadConfigurationRevisions() {
+      const list = document.getElementById("config-revision-list");
+      try {
+        const data = await api("/api/settings/revisions", { method: "GET" });
+        list.replaceChildren();
+        if (!data.items.length) {
+          const empty = document.createElement("span");
+          empty.className = "muted";
+          empty.textContent = "Первая ревизия появится после применения настроек";
+          list.append(empty);
+          return;
+        }
+        for (const revision of data.items) {
+          const row = document.createElement("div");
+          row.className = `config-revision${revision.status === "active" ? " active" : ""}`;
+          const copy = document.createElement("div");
+          copy.className = "config-revision-copy";
+          const title = document.createElement("strong");
+          title.textContent = `${revision.operation} · ${revision.id}`;
+          if (revision.status === "active") {
+            const badge = document.createElement("span");
+            badge.className = "config-revision-badge";
+            badge.textContent = "active";
+            title.append(badge);
+          }
+          const meta = document.createElement("small");
+          meta.textContent = `${formatDateTime(revision.created_at)} · ${revision.actor} · ${revision.fingerprint} · изменений ${revision.changes.length}`;
+          copy.append(title, meta);
+          row.append(copy);
+          if (revision.status === "superseded") {
+            const action = document.createElement("button");
+            action.className = "secondary";
+            action.textContent = "Вернуть";
+            action.onclick = () => rollbackConfiguration(revision);
+            row.append(action);
+          }
+          list.append(row);
+        }
+      } catch (error) {
+        list.textContent = `История недоступна: ${error.message}`;
+      }
+    }
+
     async function loadSettings() {
       const data = await api("/api/settings", { method: "GET" });
       applySettings(data);
@@ -569,6 +731,7 @@
       infrastructureTimer = null;
       clearInterval(calibrationTimer);
       calibrationTimer = null;
+      if (tab === "settings") loadConfigurationRevisions();
       if (tab === "agents") loadAgents();
       if (tab === "studio") {
         loadStudio();
@@ -641,6 +804,8 @@
     document.getElementById("calibration-start").onclick = startCalibration;
     document.getElementById("calibration-cancel").onclick = cancelCalibration;
     document.getElementById("speech-runtime-apply").onclick = applySpeechRuntimeSettings;
+    document.getElementById("config-revisions-reload").onclick = loadConfigurationRevisions;
+    document.getElementById("config-preview-apply").onclick = applyPendingSettings;
     document.getElementById("agent-save").onclick = async () => {
       const agent = selectedAgent();
       if (!agent) return;
@@ -730,54 +895,7 @@
       }
     };
 
-    document.getElementById("save-btn").onclick = async () => {
-      try {
-        const payload = {
-          openai_model: getValue("openai_model").trim(),
-          openai_base_url: getValue("openai_base_url").trim() || null,
-          web_search_tool_type: getValue("web_search_tool_type"),
-          image_search_provider: getValue("image_search_provider"),
-          image_search_timeout_seconds: Number(getValue("image_search_timeout_seconds")),
-          vision_provider: getValue("vision_provider"),
-          vision_base_url: getValue("vision_base_url").trim() || null,
-          vision_model: getValue("vision_model").trim(),
-          vision_max_image_bytes:
-            Math.round(Number(getValue("vision_max_image_mb")) * 1048576),
-          vision_api_key: getValue("vision_api_key").trim() || null,
-          clear_vision_api_key: document.getElementById("clear_vision_api_key").checked,
-          speech_base_url: getValue("speech_base_url").trim() || null,
-          stt_base_url: getValue("stt_base_url").trim() || null,
-          tts_base_url: getValue("tts_base_url").trim() || null,
-          stt_model: getValue("stt_model").trim(),
-          stt_initial_prompt: getValue("stt_initial_prompt").trim(),
-          tts_model: getValue("tts_model").trim(),
-          tts_voice: getTtsVoice(),
-          tts_response_format: getValue("tts_response_format"),
-          message_retention_days: Number(getValue("message_retention_days")),
-          openai_api_key: getValue("openai_api_key").trim() || null,
-          speech_api_key: getValue("speech_api_key").trim() || null,
-          stt_api_key: getValue("stt_api_key").trim() || null,
-          tts_api_key: getValue("tts_api_key").trim() || null,
-          clear_stt_api_key: document.getElementById("clear_stt_api_key").checked,
-          clear_tts_api_key: document.getElementById("clear_tts_api_key").checked,
-          music_recognition_provider: getValue("music_recognition_provider"),
-          acrcloud_host: getValue("acrcloud_host").trim() || null,
-          acrcloud_access_key: getValue("acrcloud_access_key").trim() || null,
-          acrcloud_access_secret: getValue("acrcloud_access_secret").trim() || null,
-          music_recognition_timeout_seconds: Number(getValue("music_recognition_timeout_seconds"))
-        };
-
-        const data = await api("/api/settings", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-
-        applySettings(data);
-        setSaveStatus("Сохранено в .env. Для применения перезапусти gateway процесс.", "ok");
-      } catch (error) {
-        setSaveStatus(`Ошибка сохранения: ${error.message}`, "err");
-      }
-    };
+    document.getElementById("save-btn").onclick = previewSettingsChange;
 
     async function restoreBrowserSession() {
       try {

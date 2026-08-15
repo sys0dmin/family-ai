@@ -20,9 +20,11 @@ Admin UI:
 | Агенты | 1440 × 1000 |
 | Тест-студия | 1440 × 1000 |
 | Инфраструктура и предупреждения | 1440 × 1000 |
+| Preview runtime-конфигурации | 1440 × 1000 |
 | Настройки | 390 × 844 |
 | Тест-студия | 390 × 844 |
 | Инфраструктура и предупреждения | 390 × 844 |
+| Preview runtime-конфигурации | 390 × 844 |
 
 Android:
 
@@ -78,6 +80,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
 
 Флаг нельзя использовать как способ «починить» упавший тест без анализа
 изменения.
+
+Для пересъёмки одного уже проверенного Admin-состояния можно явно указать имя:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File `
+  .\scripts\visual\Test-AdminVisualRegression.ps1 `
+  -UpdateBaselines -CaseName configuration-preview-mobile
+```
 
 ## Где лежат файлы
 

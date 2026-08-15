@@ -23,6 +23,10 @@ class SpeechRestartTimeoutError(RuntimeError):
     """Raised when the restarted process does not report requested settings."""
 
 
+class SpeechRollbackFailedError(RuntimeError):
+    """Raised when requested settings failed and previous values could not recover."""
+
+
 class SpeechRuntimeService:
     """Apply approved settings and verify them in a newly started process."""
 
@@ -41,6 +45,40 @@ class SpeechRuntimeService:
     ) -> SpeechRuntimeSettings:
         previous = await self.current()
         await self._request("POST", json=update.model_dump())
+        try:
+            return await self._wait_for_settings(
+                previous_instance_id=previous.instance_id,
+                expected=update,
+            )
+        except SpeechRestartTimeoutError as exc:
+            await self._restore_previous(previous)
+            raise SpeechRestartTimeoutError(
+                "Speech restart verification timed out; previous settings were restored"
+            ) from exc
+
+    async def _restore_previous(self, previous: SpeechRuntimeSettings) -> None:
+        rollback = SpeechRuntimeSettingsUpdate(
+            stt_beam_size=previous.stt_beam_size,
+            stt_vad_filter=previous.stt_vad_filter,
+        )
+        try:
+            current = await self.current()
+            await self._request("POST", json=rollback.model_dump())
+            await self._wait_for_settings(
+                previous_instance_id=current.instance_id,
+                expected=rollback,
+            )
+        except (SpeechRestartTimeoutError, SpeechRuntimeUnavailableError) as exc:
+            raise SpeechRollbackFailedError(
+                "Speech previous runtime settings could not be restored"
+            ) from exc
+
+    async def _wait_for_settings(
+        self,
+        *,
+        previous_instance_id: str,
+        expected: SpeechRuntimeSettingsUpdate,
+    ) -> SpeechRuntimeSettings:
         deadline = time.monotonic() + self._restart_timeout
         while time.monotonic() < deadline:
             await asyncio.sleep(1)
@@ -49,9 +87,9 @@ class SpeechRuntimeService:
             except SpeechRuntimeUnavailableError:
                 continue
             if (
-                current.instance_id != previous.instance_id
-                and current.stt_beam_size == update.stt_beam_size
-                and current.stt_vad_filter is update.stt_vad_filter
+                current.instance_id != previous_instance_id
+                and current.stt_beam_size == expected.stt_beam_size
+                and current.stt_vad_filter is expected.stt_vad_filter
             ):
                 return current
         raise SpeechRestartTimeoutError("Speech restart verification timed out")

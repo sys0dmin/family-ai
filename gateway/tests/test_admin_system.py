@@ -66,6 +66,36 @@ def test_system_service_uses_only_fixed_non_shell_commands(monkeypatch) -> None:
     ]
 
 
+def test_verified_restart_waits_for_loopback_gateway_health(monkeypatch) -> None:
+    service = GatewaySystemService()
+    monkeypatch.setattr(
+        service,
+        "restart_gateway",
+        lambda: GatewayRestartResult(
+            service="family-ai-gateway.service",
+            active=True,
+        ),
+    )
+
+    class HealthyResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "gateway.admin.system_service.urlopen",
+        lambda *_args, **_kwargs: HealthyResponse(),
+    )
+
+    result = service.restart_gateway_verified(timeout_seconds=1)
+
+    assert result.active is True
+
+
 @pytest.mark.anyio
 async def test_gateway_restart_requires_admin_authentication() -> None:
     transport = ASGITransport(app=admin_app)

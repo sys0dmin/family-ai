@@ -10,6 +10,7 @@ from gateway.app.speech_runtime.schemas import (
 )
 from gateway.app.speech_runtime.service import (
     SpeechRestartTimeoutError,
+    SpeechRollbackFailedError,
     SpeechRuntimeService,
     SpeechRuntimeUnavailableError,
 )
@@ -43,6 +44,11 @@ async def update_runtime_settings(
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="Speech did not restart with requested settings",
+        ) from exc
+    except SpeechRollbackFailedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Speech settings failed and automatic rollback did not recover",
         ) from exc
     except SpeechRuntimeUnavailableError as exc:
         raise HTTPException(

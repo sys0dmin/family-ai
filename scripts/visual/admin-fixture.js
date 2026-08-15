@@ -54,6 +54,19 @@ function fillSettings() {
   setValue("vision_max_image_mb", "10");
   setValue("acrcloud_host", "identify.example.invalid");
   document.getElementById("summary").textContent = "Синтетическая конфигурация";
+  document.getElementById("config-revision-list").innerHTML = `
+    <div class="config-revision active"><div class="config-revision-copy">
+      <strong>apply · 20260815T120000-abcdef <span class="config-revision-badge">active</span></strong>
+      <small>15.08.2026, 12:00 · admin · 123456789abc · изменений 2</small>
+    </div></div>`;
+}
+
+function showConfigurationPreview() {
+  document.getElementById("config-preview-list").innerHTML = `
+    <div class="config-change"><strong>openai model</strong><span>model-a</span><i>→</i><span>model-b</span></div>
+    <div class="config-change"><strong>openai api key</strong><span>настроен</span><i>→</i><span>настроен</span></div>
+    <div class="config-change"><strong>message retention days</strong><span>10</span><i>→</i><span>14</span></div>`;
+  document.getElementById("config-preview-dialog").showModal();
 }
 
 function agentButton(icon, name, active = false) {
@@ -166,6 +179,7 @@ fillSettings();
 fillAgents();
 fillStudio();
 fillInfrastructure();
+if (window.__VISUAL_DIALOG__) showConfigurationPreview();
 document.documentElement.dataset.visualOverflow = String(
   document.documentElement.scrollWidth > window.innerWidth,
 );

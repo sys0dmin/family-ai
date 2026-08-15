@@ -25,6 +25,9 @@ install_unit() {
 
 case "$COMPONENT" in
   gateway)
+    install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 \
+      /var/lib/family-ai-config \
+      /var/lib/family-ai-config/gateway
     if [[ ! -f /etc/family-ai/gateway.env ]]; then
       if [[ -f /home/familyai-deploy/family-ai/.env ]]; then
         install -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0600 \

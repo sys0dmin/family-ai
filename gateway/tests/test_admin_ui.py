@@ -61,6 +61,9 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="pipeline-vision"' in response.text
     assert 'id="safety-baseline-save"' in response.text
     assert 'id="gateway-restart"' in response.text
+    assert 'id="config-revision-list"' in response.text
+    assert 'id="config-preview-dialog"' in response.text
+    assert 'id="config-preview-apply"' in response.text
     assert "https://cdn" not in response.text
 
 
@@ -94,6 +97,8 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert "/api/infrastructure/scan" in infrastructure.text
     assert "/acknowledge" in infrastructure.text
     assert "/alerts/self-test" in infrastructure.text
+    assert "/api/settings/preview" in app.text
+    assert "/api/settings/revisions" in app.text
     assert quality.status_code == 200
     assert "/api/quality/feedback" in quality.text
     assert "regression-cases" in quality.text

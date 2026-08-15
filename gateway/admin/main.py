@@ -9,7 +9,7 @@ from typing import Any, Literal
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from gateway.admin.activity_router import router as activity_router
@@ -22,6 +22,18 @@ from gateway.admin.auth import (
     verify_admin as _verify_admin,
 )
 from gateway.admin.calibration_router import router as calibration_router
+from gateway.admin.configuration_schemas import (
+    ConfigurationPreviewResponse,
+    ConfigurationRevisionCollection,
+    ConfigurationRollbackResponse,
+)
+from gateway.admin.configuration_service import (
+    ConfigurationApplyError,
+    ConfigurationRevisionNotFoundError,
+    ConfigurationValidationError,
+    GatewayConfigurationService,
+    render_env_updates,
+)
 from gateway.admin.history_schemas import (
     ConversationHistoryResponse,
     HistorySummaryResponse,
@@ -116,6 +128,13 @@ class SettingsUpdateRequest(BaseModel):
     acrcloud_access_secret: str | None = Field(default=None, max_length=500)
     music_recognition_timeout_seconds: float = Field(default=8.0, ge=1, le=30)
 
+    @field_validator("*", mode="before")
+    @classmethod
+    def reject_multiline_environment_values(cls, value: Any) -> Any:
+        if isinstance(value, str) and any(character in value for character in "\r\n\0"):
+            raise ValueError("configuration values must be single-line")
+        return value
+
 
 def _mask_secret(value: str) -> str:
     if not value:
@@ -133,27 +152,11 @@ def _load_env_lines(path: Path) -> list[str]:
 
 def _upsert_env_values(path: Path, updates: dict[str, str]) -> None:
     lines = _load_env_lines(path)
-    remaining = dict(updates)
-    new_lines: list[str] = []
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in line:
-            new_lines.append(line)
-            continue
-
-        key, _value = line.split("=", 1)
-        env_key = key.strip()
-        if env_key in remaining:
-            new_lines.append(f"{env_key}={remaining.pop(env_key)}")
-        else:
-            new_lines.append(line)
-
-    for key, value in remaining.items():
-        new_lines.append(f"{key}={value}")
-
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(render_env_updates(lines, updates), encoding="utf-8")
+    temporary.chmod(0o600)
+    temporary.replace(path)
 
 
 def _must_change_password(settings: Any) -> bool:
@@ -163,6 +166,13 @@ def _must_change_password(settings: Any) -> bool:
 
 class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=200)
+
+    @field_validator("new_password")
+    @classmethod
+    def reject_multiline_password(cls, value: str) -> str:
+        if any(character in value for character in "\r\n\0"):
+            raise ValueError("password must be single-line")
+        return value
 
 
 app = FastAPI(title="Family AI Admin", version="0.1.0")
@@ -198,6 +208,15 @@ def get_history_service(
     session: Session = Depends(get_history_session),
 ) -> HistoryService:
     return HistoryService(session)
+
+
+def get_gateway_configuration_service() -> GatewayConfigurationService:
+    settings = get_settings()
+    return GatewayConfigurationService(
+        env_path=Path(settings.admin_env_file),
+        history_dir=Path(settings.admin_config_history_dir),
+        settings=settings,
+    )
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -242,9 +261,7 @@ def delete_admin_session(response: Response) -> None:
     )
 
 
-@app.get("/api/settings", response_model=SettingsResponse)
-def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsResponse:
-    settings = get_settings()
+def _settings_response(settings: Any) -> SettingsResponse:
     api_key = settings.openai_api_key.get_secret_value()
     speech_api_key = settings.speech_api_key.get_secret_value()
     stt_api_key = settings.stt_api_key.get_secret_value()
@@ -294,6 +311,11 @@ def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsRespons
     )
 
 
+@app.get("/api/settings", response_model=SettingsResponse)
+def get_runtime_settings(_user: str = Depends(_verify_admin)) -> SettingsResponse:
+    return _settings_response(get_settings())
+
+
 @app.get("/api/history/summary", response_model=HistorySummaryResponse)
 def get_history_summary(
     days: int = Query(default=10, ge=1, le=30),
@@ -324,14 +346,7 @@ def get_conversation_history(
     )
 
 
-@app.post("/api/settings", response_model=SettingsResponse)
-def update_runtime_settings(
-    payload: SettingsUpdateRequest,
-    _user: str = Depends(_verify_admin),
-) -> SettingsResponse:
-    settings = get_settings()
-    env_path = Path(settings.admin_env_file)
-
+def _settings_updates(payload: SettingsUpdateRequest) -> dict[str, str]:
     updates: dict[str, str] = {
         "FAMILY_AI_MESSAGE_RETENTION_DAYS": str(payload.message_retention_days),
         "FAMILY_AI_OPENAI_MODEL": payload.openai_model.strip(),
@@ -378,58 +393,81 @@ def update_runtime_settings(
         updates["FAMILY_AI_ACRCLOUD_ACCESS_KEY"] = payload.acrcloud_access_key.strip()
     if payload.acrcloud_access_secret and payload.acrcloud_access_secret.strip():
         updates["FAMILY_AI_ACRCLOUD_ACCESS_SECRET"] = payload.acrcloud_access_secret.strip()
+    return updates
 
-    _upsert_env_values(env_path, updates)
 
-    get_settings.cache_clear()
-    refreshed = get_settings()
-    api_key = refreshed.openai_api_key.get_secret_value()
-    speech_api_key = refreshed.speech_api_key.get_secret_value()
-    stt_api_key = refreshed.stt_api_key.get_secret_value()
-    tts_api_key = refreshed.tts_api_key.get_secret_value()
-    vision_api_key = refreshed.vision_api_key.get_secret_value()
-    acrcloud_access_key = refreshed.acrcloud_access_key.get_secret_value()
-    acrcloud_access_secret = refreshed.acrcloud_access_secret.get_secret_value()
+def _clear_settings_cache() -> None:
+    cache_clear = getattr(get_settings, "cache_clear", None)
+    if cache_clear is not None:
+        cache_clear()
 
-    return SettingsResponse(
-        environment=refreshed.environment,
-        message_retention_days=refreshed.message_retention_days,
-        openai_model=refreshed.openai_model,
-        openai_base_url=refreshed.openai_base_url,
-        speech_base_url=refreshed.speech_base_url,
-        stt_base_url=refreshed.stt_base_url,
-        stt_model=refreshed.stt_model,
-        stt_initial_prompt=refreshed.stt_initial_prompt,
-        tts_base_url=refreshed.tts_base_url,
-        tts_model=refreshed.tts_model,
-        tts_voice=refreshed.tts_voice,
-        tts_response_format=refreshed.tts_response_format,
-        web_search_tool_type=refreshed.web_search_tool_type,
-        image_search_provider=refreshed.image_search_provider,
-        image_search_timeout_seconds=refreshed.image_search_timeout_seconds,
-        vision_provider=refreshed.vision_provider,
-        vision_base_url=refreshed.vision_base_url,
-        vision_model=refreshed.vision_model,
-        vision_max_image_bytes=refreshed.vision_max_image_bytes,
-        has_vision_api_key=bool(vision_api_key),
-        vision_api_key_preview=_mask_secret(vision_api_key),
-        has_openai_api_key=api_key not in {"", "sk-placeholder"},
-        openai_api_key_preview=_mask_secret(api_key),
-        has_speech_api_key=bool(speech_api_key),
-        speech_api_key_preview=_mask_secret(speech_api_key),
-        has_stt_api_key=bool(stt_api_key),
-        stt_api_key_preview=_mask_secret(stt_api_key),
-        has_tts_api_key=bool(tts_api_key),
-        tts_api_key_preview=_mask_secret(tts_api_key),
-        music_recognition_provider=refreshed.music_recognition_provider,
-        acrcloud_host=refreshed.acrcloud_host,
-        has_acrcloud_access_key=bool(acrcloud_access_key),
-        acrcloud_access_key_preview=_mask_secret(acrcloud_access_key),
-        has_acrcloud_access_secret=bool(acrcloud_access_secret),
-        acrcloud_access_secret_preview=_mask_secret(acrcloud_access_secret),
-        music_recognition_timeout_seconds=refreshed.music_recognition_timeout_seconds,
-        must_change_password=_must_change_password(refreshed),
+
+def _configuration_http_error(exc: RuntimeError) -> HTTPException:
+    if isinstance(exc, ConfigurationRevisionNotFoundError):
+        return HTTPException(status_code=404, detail="Configuration revision not found")
+    if isinstance(exc, ConfigurationValidationError):
+        return HTTPException(status_code=409, detail=str(exc))
+    return HTTPException(
+        status_code=503,
+        detail="Gateway configuration could not be applied safely",
     )
+
+
+@app.post("/api/settings/preview", response_model=ConfigurationPreviewResponse)
+def preview_runtime_settings(
+    payload: SettingsUpdateRequest,
+    _user: str = Depends(_verify_admin),
+    service: GatewayConfigurationService = Depends(get_gateway_configuration_service),
+) -> ConfigurationPreviewResponse:
+    try:
+        changes = service.preview(_settings_updates(payload))
+    except ConfigurationValidationError as exc:
+        raise _configuration_http_error(exc) from exc
+    return ConfigurationPreviewResponse(changes=changes)
+
+
+@app.get("/api/settings/revisions", response_model=ConfigurationRevisionCollection)
+def list_runtime_setting_revisions(
+    _user: str = Depends(_verify_admin),
+    service: GatewayConfigurationService = Depends(get_gateway_configuration_service),
+) -> ConfigurationRevisionCollection:
+    return ConfigurationRevisionCollection(items=service.list_revisions())
+
+
+@app.post(
+    "/api/settings/revisions/{revision_id}/rollback",
+    response_model=ConfigurationRollbackResponse,
+)
+def rollback_runtime_settings(
+    revision_id: str,
+    user: str = Depends(_verify_admin),
+    service: GatewayConfigurationService = Depends(get_gateway_configuration_service),
+) -> ConfigurationRollbackResponse:
+    try:
+        revision = service.rollback(revision_id, actor=user)
+    except (
+        ConfigurationApplyError,
+        ConfigurationRevisionNotFoundError,
+        ConfigurationValidationError,
+    ) as exc:
+        raise _configuration_http_error(exc) from exc
+    _clear_settings_cache()
+    return ConfigurationRollbackResponse(revision=revision)
+
+
+@app.post("/api/settings", response_model=SettingsResponse)
+def update_runtime_settings(
+    payload: SettingsUpdateRequest,
+    user: str = Depends(_verify_admin),
+    service: GatewayConfigurationService = Depends(get_gateway_configuration_service),
+) -> SettingsResponse:
+    try:
+        service.apply(_settings_updates(payload), actor=user)
+    except (ConfigurationApplyError, ConfigurationValidationError) as exc:
+        raise _configuration_http_error(exc) from exc
+
+    _clear_settings_cache()
+    return _settings_response(get_settings())
 
 
 @app.post("/api/change-password")
@@ -452,7 +490,7 @@ def change_admin_password(
         },
     )
 
-    get_settings.cache_clear()
+    _clear_settings_cache()
     return {"status": "ok"}
 
 

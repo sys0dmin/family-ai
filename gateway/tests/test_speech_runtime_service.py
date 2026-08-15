@@ -10,6 +10,7 @@ from gateway.app.speech_runtime.schemas import (
     SpeechRuntimeSettingsUpdate,
 )
 from gateway.app.speech_runtime.service import (
+    SpeechRestartTimeoutError,
     SpeechRuntimeService,
     SpeechRuntimeUnavailableError,
 )
@@ -55,3 +56,46 @@ async def test_apply_waits_for_new_process_with_requested_values(monkeypatch) ->
         "POST",
         json={"stt_beam_size": 5, "stt_vad_filter": True},
     )
+
+
+@pytest.mark.anyio
+async def test_failed_speech_restart_compensates_with_previous_values() -> None:
+    service = SpeechRuntimeService(
+        Settings(
+            speech_base_url="http://speech:8010/v1",
+            speech_restart_timeout_seconds=5,
+        )
+    )
+    previous = SpeechRuntimeSettings(
+        stt_beam_size=5,
+        stt_vad_filter=True,
+        instance_id="old",
+    )
+    partially_restarted = SpeechRuntimeSettings(
+        stt_beam_size=3,
+        stt_vad_filter=False,
+        instance_id="bad",
+    )
+    restored = previous.model_copy(update={"instance_id": "restored"})
+    service.current = AsyncMock(side_effect=[previous, partially_restarted])
+    service._request = AsyncMock(return_value=previous)
+    service._wait_for_settings = AsyncMock(
+        side_effect=[
+            SpeechRestartTimeoutError("requested values not ready"),
+            restored,
+        ]
+    )
+
+    with pytest.raises(SpeechRestartTimeoutError, match="previous settings were restored"):
+        await service.apply_and_restart(
+            SpeechRuntimeSettingsUpdate(stt_beam_size=3, stt_vad_filter=False)
+        )
+
+    assert service._request.await_args_list[0].kwargs["json"] == {
+        "stt_beam_size": 3,
+        "stt_vad_filter": False,
+    }
+    assert service._request.await_args_list[1].kwargs["json"] == {
+        "stt_beam_size": 5,
+        "stt_vad_filter": True,
+    }
