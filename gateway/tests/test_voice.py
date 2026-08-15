@@ -128,13 +128,9 @@ async def test_openai_provider_normalizes_verbose_stt_diagnostics() -> None:
 @pytest.mark.anyio
 async def test_voice_service_preserves_recording_metadata() -> None:
     recognition_provider = AsyncMock()
-    recognition_provider.transcribe_audio.return_value = TranscriptionResponse(
-        text="Привет"
-    )
+    recognition_provider.transcribe_audio.return_value = TranscriptionResponse(text="Привет")
     synthesis_provider = AsyncMock()
-    synthesis_provider.synthesize_speech.return_value = SpeechResponse(
-        audio_content=b"mp3"
-    )
+    synthesis_provider.synthesize_speech.return_value = SpeechResponse(audio_content=b"mp3")
     conversation_service = AsyncMock()
     message_id = uuid.uuid4()
     conversation_service.process_turn.return_value = SimpleNamespace(
@@ -166,6 +162,7 @@ async def test_voice_service_preserves_recording_metadata() -> None:
             filename="recording.webm",
             content_type="audio/webm",
             language="ru",
+            request_id=ANY,
         )
     )
     conversation_service.process_turn.assert_awaited_once_with(
@@ -173,9 +170,10 @@ async def test_voice_service_preserves_recording_metadata() -> None:
         text="Привет",
         runtime_context=None,
         diagnostics=ANY,
+        request_id=ANY,
     )
     synthesis_provider.synthesize_speech.assert_awaited_once_with(
-        SpeechRequest(text="Привет, Лера!", voice="lulwa")
+        SpeechRequest(text="Привет, Лера!", voice="lulwa", request_id=ANY)
     )
 
 
@@ -221,6 +219,7 @@ async def test_voice_service_uses_melody_context_when_humming_has_no_words() -> 
         text="[Лера напела мелодию без слов]",
         runtime_context="Вариант 1: название='Тест'",
         diagnostics=ANY,
+        request_id=ANY,
     )
 
 
@@ -229,9 +228,7 @@ async def test_voice_service_synthesizes_text_with_conversation_agent_voice() ->
     provider = AsyncMock()
     provider.synthesize_speech.return_value = SpeechResponse(audio_content=b"wav")
     conversation_service = Mock()
-    conversation_service.get_conversation_agent.return_value = SimpleNamespace(
-        tts_voice="noura"
-    )
+    conversation_service.get_conversation_agent.return_value = SimpleNamespace(tts_voice="noura")
     service = VoiceService(provider, provider, conversation_service)
     conversation_id = uuid.uuid4()
 
@@ -271,6 +268,7 @@ async def test_voice_endpoint_returns_provider_content_type(
     assert response.headers["content-type"] == "audio/mpeg"
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-family-ai-message-id"] == str(message_id)
+    assert uuid.UUID(response.headers["x-request-id"])
     voice_service.process_voice_turn.assert_awaited_once_with(
         conversation_id=conversation_id,
         audio_content=b"webm-audio",
@@ -278,6 +276,7 @@ async def test_voice_endpoint_returns_provider_content_type(
         content_type="audio/webm",
         language="ru",
         recording_duration_ms=1250,
+        request_id=ANY,
     )
 
 
@@ -325,9 +324,11 @@ async def test_synthesize_endpoint_returns_agent_audio(
     assert response.status_code == 200
     assert response.content == b"agent-voice"
     assert response.headers["content-type"] == "audio/wav"
+    uuid.UUID(response.headers["x-request-id"])
     voice_service.synthesize_text.assert_awaited_once_with(
         conversation_id,
         "Привет, Лера!",
+        request_id=ANY,
     )
 
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -29,6 +30,23 @@ class SpeechAudio {
 }
 
 class GatewayClient implements ConversationGateway {
+  static final Random _secureRandom = Random.secure();
+
+  static String _newRequestId() {
+    final bytes = List<int>.generate(16, (_) => _secureRandom.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final hex = bytes
+        .map((value) => value.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+  }
+
+  static Map<String, String> _traceHeaders({bool json = false}) => {
+    'X-Request-ID': _newRequestId(),
+    if (json) 'Content-Type': 'application/json',
+  };
   factory GatewayClient({
     required ServerAddress serverAddress,
     required http.Client httpClient,
@@ -264,6 +282,7 @@ class GatewayClient implements ConversationGateway {
             'POST',
             serverAddress.resolve('/v1/vision/$conversationId/turn'),
           )
+          ..headers.addAll(_traceHeaders())
           ..fields['question'] = question
           ..files.add(
             http.MultipartFile.fromBytes(
@@ -318,6 +337,7 @@ class GatewayClient implements ConversationGateway {
       'POST',
       serverAddress.resolve('/v1/voice/$conversationId/turn'),
     );
+    request.headers.addAll(_traceHeaders());
     request.files.add(
       http.MultipartFile.fromBytes(
         'file',
@@ -376,6 +396,7 @@ class GatewayClient implements ConversationGateway {
             'POST',
             serverAddress.resolve('/v1/voice/$conversationId/turn/stream'),
           )
+          ..headers.addAll(_traceHeaders())
           ..fields['recording_duration_ms'] = recordingDuration.inMilliseconds
               .toString()
           ..files.add(
@@ -408,6 +429,7 @@ class GatewayClient implements ConversationGateway {
             'POST',
             serverAddress.resolve('/v1/multimodal/$conversationId/turn'),
           )
+          ..headers.addAll(_traceHeaders())
           ..fields['recording_duration_ms'] = recordingDuration.inMilliseconds
               .toString()
           ..files.add(
@@ -498,6 +520,7 @@ class GatewayClient implements ConversationGateway {
             'POST',
             serverAddress.resolve('/v1/multimodal/$conversationId/turn/stream'),
           )
+          ..headers.addAll(_traceHeaders())
           ..fields['recording_duration_ms'] = recordingDuration.inMilliseconds
               .toString()
           ..files.add(
@@ -542,7 +565,7 @@ class GatewayClient implements ConversationGateway {
       await _httpClient
           .post(
             serverAddress.resolve('/v1/voice/streams/$turnId/playback'),
-            headers: {'Content-Type': 'application/json'},
+            headers: _traceHeaders(json: true),
             body: jsonEncode({'duration_ms': duration.inMilliseconds}),
           )
           .timeout(timeout);
@@ -560,7 +583,7 @@ class GatewayClient implements ConversationGateway {
       final response = await _httpClient
           .post(
             serverAddress.resolve('/v1/voice/$conversationId/synthesize'),
-            headers: {'Content-Type': 'application/json'},
+            headers: _traceHeaders(json: true),
             body: jsonEncode({'text': text}),
           )
           .timeout(voiceTimeout);
@@ -672,11 +695,7 @@ class GatewayClient implements ConversationGateway {
   Future<http.Response> _postJson(Uri uri, Map<String, dynamic> body) async {
     try {
       final response = await _httpClient
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(body),
-          )
+          .post(uri, headers: _traceHeaders(json: true), body: jsonEncode(body))
           .timeout(timeout);
       return _requireSuccess(response);
     } on GatewayException {

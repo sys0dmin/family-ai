@@ -40,6 +40,8 @@ class OpenAISpeechRecognitionProvider(SpeechRecognitionProvider):
         }
         if self._initial_prompt:
             parameters["prompt"] = self._initial_prompt
+        if request.request_id:
+            parameters["extra_headers"] = {"X-Request-ID": str(request.request_id)}
         response = await self._client.audio.transcriptions.create(**parameters)
         if isinstance(response, str):
             return TranscriptionResponse(text=response, raw_response=response)
@@ -56,12 +58,8 @@ class OpenAISpeechRecognitionProvider(SpeechRecognitionProvider):
             end = self._number(self._value(segment, "end"))
             weight = max(0.001, (end or 0.0) - (start or 0.0))
             speech_seconds += max(0.0, (end or 0.0) - (start or 0.0))
-            average_log_probability = self._number(
-                self._value(segment, "avg_logprob")
-            )
-            no_speech_probability = self._number(
-                self._value(segment, "no_speech_prob")
-            )
+            average_log_probability = self._number(self._value(segment, "avg_logprob"))
+            no_speech_probability = self._number(self._value(segment, "no_speech_prob"))
             if average_log_probability is not None:
                 weighted_log_probability += average_log_probability * weight
                 log_probability_weight += weight

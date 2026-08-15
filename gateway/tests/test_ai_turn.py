@@ -168,10 +168,12 @@ async def test_openai_provider_maps_generic_web_search_tool() -> None:
         chat=SimpleNamespace(completions=SimpleNamespace(create=create))
     )
 
+    request_id = uuid.uuid4()
     response = await provider.generate_response(
         ChatRequest(
             messages=[ChatMessage(role=ProviderRole.USER, content="Найди песню")],
             tools=(ProviderTool.WEB_SEARCH,),
+            request_id=request_id,
         )
     )
 
@@ -182,4 +184,5 @@ async def test_openai_provider_maps_generic_web_search_tool() -> None:
         temperature=0.7,
         max_tokens=None,
         tools=[{"type": "browser_search"}],
+        extra_headers={"X-Request-ID": str(request_id)},
     )

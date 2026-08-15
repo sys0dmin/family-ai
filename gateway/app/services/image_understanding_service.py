@@ -1,9 +1,11 @@
 """Ephemeral child-image orchestration."""
 
+import time
 import uuid
 from dataclasses import dataclass
 
 from gateway.app.models import Message
+from gateway.app.observability.request_tracing import request_trace_registry
 from gateway.app.providers.contracts import ImageUnderstandingProvider
 from gateway.app.providers.schemas import ImageUnderstandingRequest
 from gateway.app.safety.contracts import PolicyAction
@@ -22,7 +24,7 @@ IMAGE_CONTEXT_TEMPLATE = (
     "видимое и предположение; если для "
     "созвездия не хватает даты, примерного места и направления съёмки, попроси узнать их "
     "вместе с родителем.\n\n"
-    "<vision_observations trusted=\"false\">\n{description}\n</vision_observations>"
+    '<vision_observations trusted="false">\n{description}\n</vision_observations>'
 )
 
 
@@ -34,11 +36,7 @@ def matches_image_signature(content: bytes, content_type: str) -> bool:
     if content_type == "image/png":
         return content.startswith(b"\x89PNG\r\n\x1a\n")
     if content_type == "image/webp":
-        return (
-            len(content) >= 12
-            and content.startswith(b"RIFF")
-            and content[8:12] == b"WEBP"
-        )
+        return len(content) >= 12 and content.startswith(b"RIFF") and content[8:12] == b"WEBP"
     return False
 
 
@@ -88,19 +86,44 @@ class ImageUnderstandingService:
         question: str,
         image_content: bytes,
         content_type: str,
+        request_id: uuid.UUID | None = None,
     ) -> Message:
         observations = await self.inspect(
             conversation_id,
             question=question,
             image_content=image_content,
             content_type=content_type,
+            request_id=request_id,
         )
-        return await self._conversation.process_turn(
-            conversation_id,
-            question,
-            runtime_context=observations.prompt_context,
-            input_safety_context=observations.description,
-        )
+        llm_started_at = time.perf_counter()
+        if request_id:
+            request_trace_registry.event(request_id, "llm", "started")
+        try:
+            message = await self._conversation.process_turn(
+                conversation_id,
+                question,
+                runtime_context=observations.prompt_context,
+                input_safety_context=observations.description,
+                request_id=request_id,
+            )
+        except Exception:
+            if request_id:
+                request_trace_registry.event(
+                    request_id,
+                    "llm",
+                    "error",
+                    duration_ms=round((time.perf_counter() - llm_started_at) * 1000),
+                    error_code="provider_error",
+                )
+            raise
+        if request_id:
+            request_trace_registry.event(
+                request_id,
+                "llm",
+                "success",
+                duration_ms=round((time.perf_counter() - llm_started_at) * 1000),
+            )
+        return message
 
     async def inspect(
         self,
@@ -109,27 +132,49 @@ class ImageUnderstandingService:
         question: str,
         image_content: bytes,
         content_type: str,
+        request_id: uuid.UUID | None = None,
     ) -> EphemeralImageObservations:
         """Validate capability and return bounded observations without persistence."""
 
         self.ensure_allowed(conversation_id)
         if self._provider is None:
             raise ImageUnderstandingUnavailableError
-        if (
-            content_type not in ALLOWED_IMAGE_TYPES
-            or not matches_image_signature(image_content, content_type)
+        if content_type not in ALLOWED_IMAGE_TYPES or not matches_image_signature(
+            image_content, content_type
         ):
             raise InvalidImageError
         if len(image_content) > self._max_image_bytes:
             raise InvalidImageError
 
-        observations = await self._provider.describe_image(
-            ImageUnderstandingRequest(
-                image_content=image_content,
-                content_type=content_type,
-                question=question,
+        vision_started_at = time.perf_counter()
+        if request_id:
+            request_trace_registry.event(request_id, "vision", "started")
+        try:
+            observations = await self._provider.describe_image(
+                ImageUnderstandingRequest(
+                    image_content=image_content,
+                    content_type=content_type,
+                    question=question,
+                    request_id=request_id,
+                )
             )
-        )
+        except Exception:
+            if request_id:
+                request_trace_registry.event(
+                    request_id,
+                    "vision",
+                    "error",
+                    duration_ms=round((time.perf_counter() - vision_started_at) * 1000),
+                    error_code="provider_error",
+                )
+            raise
+        if request_id:
+            request_trace_registry.event(
+                request_id,
+                "vision",
+                "success",
+                duration_ms=round((time.perf_counter() - vision_started_at) * 1000),
+            )
         description = observations.description.replace("\x00", "").strip()[
             :MAX_IMAGE_OBSERVATION_CHARS
         ]

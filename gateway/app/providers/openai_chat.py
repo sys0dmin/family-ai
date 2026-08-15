@@ -30,8 +30,7 @@ class OpenAIChatProvider(ChatProvider):
 
     async def generate_response(self, request: ChatRequest) -> ChatResponse:
         messages = [
-            {"role": message.role.value, "content": message.content}
-            for message in request.messages
+            {"role": message.role.value, "content": message.content} for message in request.messages
         ]
         parameters: dict[str, Any] = {
             "model": self._model,
@@ -44,6 +43,8 @@ class OpenAIChatProvider(ChatProvider):
             and self._web_search_tool_type == "browser_search"
         ):
             parameters["tools"] = [{"type": "browser_search"}]
+        if request.request_id:
+            parameters["extra_headers"] = {"X-Request-ID": str(request.request_id)}
         response = await self._client.chat.completions.create(**parameters)
         content = response.choices[0].message.content or ""
         return ChatResponse(content=content, raw_response=response)

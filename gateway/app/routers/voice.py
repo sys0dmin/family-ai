@@ -1,13 +1,15 @@
 """HTTP transport for complete voice conversation turns."""
 
 import logging
+import time
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
 
 from gateway.app.config import Settings, get_settings
 from gateway.app.dependencies import get_voice_service
+from gateway.app.observability.request_tracing import request_trace_registry
 from gateway.app.observability.voice_metrics import voice_metrics_registry
 from gateway.app.routers.speech_response import speech_response
 from gateway.app.schemas.voice import SynthesizeTextRequest, VoicePlaybackReport
@@ -64,10 +66,17 @@ async def voice_turn(
     recording_duration_ms: int | None = Form(default=None, ge=0, le=3_600_000),
     voice_service: VoiceService = Depends(get_voice_service),
     settings: Settings = Depends(get_settings),
+    x_request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> Response:
     """Accept one recording and return the assistant's MP3 response."""
 
-    content, filename, content_type = await _read_audio_upload(file, settings)
+    request_id = request_trace_registry.request_id(x_request_id)
+    request_trace_registry.start(request_id, "voice")
+    try:
+        content, filename, content_type = await _read_audio_upload(file, settings)
+    except HTTPException as exc:
+        request_trace_registry.finish(request_id, "error", error_code=f"http_{exc.status_code}")
+        raise
 
     try:
         result = await voice_service.process_voice_turn(
@@ -77,13 +86,16 @@ async def voice_turn(
             content_type=content_type,
             language=settings.voice_language,
             recording_duration_ms=recording_duration_ms,
+            request_id=request_id,
         )
     except VoiceInputError as exc:
+        request_trace_registry.finish(request_id, "error", error_code="speech_not_recognized")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Speech was not recognized",
         ) from exc
     except Exception as exc:
+        request_trace_registry.finish(request_id, "error", error_code="provider_error")
         logger.exception(
             "voice_turn_failed",
             extra={"conversation_id": str(conversation_id)},
@@ -93,7 +105,9 @@ async def voice_turn(
             detail="Voice provider is temporarily unavailable",
         ) from exc
 
-    return speech_response(result.speech, result.message_id)
+    response = speech_response(result.speech, result.message_id)
+    response.headers["X-Request-ID"] = str(request_id)
+    return response
 
 
 @router.post("/{conversation_id}/turn/stream", response_class=StreamingResponse)
@@ -103,10 +117,17 @@ async def stream_voice_turn(
     recording_duration_ms: int | None = Form(default=None, ge=0, le=3_600_000),
     voice_service: VoiceService = Depends(get_voice_service),
     settings: Settings = Depends(get_settings),
+    x_request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> StreamingResponse:
     """Stream safe assistant speech as independently playable NDJSON parts."""
 
-    content, filename, content_type = await _read_audio_upload(file, settings)
+    request_id = request_trace_registry.request_id(x_request_id)
+    request_trace_registry.start(request_id, "voice_stream")
+    try:
+        content, filename, content_type = await _read_audio_upload(file, settings)
+    except HTTPException as exc:
+        request_trace_registry.finish(request_id, "error", error_code=f"http_{exc.status_code}")
+        raise
     return StreamingResponse(
         voice_service.stream_voice_turn(
             conversation_id=conversation_id,
@@ -115,12 +136,14 @@ async def stream_voice_turn(
             content_type=content_type,
             language=settings.voice_language,
             recording_duration_ms=recording_duration_ms,
+            request_id=request_id,
         ),
         media_type="application/x-ndjson",
         headers={
             "Cache-Control": "no-store",
             "X-Accel-Buffering": "no",
             "X-Family-AI-Voice-Protocol": VOICE_STREAM_PROTOCOL,
+            "X-Request-ID": str(request_id),
         },
     )
 
@@ -151,12 +174,29 @@ async def synthesize_text(
     conversation_id: UUID,
     payload: SynthesizeTextRequest,
     voice_service: VoiceService = Depends(get_voice_service),
+    x_request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> Response:
     """Speak an existing assistant reply with the conversation agent's voice."""
 
+    request_id = request_trace_registry.request_id(x_request_id)
+    request_trace_registry.start(request_id, "speech_replay")
+    request_trace_registry.event(request_id, "tts", "started")
+    started_at = time.perf_counter()
     try:
-        speech = await voice_service.synthesize_text(conversation_id, payload.text)
+        speech = await voice_service.synthesize_text(
+            conversation_id,
+            payload.text,
+            request_id=request_id,
+        )
     except Exception as exc:
+        request_trace_registry.event(
+            request_id,
+            "tts",
+            "error",
+            duration_ms=round((time.perf_counter() - started_at) * 1000),
+            error_code="provider_error",
+        )
+        request_trace_registry.finish(request_id, "error", error_code="tts")
         logger.exception(
             "voice_synthesis_failed",
             extra={"conversation_id": str(conversation_id)},
@@ -165,4 +205,13 @@ async def synthesize_text(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Voice provider is temporarily unavailable",
         ) from exc
-    return speech_response(speech)
+    request_trace_registry.event(
+        request_id,
+        "tts",
+        "success",
+        duration_ms=round((time.perf_counter() - started_at) * 1000),
+    )
+    request_trace_registry.finish(request_id, "success")
+    response = speech_response(speech)
+    response.headers["X-Request-ID"] = str(request_id)
+    return response

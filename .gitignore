@@ -27,6 +27,8 @@ api.txt
 # Local runtime data and disposable previews
 *.db
 *.db-*
+*.sqlite3
+*.sqlite3-*
 /tmp/
 /.artifacts/
 /.dr/

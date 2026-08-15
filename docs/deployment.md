@@ -185,6 +185,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
 - `/var/lib/family-ai-speech/models` — кеш моделей;
 - `/var/lib/family-ai-config/gateway` — последние 20 локальных ревизий только
   управляемой части Gateway-конфигурации; каталог `0700`, файлы `0600`;
+- `/var/lib/family-ai-diagnostics` — не более 200 обезличенных технических трасс
+  Gateway/Admin за последние 24 часа; сообщения и медиа туда не попадают;
 - PostgreSQL — история и конфигурация агентов.
 
 Admin применяет runtime-настройки через безопасный lifecycle с redacted preview,

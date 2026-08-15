@@ -38,6 +38,8 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="operational-alert-list"' in response.text
     assert 'id="operational-history-list"' in response.text
     assert 'id="operational-self-test"' in response.text
+    assert 'id="diagnostic-trace-list"' in response.text
+    assert 'id="diagnostic-bundle-export"' in response.text
     assert 'id="history-card"' in response.text
     assert 'id="quality-feedback-total"' in response.text
     assert 'id="feedback-dialog"' in response.text
@@ -46,10 +48,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'class="regression-status-row"' in response.text
     assert 'class="row panel-actions"' in response.text
     assert 'href="/admin-assets/admin.css?v=admin-modules-2"' in response.text
-    assert (
-        'type="module" src="/admin-assets/js/app.js?v=admin-modules-2"'
-        in response.text
-    )
+    assert 'type="module" src="/admin-assets/js/app.js?v=admin-modules-2"' in response.text
     assert 'id="image_search_provider"' in response.text
     assert 'id="vision_provider"' in response.text
     assert 'id="vision_model"' in response.text
@@ -81,9 +80,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
         safety = await client.get("/admin-assets/js/safety-policy-screen.js")
         history = await client.get("/admin-assets/js/history-screen.js")
         memory = await client.get("/admin-assets/js/memory-screen.js")
-        infrastructure = await client.get(
-            "/admin-assets/js/infrastructure-screen.js"
-        )
+        infrastructure = await client.get("/admin-assets/js/infrastructure-screen.js")
         quality = await client.get("/admin-assets/js/quality-screen.js")
 
     assert css.status_code == 200
@@ -104,6 +101,8 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert "/api/infrastructure/scan" in infrastructure.text
     assert "/acknowledge" in infrastructure.text
     assert "/alerts/self-test" in infrastructure.text
+    assert "/api/diagnostics/traces" in infrastructure.text
+    assert "/api/diagnostics/bundle" in infrastructure.text
     assert "/api/settings/preview" in app.text
     assert "/api/settings/revisions" in app.text
     assert quality.status_code == 200

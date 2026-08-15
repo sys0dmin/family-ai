@@ -167,6 +167,7 @@ def create_app(
         temperature: Annotated[float, Form()] = 0.0,
         prompt: Annotated[str | None, Form()] = None,
         speech_service: LocalSpeechService = Depends(get_service),
+        x_request_id: uuid.UUID | None = Header(default=None, alias="X-Request-ID"),
     ) -> Response:
         del temperature
         if model != resolved_settings.stt_model:
@@ -185,10 +186,16 @@ def create_app(
         try:
             result = await speech_service.transcribe(content, language, prompt)
         except Exception as exc:
-            logger.exception("local_transcription_failed")
+            logger.exception(
+                "local_transcription_failed",
+                extra={"request_id": str(x_request_id) if x_request_id else None},
+            )
             raise HTTPException(status_code=502, detail="Local transcription failed") from exc
         if response_format == "text":
-            return PlainTextResponse(result.text)
+            return PlainTextResponse(
+                result.text,
+                headers={"X-Request-ID": str(x_request_id)} if x_request_id else None,
+            )
         verbose_response = TranscriptionVerboseResponse(
             language=result.language,
             duration=result.duration_seconds,
@@ -205,7 +212,10 @@ def create_app(
                 for segment in result.segments
             ],
         )
-        return JSONResponse(verbose_response.model_dump())
+        return JSONResponse(
+            verbose_response.model_dump(),
+            headers={"X-Request-ID": str(x_request_id)} if x_request_id else None,
+        )
 
     @app.post(
         "/v1/audio/speech",
@@ -215,6 +225,7 @@ def create_app(
     async def synthesize(
         payload: SynthesisRequest,
         speech_service: LocalSpeechService = Depends(get_service),
+        x_request_id: uuid.UUID | None = Header(default=None, alias="X-Request-ID"),
     ) -> Response:
         if payload.model != resolved_settings.tts_model:
             raise HTTPException(status_code=400, detail="Unsupported speech model")
@@ -227,12 +238,18 @@ def create_app(
         try:
             audio = await speech_service.synthesize(text, payload.voice)
         except Exception as exc:
-            logger.exception("local_synthesis_failed")
+            logger.exception(
+                "local_synthesis_failed",
+                extra={"request_id": str(x_request_id) if x_request_id else None},
+            )
             raise HTTPException(status_code=502, detail="Local synthesis failed") from exc
         return Response(
             content=audio,
             media_type="audio/wav",
-            headers={"Content-Disposition": 'inline; filename="speech.wav"'},
+            headers={
+                "Content-Disposition": 'inline; filename="speech.wav"',
+                **({"X-Request-ID": str(x_request_id)} if x_request_id else {}),
+            },
         )
 
     @app.post(
@@ -243,9 +260,7 @@ def create_app(
     )
     async def update_runtime_settings(
         payload: RuntimeSettingsUpdateRequest,
-        manager: SpeechRuntimeSettingsManager = Depends(
-            get_runtime_settings_manager
-        ),
+        manager: SpeechRuntimeSettingsManager = Depends(get_runtime_settings_manager),
     ) -> RuntimeSettingsResponse:
         try:
             manager.apply(

@@ -30,12 +30,15 @@ class OpenAISpeechSynthesisProvider(SpeechSynthesisProvider):
         self._response_format = response_format
 
     async def synthesize_speech(self, request: SpeechRequest) -> SpeechResponse:
-        response = await self._client.audio.speech.create(
-            model=self._model,
-            voice=request.voice or self._default_voice,
-            input=request.text,
-            response_format=self._response_format,
-        )
+        parameters = {
+            "model": self._model,
+            "voice": request.voice or self._default_voice,
+            "input": request.text,
+            "response_format": self._response_format,
+        }
+        if request.request_id:
+            parameters["extra_headers"] = {"X-Request-ID": str(request.request_id)}
+        response = await self._client.audio.speech.create(**parameters)
         audio_content = response.content
         if self._response_format == "wav":
             audio_content = finalize_wav_container(audio_content)

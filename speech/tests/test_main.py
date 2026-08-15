@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import mkdtemp
+from uuid import uuid4
 
 from pydantic import SecretStr
 from starlette.testclient import TestClient
@@ -294,3 +295,34 @@ def test_transcription_rejects_oversized_audio() -> None:
 
     assert response.status_code == 413
     assert service.transcriptions == []
+
+
+def test_audio_endpoints_echo_request_id() -> None:
+    client, _service = build_client()
+    request_id = str(uuid4())
+
+    transcription = client.post(
+        "/v1/audio/transcriptions",
+        headers={
+            "Authorization": "Bearer local-secret",
+            "X-Request-ID": request_id,
+        },
+        data={"model": "base", "response_format": "text"},
+        files={"file": ("voice.wav", b"RIFF", "audio/wav")},
+    )
+    synthesis = client.post(
+        "/v1/audio/speech",
+        headers={
+            "Authorization": "Bearer local-secret",
+            "X-Request-ID": request_id,
+        },
+        json={
+            "model": "silero-v5_2-ru",
+            "voice": "lulwa",
+            "response_format": "wav",
+            "input": "Привет!",
+        },
+    )
+
+    assert transcription.headers["x-request-id"] == request_id
+    assert synthesis.headers["x-request-id"] == request_id

@@ -4,11 +4,12 @@ import hashlib
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
 
 from gateway.app.config import Settings, get_settings
 from gateway.app.dependencies import get_multimodal_turn_service
+from gateway.app.observability.request_tracing import request_trace_registry
 from gateway.app.routers.speech_response import speech_response
 from gateway.app.services.image_understanding_service import (
     ALLOWED_IMAGE_TYPES,
@@ -85,9 +86,12 @@ async def multimodal_turn(
     recording_duration_ms: int | None = Form(default=None, ge=0, le=3_600_000),
     service: MultimodalTurnService = Depends(get_multimodal_turn_service),
     settings: Settings = Depends(get_settings),
+    x_request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> Response:
     """Accept one image and one spoken question; return the safe spoken answer."""
 
+    request_id = request_trace_registry.request_id(x_request_id)
+    request_trace_registry.start(request_id, "multimodal")
     try:
         (
             image_content,
@@ -119,6 +123,7 @@ async def multimodal_turn(
                 audio_content_type=audio_type,
                 language=settings.voice_language,
                 recording_duration_ms=recording_duration_ms,
+                request_id=request_id,
             )
         except ImageUnderstandingNotAllowedError as exc:
             raise HTTPException(
@@ -150,7 +155,12 @@ async def multimodal_turn(
                 detail="Multimodal providers are temporarily unavailable",
             ) from exc
 
-        return speech_response(result.speech, result.message_id)
+        response = speech_response(result.speech, result.message_id)
+        response.headers["X-Request-ID"] = str(request_id)
+        return response
+    except HTTPException as exc:
+        request_trace_registry.finish(request_id, "error", error_code=f"http_{exc.status_code}")
+        raise
     finally:
         await image.close()
         await audio.close()
@@ -164,9 +174,12 @@ async def stream_multimodal_turn(
     recording_duration_ms: int | None = Form(default=None, ge=0, le=3_600_000),
     service: MultimodalTurnService = Depends(get_multimodal_turn_service),
     settings: Settings = Depends(get_settings),
+    x_request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> StreamingResponse:
     """Stream one safe spoken answer about an ephemeral image."""
 
+    request_id = request_trace_registry.request_id(x_request_id)
+    request_trace_registry.start(request_id, "multimodal_stream")
     try:
         (
             image_content,
@@ -175,6 +188,9 @@ async def stream_multimodal_turn(
             audio_filename,
             audio_type,
         ) = await _read_multimodal_uploads(image, audio, settings)
+    except HTTPException as exc:
+        request_trace_registry.finish(request_id, "error", error_code=f"http_{exc.status_code}")
+        raise
     finally:
         await image.close()
         await audio.close()
@@ -188,11 +204,13 @@ async def stream_multimodal_turn(
             audio_content_type=audio_type,
             language=settings.voice_language,
             recording_duration_ms=recording_duration_ms,
+            request_id=request_id,
         ),
         media_type="application/x-ndjson",
         headers={
             "Cache-Control": "no-store",
             "X-Accel-Buffering": "no",
             "X-Family-AI-Voice-Protocol": VOICE_STREAM_PROTOCOL,
+            "X-Request-ID": str(request_id),
         },
     )

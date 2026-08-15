@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from uuid import UUID
 
+from gateway.app.observability.request_tracing import request_trace_registry
 from gateway.app.observability.voice_metrics import VoiceMetricsRegistry
 from gateway.app.providers.contracts import (
     SpeechRecognitionProvider,
@@ -71,6 +72,7 @@ class VoiceService:
         content_type: str,
         language: str = "ru",
         recording_duration_ms: int | None = None,
+        request_id: UUID | None = None,
     ) -> VoiceTurnResult:
         """Run one audio request through STT, conversation safety, and TTS."""
 
@@ -80,6 +82,7 @@ class VoiceService:
             recording_duration_ms=recording_duration_ms,
             streamed=False,
         )
+        request_id = request_trace_registry.request_id(request_id)
         prepared = await self._prepare_voice_turn(
             conversation_id=conversation_id,
             audio_content=audio_content,
@@ -88,23 +91,40 @@ class VoiceService:
             language=language,
             telemetry=telemetry,
             optimize_for_stream=False,
+            request_id=request_id,
         )
         tts_started_at = time.perf_counter()
+        request_trace_registry.event(request_id, "tts", "started")
         try:
             speech = await self._synthesis_provider.synthesize_speech(
-                SpeechRequest(text=prepared.text, voice=prepared.voice)
+                SpeechRequest(
+                    text=prepared.text,
+                    voice=prepared.voice,
+                    request_id=request_id,
+                )
             )
         except Exception:
-            telemetry.tts_duration_ms = round(
-                (time.perf_counter() - tts_started_at) * 1000
-            )
+            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
             telemetry.record(status="error", error_stage="tts")
+            request_trace_registry.event(
+                request_id,
+                "tts",
+                "error",
+                duration_ms=telemetry.tts_duration_ms,
+                error_code="provider_error",
+            )
+            request_trace_registry.finish(request_id, "error", error_code="tts")
             raise
         finally:
-            telemetry.tts_duration_ms = round(
-                (time.perf_counter() - tts_started_at) * 1000
-            )
+            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
         telemetry.record(status="success")
+        request_trace_registry.event(
+            request_id,
+            "tts",
+            "success",
+            duration_ms=telemetry.tts_duration_ms,
+        )
+        request_trace_registry.finish(request_id, "success")
         logger.info(
             "voice_synthesis_completed",
             extra={"audio_bytes": len(speech.audio_content)},
@@ -119,6 +139,7 @@ class VoiceService:
         content_type: str,
         language: str = "ru",
         recording_duration_ms: int | None = None,
+        request_id: UUID | None = None,
     ) -> AsyncIterator[bytes]:
         """Yield NDJSON events and stop remaining work when the turn is cancelled."""
 
@@ -128,6 +149,7 @@ class VoiceService:
             recording_duration_ms=recording_duration_ms,
             streamed=True,
         )
+        request_id = request_trace_registry.request_id(request_id)
         voice_stream_registry.register(telemetry.turn_id)
         yield encode_stream_event("started", turn_id=str(telemetry.turn_id))
         try:
@@ -139,20 +161,32 @@ class VoiceService:
                 language=language,
                 telemetry=telemetry,
                 optimize_for_stream=True,
+                request_id=request_id,
             )
+            tts_started_at = time.perf_counter()
+            request_trace_registry.event(request_id, "tts", "started")
             async for event in stream_speech_events(
                 prepared,
                 self._synthesis_provider,
             ):
                 yield event
+            request_trace_registry.event(
+                request_id,
+                "tts",
+                "success",
+                duration_ms=round((time.perf_counter() - tts_started_at) * 1000),
+            )
+            request_trace_registry.finish(request_id, "success")
         except asyncio.CancelledError:
             telemetry.record(
                 status="cancelled",
                 error_stage="cancelled",
                 cancelled=True,
             )
+            request_trace_registry.finish(request_id, "cancelled")
             raise
         except VoiceInputError:
+            request_trace_registry.finish(request_id, "error", error_code="stt")
             yield encode_stream_event(
                 "error",
                 code="speech_not_recognized",
@@ -161,6 +195,7 @@ class VoiceService:
         except Exception:
             telemetry.record(status="error", error_stage="tts")
             logger.exception("streaming_voice_turn_failed")
+            request_trace_registry.finish(request_id, "error", error_code="provider_error")
             yield encode_stream_event(
                 "error",
                 code="provider_unavailable",
@@ -179,6 +214,7 @@ class VoiceService:
         language: str,
         telemetry: VoiceTurnTelemetry,
         optimize_for_stream: bool,
+        request_id: UUID,
     ) -> PreparedVoiceResponse:
         stage = "stt"
         diagnostics = TurnDiagnostics()
@@ -188,18 +224,32 @@ class VoiceService:
             filename=filename,
             content_type=content_type,
             language=language,
+            request_id=request_id,
         )
 
         async def transcribe() -> TranscriptionResponse:
             started_at = time.perf_counter()
+            request_trace_registry.event(request_id, "stt", "started")
             try:
-                return await self._recognition_provider.transcribe_audio(
-                    transcription_request
+                result = await self._recognition_provider.transcribe_audio(transcription_request)
+            except Exception:
+                request_trace_registry.event(
+                    request_id,
+                    "stt",
+                    "error",
+                    duration_ms=round((time.perf_counter() - started_at) * 1000),
+                    error_code="provider_error",
                 )
+                raise
             finally:
-                telemetry.stt_duration_ms = round(
-                    (time.perf_counter() - started_at) * 1000
-                )
+                telemetry.stt_duration_ms = round((time.perf_counter() - started_at) * 1000)
+            request_trace_registry.event(
+                request_id,
+                "stt",
+                "success",
+                duration_ms=telemetry.stt_duration_ms,
+            )
+            return result
 
         try:
             recognition_task = None
@@ -239,6 +289,7 @@ class VoiceService:
             )
 
             stage = "llm"
+            request_trace_registry.event(request_id, "llm", "started")
             ai_message = await self._conversation_service.process_turn(
                 conversation_id=conversation_id,
                 text=transcript,
@@ -247,8 +298,15 @@ class VoiceService:
                     VOICE_RESPONSE_CONTEXT if optimize_for_stream else None,
                 ),
                 diagnostics=diagnostics,
+                request_id=request_id,
             )
             telemetry.llm_duration_ms = diagnostics.llm_duration_ms
+            request_trace_registry.event(
+                request_id,
+                "llm",
+                "success",
+                duration_ms=telemetry.llm_duration_ms,
+            )
             return PreparedVoiceResponse(
                 message_id=ai_message.id,
                 text=ai_message.content,
@@ -265,16 +323,29 @@ class VoiceService:
         except Exception:
             telemetry.llm_duration_ms = diagnostics.llm_duration_ms
             telemetry.record(status="error", error_stage=stage)
+            if stage == "llm":
+                request_trace_registry.event(
+                    request_id,
+                    "llm",
+                    "error",
+                    duration_ms=telemetry.llm_duration_ms,
+                    error_code="provider_error",
+                )
             raise
 
     async def synthesize_text(
         self,
         conversation_id: UUID,
         text: str,
+        request_id: UUID | None = None,
     ) -> SpeechResponse:
         """Speak existing assistant text with the agent bound to the conversation."""
 
         active_agent = self._conversation_service.get_conversation_agent(conversation_id)
         return await self._synthesis_provider.synthesize_speech(
-            SpeechRequest(text=text.strip(), voice=active_agent.tts_voice)
+            SpeechRequest(
+                text=text.strip(),
+                voice=active_agent.tts_voice,
+                request_id=request_id,
+            )
         )

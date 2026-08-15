@@ -29,7 +29,8 @@ case "$COMPONENT" in
     chmod 0770 /etc/family-ai
     install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 \
       /var/lib/family-ai-config \
-      /var/lib/family-ai-config/gateway
+      /var/lib/family-ai-config/gateway \
+      /var/lib/family-ai-diagnostics
     if [[ ! -f /etc/family-ai/gateway.env ]]; then
       if [[ -f /home/familyai-deploy/family-ai/.env ]]; then
         install -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0600 \

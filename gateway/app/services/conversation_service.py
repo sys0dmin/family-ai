@@ -118,6 +118,7 @@ class ConversationService:
         runtime_context: str | None = None,
         input_safety_context: str | None = None,
         diagnostics: TurnDiagnostics | None = None,
+        request_id: uuid.UUID | None = None,
     ) -> Message:
         """Store a child message and return the generated assistant response."""
 
@@ -142,6 +143,7 @@ class ConversationService:
             runtime_context=runtime_context,
             input_safety_context=input_safety_context,
             diagnostics=diagnostics,
+            request_id=request_id,
         )
 
     async def generate_ai_response(
@@ -150,6 +152,7 @@ class ConversationService:
         runtime_context: str | None = None,
         input_safety_context: str | None = None,
         diagnostics: TurnDiagnostics | None = None,
+        request_id: uuid.UUID | None = None,
     ) -> Message:
         """Generate an AI response based on conversation history with safety checks."""
 
@@ -162,11 +165,9 @@ class ConversationService:
             raise RuntimeError("No messages in conversation")
 
         active_agent = self.get_conversation_agent(conversation_id)
-        last_child_msg = next((m for m in reversed(history) if m.role == 'child'), None)
+        last_child_msg = next((m for m in reversed(history) if m.role == "child"), None)
         activity_context: ActivityTurnContext | None = (
-            self._activities.turn_context(conversation_id)
-            if self._activities
-            else None
+            self._activities.turn_context(conversation_id) if self._activities else None
         )
 
         # 2. Safety check: Incoming
@@ -186,16 +187,13 @@ class ConversationService:
             if input_outcome.action is PolicyAction.BLOCK:
                 return self.create_message(
                     conversation_id=conversation_id,
-                    role='assistant',
-                    content=(
-                        input_outcome.safe_response
-                        or "Давай поговорим о чём-нибудь другом?"
-                    ),
+                    role="assistant",
+                    content=(input_outcome.safe_response or "Давай поговорим о чём-нибудь другом?"),
                 )
             if input_outcome.action is PolicyAction.TRANSFORM:
                 return self.create_message(
                     conversation_id=conversation_id,
-                    role='assistant',
+                    role="assistant",
                     content=input_outcome.text,
                 )
 
@@ -234,10 +232,7 @@ class ConversationService:
                 )
             )
         outdoor_permission = None
-        if (
-            self._safety
-            and "supervised_outdoor_safety" in active_agent.permissions
-        ):
+        if self._safety and "supervised_outdoor_safety" in active_agent.permissions:
             outdoor_permission = self._safety.evaluate_permission(
                 "supervised_outdoor_safety",
                 active_agent.permissions,
@@ -257,7 +252,7 @@ class ConversationService:
                 )
             )
         for msg in history[-10:]:
-            role = ProviderRole.USER if msg.role == 'child' else ProviderRole.ASSISTANT
+            role = ProviderRole.USER if msg.role == "child" else ProviderRole.ASSISTANT
             messages.append(ChatMessage(role=role, content=msg.content))
 
         web_search_policy = None
@@ -271,7 +266,7 @@ class ConversationService:
             if web_search_policy and web_search_policy.action is PolicyAction.ALLOW
             else ()
         )
-        request = ChatRequest(messages=messages, tools=tools)
+        request = ChatRequest(messages=messages, tools=tools, request_id=request_id)
 
         # 4. Call AI
         llm_started_at = time.perf_counter()
@@ -279,10 +274,8 @@ class ConversationService:
             response = await self._provider.generate_response(request)
         finally:
             if diagnostics is not None:
-                diagnostics.llm_duration_ms = round(
-                    (time.perf_counter() - llm_started_at) * 1000
-                )
-        response_content = response.content.replace('\x00', '')
+                diagnostics.llm_duration_ms = round((time.perf_counter() - llm_started_at) * 1000)
+        response_content = response.content.replace("\x00", "")
 
         # 5. Safety check: Outgoing
         if self._safety:
@@ -304,14 +297,14 @@ class ConversationService:
                 )
                 return self.create_message(
                     conversation_id=conversation_id,
-                    role='assistant',
+                    role="assistant",
                     content=output_outcome.safe_response or "Давай сменим тему?",
                 )
 
         # 6. Store and return response
         message = self.create_message(
             conversation_id=conversation_id,
-            role='assistant',
+            role="assistant",
             content=response_content,
         )
         if self._activities and activity_context:

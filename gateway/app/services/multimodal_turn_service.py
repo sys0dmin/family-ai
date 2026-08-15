@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from uuid import UUID
 
+from gateway.app.observability.request_tracing import request_trace_registry
 from gateway.app.observability.voice_metrics import VoiceMetricsRegistry
 from gateway.app.providers.contracts import (
     SpeechRecognitionProvider,
@@ -81,6 +82,7 @@ class MultimodalTurnService:
         audio_content_type: str,
         language: str = "ru",
         recording_duration_ms: int | None = None,
+        request_id: UUID | None = None,
     ) -> MultimodalTurnResult:
         telemetry = VoiceTurnTelemetry(
             metrics=self._metrics,
@@ -88,6 +90,7 @@ class MultimodalTurnService:
             recording_duration_ms=recording_duration_ms,
             streamed=False,
         )
+        request_id = request_trace_registry.request_id(request_id)
         prepared = await self._prepare_turn(
             conversation_id=conversation_id,
             image_content=image_content,
@@ -98,23 +101,33 @@ class MultimodalTurnService:
             language=language,
             telemetry=telemetry,
             optimize_for_stream=False,
+            request_id=request_id,
         )
         tts_started_at = time.perf_counter()
+        request_trace_registry.event(request_id, "tts", "started")
         try:
             speech = await self._synthesis_provider.synthesize_speech(
-                SpeechRequest(text=prepared.text, voice=prepared.voice)
+                SpeechRequest(text=prepared.text, voice=prepared.voice, request_id=request_id)
             )
         except Exception:
-            telemetry.tts_duration_ms = round(
-                (time.perf_counter() - tts_started_at) * 1000
-            )
+            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
             telemetry.record(status="error", error_stage="tts")
+            request_trace_registry.event(
+                request_id,
+                "tts",
+                "error",
+                duration_ms=telemetry.tts_duration_ms,
+                error_code="provider_error",
+            )
+            request_trace_registry.finish(request_id, "error", error_code="tts")
             raise
         finally:
-            telemetry.tts_duration_ms = round(
-                (time.perf_counter() - tts_started_at) * 1000
-            )
+            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
         telemetry.record(status="success")
+        request_trace_registry.event(
+            request_id, "tts", "success", duration_ms=telemetry.tts_duration_ms
+        )
+        request_trace_registry.finish(request_id, "success")
         return MultimodalTurnResult(speech=speech, message_id=prepared.message_id)
 
     async def stream_turn(
@@ -128,6 +141,7 @@ class MultimodalTurnService:
         audio_content_type: str,
         language: str = "ru",
         recording_duration_ms: int | None = None,
+        request_id: UUID | None = None,
     ) -> AsyncIterator[bytes]:
         """Yield cancellable Voice 2.0 events for one spoken-image question."""
 
@@ -137,6 +151,7 @@ class MultimodalTurnService:
             recording_duration_ms=recording_duration_ms,
             streamed=True,
         )
+        request_id = request_trace_registry.request_id(request_id)
         voice_stream_registry.register(telemetry.turn_id)
         yield encode_stream_event("started", turn_id=str(telemetry.turn_id))
         try:
@@ -150,32 +165,46 @@ class MultimodalTurnService:
                 language=language,
                 telemetry=telemetry,
                 optimize_for_stream=True,
+                request_id=request_id,
             )
+            tts_started_at = time.perf_counter()
+            request_trace_registry.event(request_id, "tts", "started")
             async for event in stream_speech_events(
                 prepared,
                 self._synthesis_provider,
             ):
                 yield event
+            request_trace_registry.event(
+                request_id,
+                "tts",
+                "success",
+                duration_ms=round((time.perf_counter() - tts_started_at) * 1000),
+            )
+            request_trace_registry.finish(request_id, "success")
         except asyncio.CancelledError:
             telemetry.record(
                 status="cancelled",
                 error_stage="cancelled",
                 cancelled=True,
             )
+            request_trace_registry.finish(request_id, "cancelled")
             raise
         except VoiceInputError:
+            request_trace_registry.finish(request_id, "error", error_code="stt")
             yield encode_stream_event(
                 "error",
                 code="speech_not_recognized",
                 message="Не удалось расслышать вопрос. Попробуем ещё раз.",
             )
         except ImageUnderstandingNotAllowedError:
+            request_trace_registry.finish(request_id, "error", error_code="vision_not_allowed")
             yield encode_stream_event(
                 "error",
                 code="image_not_allowed",
                 message="Этот персонаж пока не умеет рассматривать фотографии.",
             )
         except (InvalidImageError, ImageUnderstandingUnavailableError):
+            request_trace_registry.finish(request_id, "error", error_code="vision")
             yield encode_stream_event(
                 "error",
                 code="vision_unavailable",
@@ -184,6 +213,7 @@ class MultimodalTurnService:
         except Exception:
             telemetry.record(status="error", error_stage="tts")
             logger.exception("streaming_multimodal_turn_failed")
+            request_trace_registry.finish(request_id, "error", error_code="provider_error")
             yield encode_stream_event(
                 "error",
                 code="provider_unavailable",
@@ -204,6 +234,7 @@ class MultimodalTurnService:
         language: str,
         telemetry: VoiceTurnTelemetry,
         optimize_for_stream: bool,
+        request_id: UUID,
     ) -> PreparedVoiceResponse:
         error_stage = "stt_vision"
         diagnostics = TurnDiagnostics()
@@ -213,6 +244,7 @@ class MultimodalTurnService:
 
             async def transcribe() -> TranscriptionResponse:
                 started_at = time.perf_counter()
+                request_trace_registry.event(request_id, "stt", "started")
                 try:
                     return await self._recognition_provider.transcribe_audio(
                         TranscriptionRequest(
@@ -220,12 +252,11 @@ class MultimodalTurnService:
                             filename=audio_filename,
                             content_type=audio_content_type,
                             language=language,
+                            request_id=request_id,
                         )
                     )
                 finally:
-                    telemetry.stt_duration_ms = round(
-                        (time.perf_counter() - started_at) * 1000
-                    )
+                    telemetry.stt_duration_ms = round((time.perf_counter() - started_at) * 1000)
 
             async def inspect() -> EphemeralImageObservations:
                 started_at = time.perf_counter()
@@ -235,11 +266,10 @@ class MultimodalTurnService:
                         question=NEUTRAL_VISUAL_QUESTION,
                         image_content=image_content,
                         content_type=image_content_type,
+                        request_id=request_id,
                     )
                 finally:
-                    telemetry.vision_duration_ms = round(
-                        (time.perf_counter() - started_at) * 1000
-                    )
+                    telemetry.vision_duration_ms = round((time.perf_counter() - started_at) * 1000)
 
             transcription_result, observations_result = await asyncio.gather(
                 transcribe(),
@@ -248,7 +278,17 @@ class MultimodalTurnService:
             )
             if isinstance(transcription_result, BaseException):
                 error_stage = "stt"
+                request_trace_registry.event(
+                    request_id,
+                    "stt",
+                    "error",
+                    duration_ms=telemetry.stt_duration_ms,
+                    error_code="provider_error",
+                )
                 raise transcription_result
+            request_trace_registry.event(
+                request_id, "stt", "success", duration_ms=telemetry.stt_duration_ms
+            )
             if isinstance(observations_result, BaseException):
                 error_stage = "vision"
                 raise observations_result
@@ -272,6 +312,7 @@ class MultimodalTurnService:
             )
 
             error_stage = "llm"
+            request_trace_registry.event(request_id, "llm", "started")
             ai_message = await self._conversation.process_turn(
                 conversation_id,
                 transcript,
@@ -281,8 +322,12 @@ class MultimodalTurnService:
                 ),
                 input_safety_context=observations_result.description,
                 diagnostics=diagnostics,
+                request_id=request_id,
             )
             telemetry.llm_duration_ms = diagnostics.llm_duration_ms
+            request_trace_registry.event(
+                request_id, "llm", "success", duration_ms=telemetry.llm_duration_ms
+            )
             return PreparedVoiceResponse(
                 message_id=ai_message.id,
                 text=ai_message.content,
@@ -299,4 +344,12 @@ class MultimodalTurnService:
         except Exception:
             telemetry.llm_duration_ms = diagnostics.llm_duration_ms
             telemetry.record(status="error", error_stage=error_stage)
+            if error_stage == "llm":
+                request_trace_registry.event(
+                    request_id,
+                    "llm",
+                    "error",
+                    duration_ms=telemetry.llm_duration_ms,
+                    error_code="provider_error",
+                )
             raise

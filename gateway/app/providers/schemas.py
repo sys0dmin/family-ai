@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
 
 class ProviderRole(StrEnum):
@@ -22,6 +23,7 @@ class ProviderTool(StrEnum):
 @dataclass(frozen=True)
 class ChatMessage:
     """A single message in a chat completion request."""
+
     role: ProviderRole
     content: str
 
@@ -29,15 +31,18 @@ class ChatMessage:
 @dataclass(frozen=True)
 class ChatRequest:
     """Request for a chat completion (LLM)."""
+
     messages: list[ChatMessage]
     temperature: float = 0.7
     max_tokens: int | None = None
     tools: tuple[ProviderTool, ...] = ()
+    request_id: UUID | None = None
 
 
 @dataclass(frozen=True)
 class ChatResponse:
     """Response from a chat completion (LLM)."""
+
     content: str
     raw_response: Any = None
 
@@ -50,11 +55,13 @@ class TranscriptionRequest:
     filename: str
     content_type: str
     language: str = "ru"
+    request_id: UUID | None = None
 
 
 @dataclass(frozen=True)
 class TranscriptionResponse:
     """Response from a speech-to-text (STT) provider."""
+
     text: str
     duration_ms: int | None = None
     speech_duration_ms: int | None = None
@@ -69,11 +76,13 @@ class SpeechRequest:
 
     text: str
     voice: str | None = None
+    request_id: UUID | None = None
 
 
 @dataclass(frozen=True)
 class SpeechResponse:
     """Response from a text-to-speech (TTS) provider."""
+
     audio_content: bytes
     content_type: str = "audio/mpeg"
     raw_response: Any = None
@@ -86,6 +95,7 @@ class ImageUnderstandingRequest:
     image_content: bytes
     content_type: str
     question: str
+    request_id: UUID | None = None
 
 
 @dataclass(frozen=True)

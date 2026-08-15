@@ -1,8 +1,10 @@
+import time
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 
 from gateway.app.dependencies import get_conversation_service
+from gateway.app.observability.request_tracing import request_trace_registry
 from gateway.app.schemas.conversations import (
     ConversationHistoryResponse,
     CreateConversationRequest,
@@ -20,6 +22,7 @@ def normalize_role(role_str: str) -> str:
     if role_lower in {"child", "assistant"}:
         return role_lower
     raise ValueError(f"Invalid role: {role_str}")
+
 
 router = APIRouter(prefix="/v1/conversations", tags=["conversations"])
 
@@ -94,13 +97,39 @@ def create_message(
 async def process_turn(
     conversation_id: uuid.UUID,
     payload: CreateMessageRequest,
+    response: Response,
     service: ConversationService = Depends(get_conversation_service),
+    x_request_id: uuid.UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> MessageResponse:
     """Store child message and generate assistant response."""
 
     if normalize_role(payload.role) != "child":
         raise ValueError("Only child messages can start an AI turn")
-    assistant_message = await service.process_turn(conversation_id, payload.content)
+    request_id = request_trace_registry.request_id(x_request_id)
+    request_trace_registry.start(request_id, "text")
+    request_trace_registry.event(request_id, "llm", "started")
+    started_at = time.perf_counter()
+    try:
+        assistant_message = await service.process_turn(
+            conversation_id,
+            payload.content,
+            request_id=request_id,
+        )
+    except Exception:
+        duration_ms = round((time.perf_counter() - started_at) * 1000)
+        request_trace_registry.event(
+            request_id,
+            "llm",
+            "error",
+            duration_ms=duration_ms,
+            error_code="provider_error",
+        )
+        request_trace_registry.finish(request_id, "error", error_code="llm")
+        raise
+    duration_ms = round((time.perf_counter() - started_at) * 1000)
+    request_trace_registry.event(request_id, "llm", "success", duration_ms=duration_ms)
+    request_trace_registry.finish(request_id, "success")
+    response.headers["X-Request-ID"] = str(request_id)
 
     return MessageResponse.model_validate(assistant_message)
 

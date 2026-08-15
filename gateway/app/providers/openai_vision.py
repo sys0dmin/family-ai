@@ -36,7 +36,7 @@ class OpenAIImageUnderstandingProvider(ImageUnderstandingProvider):
         request: ImageUnderstandingRequest,
     ) -> ImageUnderstandingResponse:
         encoded = base64.b64encode(request.image_content).decode("ascii")
-        response = await self._client.chat.completions.create(
+        parameters = dict(
             model=self._model,
             messages=[
                 {"role": "system", "content": VISION_SYSTEM_PROMPT},
@@ -59,6 +59,9 @@ class OpenAIImageUnderstandingProvider(ImageUnderstandingProvider):
             temperature=0.1,
             max_tokens=500,
         )
+        if request.request_id:
+            parameters["extra_headers"] = {"X-Request-ID": str(request.request_id)}
+        response = await self._client.chat.completions.create(**parameters)
         description = response.choices[0].message.content or ""
         return ImageUnderstandingResponse(
             description=description.strip(),

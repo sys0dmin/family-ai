@@ -34,6 +34,7 @@ from gateway.admin.configuration_service import (
     GatewayConfigurationService,
     render_env_updates,
 )
+from gateway.admin.diagnostics_router import router as diagnostics_router
 from gateway.admin.history_schemas import (
     ConversationHistoryResponse,
     HistorySummaryResponse,
@@ -197,6 +198,7 @@ app.include_router(system_router)
 app.include_router(studio_router)
 app.include_router(voice_observability_router)
 app.include_router(calibration_router)
+app.include_router(diagnostics_router)
 app.include_router(speech_runtime_router)
 app.include_router(safety_policy_router)
 app.include_router(memory_router)

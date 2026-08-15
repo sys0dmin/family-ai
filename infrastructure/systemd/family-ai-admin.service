@@ -12,6 +12,7 @@ EnvironmentFile=/etc/family-ai/gateway.env
 Environment=PYTHONUNBUFFERED=1
 Environment=FAMILY_AI_ADMIN_ENV_FILE=/etc/family-ai/gateway.env
 Environment=FAMILY_AI_ADMIN_CONFIG_HISTORY_DIR=/var/lib/family-ai-config/gateway
+Environment=FAMILY_AI_TRACE_DB_PATH=/var/lib/family-ai-diagnostics/traces.sqlite3
 ExecStart=/srv/family-ai/gateway/current/.venv/bin/python -m uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=2
@@ -19,7 +20,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=read-only
-ReadWritePaths=/etc/family-ai /var/lib/family-ai-config/gateway
+ReadWritePaths=/etc/family-ai /var/lib/family-ai-config/gateway /var/lib/family-ai-diagnostics
 
 [Install]
 WantedBy=multi-user.target

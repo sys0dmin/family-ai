@@ -300,6 +300,51 @@ export function createInfrastructureScreen() {
     }
   }
 
+  function renderDiagnosticTraces(traces) {
+    const container = byId("diagnostic-trace-list");
+    const count = byId("diagnostic-trace-count");
+    count.textContent = String(traces.length);
+    count.className = `health-pill ${traces.length ? "degraded" : ""}`;
+    container.replaceChildren();
+    if (!traces.length) {
+      const empty = document.createElement("span");
+      empty.className = "muted";
+      empty.textContent = "Неуспешных запросов пока нет.";
+      container.append(empty);
+      return;
+    }
+    for (const trace of traces) {
+      const card = document.createElement("article");
+      card.className = "diagnostic-trace";
+      const heading = document.createElement("div");
+      heading.className = "diagnostic-trace-heading";
+      const title = document.createElement("strong");
+      title.textContent = `${trace.mode} · ${trace.request_id}`;
+      const time = document.createElement("span");
+      time.textContent = formatDateTime(trace.started_at);
+      heading.append(title, time);
+      const timeline = document.createElement("div");
+      timeline.className = "diagnostic-timeline";
+      for (const event of trace.events) {
+        const item = document.createElement("span");
+        item.className = `diagnostic-event ${event.status}`;
+        const duration = event.duration_ms == null ? "" : ` · ${event.duration_ms} мс`;
+        item.textContent = `${event.stage}: ${event.status}${duration}`;
+        timeline.append(item);
+      }
+      card.append(heading, timeline);
+      container.append(card);
+    }
+  }
+
+  async function loadDiagnosticTraces() {
+    try {
+      renderDiagnosticTraces(await api("/api/diagnostics/traces?failed_only=true"));
+    } catch (_) {
+      renderDiagnosticTraces([]);
+    }
+  }
+
   async function load() {
     if (loading) return;
     loading = true;
@@ -311,6 +356,7 @@ export function createInfrastructureScreen() {
       render(data);
       renderVoiceObservability(overview.voice);
       renderAlerts(overview.alerts, data.status);
+      await loadDiagnosticTraces();
       const hasAlerts = overview.alerts.active.length > 0;
       setStatus(
         status,
@@ -327,5 +373,8 @@ export function createInfrastructureScreen() {
 
   byId("infrastructure-refresh").onclick = load;
   byId("operational-self-test").onclick = runAlertSelfTest;
+  byId("diagnostic-bundle-export").onclick = () => {
+    window.location.assign("/api/diagnostics/bundle");
+  };
   return { load };
 }
