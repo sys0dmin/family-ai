@@ -51,6 +51,15 @@ from gateway.app.config import get_settings
 from gateway.app.db.session import get_session_factory
 
 
+class RevalidatingStaticFiles(StaticFiles):
+    """Prevent stale Admin modules from surviving a release switch."""
+
+    async def get_response(self, path: str, scope: dict[str, Any]) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
+
 class SettingsResponse(BaseModel):
     environment: str
     message_retention_days: int
@@ -178,7 +187,7 @@ class ChangePasswordRequest(BaseModel):
 app = FastAPI(title="Family AI Admin", version="0.1.0")
 app.mount(
     "/admin-assets",
-    StaticFiles(directory=Path(__file__).with_name("static")),
+    RevalidatingStaticFiles(directory=Path(__file__).with_name("static")),
     name="admin-assets",
 )
 app.include_router(agents_router)
@@ -220,9 +229,12 @@ def get_gateway_configuration_service() -> GatewayConfigurationService:
 
 
 @app.get("/", response_class=HTMLResponse)
-def admin_index() -> str:
+def admin_index() -> HTMLResponse:
     admin_page = Path(__file__).with_name("panel.html")
-    return admin_page.read_text(encoding="utf-8")
+    return HTMLResponse(
+        admin_page.read_text(encoding="utf-8"),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.post("/api/session", status_code=204)

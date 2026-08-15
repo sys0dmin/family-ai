@@ -14,6 +14,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
         response = await client.get("/")
 
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
     assert "Умный дом." in response.text
     assert 'class="admin-shell"' in response.text
     assert 'id="settings-card"' in response.text
@@ -44,8 +45,11 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="regression-list"' in response.text
     assert 'class="regression-status-row"' in response.text
     assert 'class="row panel-actions"' in response.text
-    assert 'href="/admin-assets/admin.css"' in response.text
-    assert 'type="module" src="/admin-assets/js/app.js"' in response.text
+    assert 'href="/admin-assets/admin.css?v=admin-modules-2"' in response.text
+    assert (
+        'type="module" src="/admin-assets/js/app.js?v=admin-modules-2"'
+        in response.text
+    )
     assert 'id="image_search_provider"' in response.text
     assert 'id="vision_provider"' in response.text
     assert 'id="vision_model"' in response.text
@@ -83,17 +87,20 @@ async def test_admin_assets_are_local_modular_components() -> None:
         quality = await client.get("/admin-assets/js/quality-screen.js")
 
     assert css.status_code == 200
+    assert css.headers["cache-control"] == "no-cache, must-revalidate"
     assert "@media (max-width: 820px)" in css.text
     assert ".grid.three { grid-template-columns: repeat(3" in css.text
     assert '.option-row input[type="checkbox"]' in css.text
     assert app.status_code == 200
-    assert 'from "./api-client.js"' in app.text
+    assert 'from "./api-client.js?v=admin-modules-2"' in app.text
     assert "restoreBrowserSession()" in app.text
     assert navigation.status_code == 200
     assert safety.status_code == 200
     assert history.status_code == 200
     assert memory.status_code == 200
     assert infrastructure.status_code == 200
+    assert infrastructure.headers["cache-control"] == "no-cache, must-revalidate"
+    assert 'byId("operational-self-test").onclick = runAlertSelfTest' in infrastructure.text
     assert "/api/infrastructure/scan" in infrastructure.text
     assert "/acknowledge" in infrastructure.text
     assert "/alerts/self-test" in infrastructure.text

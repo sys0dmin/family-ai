@@ -1,6 +1,6 @@
-import { api } from "./api-client.js";
-import { byId, formatDateTime, getValue, setStatus } from "./dom.js";
-import { feedbackReasonLabels } from "./quality-screen.js";
+import { api } from "./api-client.js?v=admin-modules-2";
+import { byId, formatDateTime, getValue, setStatus } from "./dom.js?v=admin-modules-2";
+import { feedbackReasonLabels } from "./quality-screen.js?v=admin-modules-2";
 
 export function createHistoryScreen({ onFeedback, onPeriodChange }) {
   let page = 1;

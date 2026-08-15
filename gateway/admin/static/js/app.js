@@ -3,15 +3,15 @@
       createBrowserSession,
       deleteBrowserSession,
       requestBlob
-    } from "./api-client.js";
-    import { formatDateTime, getValue, setStatus, setValue } from "./dom.js";
-    import { createHistoryScreen } from "./history-screen.js";
-    import { createInfrastructureScreen } from "./infrastructure-screen.js";
-    import { createActivityScreen } from "./activity-screen.js";
-    import { createMemoryScreen } from "./memory-screen.js";
-    import { createNavigation, hideAllScreens } from "./navigation.js";
-    import { createQualityScreen } from "./quality-screen.js";
-    import { createSafetyPolicyScreen } from "./safety-policy-screen.js";
+    } from "./api-client.js?v=admin-modules-2";
+    import { formatDateTime, getValue, setStatus, setValue } from "./dom.js?v=admin-modules-2";
+    import { createHistoryScreen } from "./history-screen.js?v=admin-modules-2";
+    import { createInfrastructureScreen } from "./infrastructure-screen.js?v=admin-modules-2";
+    import { createActivityScreen } from "./activity-screen.js?v=admin-modules-2";
+    import { createMemoryScreen } from "./memory-screen.js?v=admin-modules-2";
+    import { createNavigation, hideAllScreens } from "./navigation.js?v=admin-modules-2";
+    import { createQualityScreen } from "./quality-screen.js?v=admin-modules-2";
+    import { createSafetyPolicyScreen } from "./safety-policy-screen.js?v=admin-modules-2";
 
     const authCard = document.getElementById("auth-card");
     const passwordCard = document.getElementById("password-card");

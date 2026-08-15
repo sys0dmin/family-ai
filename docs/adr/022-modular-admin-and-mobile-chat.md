@@ -76,3 +76,6 @@ represents local audio preparation before the request waits in `thinking`.
 - A future streaming voice API can replace generation-based cancellation
   without changing widgets or conversation state.
 - Static Admin assets must be deployed together with `panel.html`.
+- Admin HTML is never cached, and static ES modules require revalidation. A
+  one-time versioned module graph invalidates assets cached before this policy;
+  later releases keep stable URLs while conditional requests use ETag.

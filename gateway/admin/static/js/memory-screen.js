@@ -1,5 +1,5 @@
-import { api } from "./api-client.js";
-import { byId, formatDateTime, getValue, setStatus, setValue } from "./dom.js";
+import { api } from "./api-client.js?v=admin-modules-2";
+import { byId, formatDateTime, getValue, setStatus, setValue } from "./dom.js?v=admin-modules-2";
 
 const categoryLabels = {
   interest: "Интерес",

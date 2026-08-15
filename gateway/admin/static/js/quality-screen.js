@@ -1,5 +1,5 @@
-import { api, requestBlob } from "./api-client.js";
-import { byId, formatDateTime, getValue, setStatus, setValue } from "./dom.js";
+import { api, requestBlob } from "./api-client.js?v=admin-modules-2";
+import { byId, formatDateTime, getValue, setStatus, setValue } from "./dom.js?v=admin-modules-2";
 
 export const feedbackReasonLabels = {
   factual_error: "Фактическая ошибка",

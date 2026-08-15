@@ -1,5 +1,5 @@
-import { api } from "./api-client.js";
-import { byId, formatDateTime, setStatus } from "./dom.js";
+import { api } from "./api-client.js?v=admin-modules-2";
+import { byId, formatDateTime, setStatus } from "./dom.js?v=admin-modules-2";
 
 export function createInfrastructureScreen() {
   const history = { gateway: [], database: [], speech: [] };
