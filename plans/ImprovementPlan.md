@@ -650,7 +650,9 @@ SQLite-репозитории, общем для процессов Gateway и A
 
 ### Этап 22. Управление перегрузкой Voice
 
-Статус: выполнен 15 августа 2026 года, ожидает production-развёртывания.
+Статус: выполнен и развёрнут в production 15 августа 2026 года на commit
+`a248c76`. Release smoke-test прошёл Admin UI, PostgreSQL, LLM, TTS, STT и Vision;
+live admission после запуска подтвердил `0/2` занятых слота.
 
 - [x] ограничить Gateway двумя одновременными voice-turn на основании Stage 19 benchmark;
 - [x] отменять устаревшие задания при выходе из voice screen и освобождать admission-slot;
