@@ -610,8 +610,9 @@ Total p95 вырос с `14,5 с` при одном клиенте до `25,0 с
 
 ### Этап 20. Безопасный lifecycle runtime-конфигурации
 
-Статус: реализован и полностью проверен локально 15 августа 2026 года; ожидает
-commit, deploy и безопасную production-проверку.
+Статус: завершён 15 августа 2026 года. Полный regression suite пройден локально,
+release развёрнут на Gateway, а безопасный production-цикл preview → apply →
+readiness → rollback подтверждён на реальной конфигурации.
 
 - [x] ограничить ревизию allow-list параметров, доступных во вкладке «Настройки»;
 - [x] добавить предварительную валидацию и redacted diff без записи;
@@ -622,13 +623,15 @@ commit, deploy и безопасную production-проверку.
 - [x] не откатывать БД, пароль Admin, monitoring и deployment-переменные;
 - [x] добавить компенсирующий возврат beam/VAD при ошибке Speech restart;
 - [x] завершить полный regression suite Gateway, Speech, Admin и Android;
-- [ ] выполнить production-проверку apply/rollback после публикации release.
+- [x] выполнить production-проверку apply/rollback после публикации release.
 
 Готово, когда изменение из Admin либо становится подтверждённой активной
 ревизией, либо автоматически возвращается к прежнему состоянию без ручного SSH.
 Контракт описан в
 [`docs/runtime-configuration.md`](../docs/runtime-configuration.md), решение — в
-[`ADR 038`](../docs/adr/038-safe-runtime-configuration-lifecycle.md).
+[`ADR 038`](../docs/adr/038-safe-runtime-configuration-lifecycle.md). Безопасный
+root-mediated restart без `sudo` из Admin описан в
+[`ADR 039`](../docs/adr/039-root-mediated-gateway-restart.md).
 
 ### Этап 21. Сквозная техническая трассировка и диагностический пакет
 

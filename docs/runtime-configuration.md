@@ -133,5 +133,11 @@ Gateway-службу и подтверждает выполнение тем ж�
 5. вернуть baseline и убедиться, что Gateway снова готов;
 6. проверить «Тест-студию» для LLM/TTS/STT/Vision.
 
+Production-проверка 15 августа 2026 года прошла полный безопасный цикл на
+Gateway: preview вернул одно несекретное изменение, apply дождался restart и
+loopback readiness, rollback восстановил исходное значение и создал отдельную
+активную ревизию. Gateway, Admin и restart path unit остались активны; snapshots
+сохранили режим `0600`.
+
 Архитектурные решения: [ADR 038](adr/038-safe-runtime-configuration-lifecycle.md)
 и [ADR 039](adr/039-root-mediated-gateway-restart.md).
