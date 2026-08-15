@@ -670,7 +670,7 @@ live admission после запуска подтвердил `0/2` заняты
 
 ### Этап 23. Паспорт запущенных версий
 
-Статус: выполнен 15 августа 2026 года, ожидает production-развёртывания.
+Статус: выполнен и развёрнут 15 августа 2026 года.
 
 - [x] показывать фактический и ожидаемый commit Gateway/Speech, Alembic revision/head и uptime;
 - [x] получать build-wide Android version/commit без device ID и долговременного хранения;
@@ -683,6 +683,11 @@ controller-owned `deployed-version`. PostgreSQL проверяется read-only
 наблюдение живёт только в памяти Gateway. Контракт описан в
 [`docs/release-passport.md`](../docs/release-passport.md), решение — в
 [`ADR 042`](../docs/adr/042-runtime-release-passport.md).
+
+Production-проверка релиза `8ba38bd` подтвердила общий статус `aligned`:
+Gateway и Speech совпали с controller marker, PostgreSQL revision
+`018_add_operational_alerts` совпала с code head, конфигурационный fingerprint
+совпал, а подписанный Android `1.6.0+8` был замечен без идентификатора устройства.
 
 ### Этап 24. Единый локальный release gate
 
