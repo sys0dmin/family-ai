@@ -14,9 +14,11 @@ from gateway.admin.monitoring_service import (
 from gateway.admin.operational_alert_schemas import (
     OperationalAlertCollection,
     OperationalAlertResponse,
+    OperationalAlertSelfTestResponse,
     OperationalOverviewResponse,
 )
 from gateway.admin.operational_alert_service import OperationalAlertService
+from gateway.admin.operational_alert_validation import OperationalAlertValidator
 from gateway.admin.voice_observability_router import get_voice_observability_service
 from gateway.admin.voice_observability_service import VoiceObservabilityService
 from gateway.app.config import Settings, get_settings
@@ -52,6 +54,12 @@ def get_operational_alert_service(
     session: Session = Depends(get_db_session),
 ) -> OperationalAlertService:
     return OperationalAlertService(session, settings)
+
+
+def get_operational_alert_validator(
+    settings: Settings = Depends(get_settings),
+) -> OperationalAlertValidator:
+    return OperationalAlertValidator(settings)
 
 
 @router.get("", response_model=InfrastructureStatusResponse)
@@ -90,6 +98,16 @@ def get_operational_alerts(
     """Return active and recently resolved technical episodes without rescanning."""
 
     return alerts.list_alerts()
+
+
+@router.post("/alerts/self-test", response_model=OperationalAlertSelfTestResponse)
+def self_test_operational_alerts(
+    _user: str = Depends(verify_admin),
+    validator: OperationalAlertValidator = Depends(get_operational_alert_validator),
+) -> OperationalAlertSelfTestResponse:
+    """Validate alert transitions entirely inside an ephemeral in-memory database."""
+
+    return validator.run()
 
 
 @router.post(

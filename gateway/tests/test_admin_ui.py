@@ -36,6 +36,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="pipeline-stt"' in response.text
     assert 'id="operational-alert-list"' in response.text
     assert 'id="operational-history-list"' in response.text
+    assert 'id="operational-self-test"' in response.text
     assert 'id="history-card"' in response.text
     assert 'id="quality-feedback-total"' in response.text
     assert 'id="feedback-dialog"' in response.text
@@ -92,6 +93,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert infrastructure.status_code == 200
     assert "/api/infrastructure/scan" in infrastructure.text
     assert "/acknowledge" in infrastructure.text
+    assert "/alerts/self-test" in infrastructure.text
     assert quality.status_code == 200
     assert "/api/quality/feedback" in quality.text
     assert "regression-cases" in quality.text

@@ -279,10 +279,11 @@
         <article class="panel operational-alert-panel">
           <div class="panel-head compact">
             <div><div class="card-kicker">Local watch</div><h2>Эксплуатационные предупреждения</h2><p class="muted">Только технические события внутри Family AI.</p></div>
-            <span class="health-pill" id="operational-alert-count">Сканируем…</span>
+            <div class="row operational-alert-actions"><span class="health-pill" id="operational-alert-count">Сканируем…</span><button id="operational-self-test" class="secondary">◇ Самопроверка</button></div>
           </div>
           <div id="operational-alert-list" class="operational-alert-list"><span class="muted">Ожидаем первый локальный снимок.</span></div>
           <div id="operational-thresholds" class="operational-thresholds"></div>
+          <div id="operational-self-test-results" class="operational-self-test-results" hidden></div>
           <details class="operational-history">
             <summary>История восстановлений <span id="operational-history-count">0</span></summary>
             <div id="operational-history-list" class="operational-history-list"><span class="muted">История пока пуста.</span></div>

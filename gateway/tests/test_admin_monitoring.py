@@ -22,6 +22,7 @@ from gateway.admin.monitoring_service import (
     parse_prometheus_text,
 )
 from gateway.admin.operational_alert_service import OperationalAlertService
+from gateway.admin.operational_alert_validation import OperationalAlertValidator
 from gateway.admin.voice_observability_schemas import (
     MetricsSource,
     VoiceObservabilityResponse,
@@ -149,6 +150,35 @@ async def test_operational_scan_requires_authentication() -> None:
         response = await client.post("/api/infrastructure/scan")
 
     assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_operational_alert_self_test_is_protected_and_ephemeral() -> None:
+    transport = ASGITransport(app=admin_app)
+    async with AsyncClient(transport=transport, base_url="http://admin") as client:
+        unauthorized = await client.post("/api/infrastructure/alerts/self-test")
+
+    assert unauthorized.status_code == 401
+
+    admin_app.dependency_overrides[verify_admin] = lambda: "admin"
+    try:
+        async with AsyncClient(transport=transport, base_url="http://admin") as client:
+            response = await client.post("/api/infrastructure/alerts/self-test")
+    finally:
+        admin_app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "passed"
+    assert response.json()["ephemeral"] is True
+    assert len(response.json()["scenarios"]) == 7
+
+
+def test_operational_alert_validator_passes_all_isolated_scenarios() -> None:
+    result = OperationalAlertValidator(Settings()).run()
+
+    assert result.status == "passed"
+    assert result.ephemeral is True
+    assert all(item.status == "passed" for item in result.scenarios)
 
 
 @pytest.mark.anyio

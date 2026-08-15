@@ -49,3 +49,16 @@ class OperationalOverviewResponse(BaseModel):
     infrastructure: InfrastructureStatusResponse
     voice: VoiceObservabilityResponse
     alerts: OperationalAlertCollection
+
+
+class OperationalAlertSelfTestScenario(BaseModel):
+    name: str
+    status: Literal["passed", "failed"]
+    detail: str
+
+
+class OperationalAlertSelfTestResponse(BaseModel):
+    status: Literal["passed", "failed"]
+    checked_at: datetime
+    ephemeral: bool = True
+    scenarios: list[OperationalAlertSelfTestScenario]

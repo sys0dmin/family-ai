@@ -268,6 +268,38 @@ export function createInfrastructureScreen() {
     }
   }
 
+  async function runAlertSelfTest() {
+    const button = byId("operational-self-test");
+    const results = byId("operational-self-test-results");
+    button.disabled = true;
+    button.textContent = "Проверяем…";
+    results.hidden = false;
+    results.className = "operational-self-test-results";
+    results.textContent = "Создаём изолированные технические снимки…";
+    try {
+      const data = await api("/api/infrastructure/alerts/self-test", { method: "POST" });
+      results.replaceChildren();
+      results.classList.toggle("failed", data.status !== "passed");
+      const heading = document.createElement("strong");
+      heading.textContent = data.status === "passed"
+        ? "Все сценарии прошли"
+        : "Есть ошибка в lifecycle предупреждений";
+      const list = document.createElement("ul");
+      for (const scenario of data.scenarios) {
+        const item = document.createElement("li");
+        item.textContent = `${scenario.status === "passed" ? "✓" : "×"} ${scenario.detail}`;
+        list.append(item);
+      }
+      results.append(heading, list);
+    } catch (error) {
+      results.classList.add("failed");
+      results.textContent = `Самопроверка недоступна: ${error.message}`;
+    } finally {
+      button.disabled = false;
+      button.textContent = "◇ Самопроверка";
+    }
+  }
+
   async function load() {
     if (loading) return;
     loading = true;
@@ -294,5 +326,6 @@ export function createInfrastructureScreen() {
   }
 
   byId("infrastructure-refresh").onclick = load;
+  byId("operational-self-test").onclick = runAlertSelfTest;
   return { load };
 }
