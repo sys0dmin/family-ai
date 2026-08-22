@@ -33,6 +33,7 @@ if (-not $BrowserPath -or -not (Test-Path -LiteralPath $BrowserPath)) {
 
 $Cases = @(
     @{ Name = "settings-desktop"; Screen = "settings"; Width = 1440; Height = 1000 },
+    @{ Name = "settings-fluid-desktop"; Screen = "settings"; Fluid = $true; Width = 1920; Height = 1080 },
     @{ Name = "agents-desktop"; Screen = "agents"; Width = 1440; Height = 1000 },
     @{ Name = "studio-desktop"; Screen = "studio"; Width = 1440; Height = 1000 },
     @{ Name = "infrastructure-desktop"; Screen = "infrastructure"; Width = 1440; Height = 1000 },
@@ -128,6 +129,7 @@ try {
         $Fixture = "<style>*{animation:none!important;transition:none!important;caret-color:transparent!important}$ViewportStyle</style>" +
             "<script>window.__VISUAL_SCREEN__='$($Case.Screen)';</script>" +
             "<script>window.__VISUAL_WIDTH__=$($Case.Width);</script>" +
+            "<script>window.__VISUAL_FLUID__='$($Case.Fluid)' === 'True';</script>" +
             "<script>window.__VISUAL_DIALOG__='$($Case.Dialog)' === 'True';</script>" +
             "<script>$FixtureScript</script>"
         [IO.File]::WriteAllText(

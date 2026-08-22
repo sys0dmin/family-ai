@@ -18,6 +18,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert "Умный дом." in response.text
     assert 'class="admin-shell"' in response.text
     assert 'id="settings-card"' in response.text
+    assert 'id="admin-boxed-layout"' in response.text
     assert 'id="agents-card"' in response.text
     assert 'id="studio-card"' in response.text
     assert 'id="studio-run"' in response.text
@@ -100,6 +101,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
         infrastructure = await client.get("/admin-assets/js/infrastructure-screen.js")
         quality = await client.get("/admin-assets/js/quality-screen.js")
         help_screen = await client.get("/admin-assets/js/help-screen.js")
+        layout_preference = await client.get("/admin-assets/js/layout-preference.js")
 
     assert css.status_code == 200
     assert css.headers["cache-control"] == "no-cache, must-revalidate"
@@ -132,6 +134,9 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert "Если что-то сломалось" in help_screen.text
     assert 'openSection(topic.target)' in help_screen.text
     assert 'help: "help-card"' in navigation.text
+    assert layout_preference.status_code == 200
+    assert "family-ai.admin.boxed-layout" in layout_preference.text
+    assert 'classList.toggle("admin-fluid-layout", !boxed)' in layout_preference.text
     assert 'actions.className = "row card-actions"' in quality.text
     assert "@media (max-width: 1100px)" in css.text
     assert ".regression-status-row" in css.text

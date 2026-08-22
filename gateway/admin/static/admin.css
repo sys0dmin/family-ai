@@ -175,6 +175,15 @@
       backdrop-filter: blur(24px);
     }
     body.authenticated .admin-shell { display: grid; }
+    body.admin-fluid-layout .admin-shell {
+      width:100%;
+      min-height:100vh;
+      margin:0;
+      border:0;
+      border-radius:0;
+      box-shadow:none;
+    }
+    body.admin-fluid-layout .sidebar { min-height:100vh; }
     .sidebar {
       position: relative;
       min-height: calc(100vh - 28px);
@@ -352,6 +361,11 @@
       background: rgba(255,255,255,.022);
     }
     .option-row:hover { color: var(--muted-strong); border-color: var(--line-strong); background: rgba(255,255,255,.038); }
+    .layout-preference { margin-top:4px; }
+    .layout-preference span strong, .layout-preference span small { display:block; }
+    .layout-preference span strong { color:var(--text); }
+    .layout-preference span small { margin-top:4px; color:var(--muted); font-size:.72rem; font-weight:500; line-height:1.45; }
+    .layout-preference-note { margin:13px 0 0; }
     .option-row input[type="checkbox"] {
       width: 18px;
       height: 18px;

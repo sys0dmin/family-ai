@@ -20,6 +20,7 @@ function setText(id, value) {
 
 function activateScreen(screen) {
   document.body.classList.add("authenticated");
+  document.body.classList.toggle("admin-fluid-layout", Boolean(window.__VISUAL_FLUID__));
   document.querySelectorAll(".tab-button").forEach((button) => {
     const active = button.id === `${screen}-tab`;
     button.classList.toggle("active", active);
@@ -44,6 +45,7 @@ function activateScreen(screen) {
 }
 
 function fillSettings() {
+  document.getElementById("admin-boxed-layout").checked = !window.__VISUAL_FLUID__;
   setValue("openai_model", "family-ai-test-model");
   setValue("openai_base_url", "https://provider.invalid/v1");
   setValue("speech_base_url", "http://speech.test:8010/v1");

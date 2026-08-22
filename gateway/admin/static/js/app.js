@@ -8,6 +8,7 @@
     import { createHistoryScreen } from "./history-screen.js?v=admin-modules-2";
     import { createHelpScreen } from "./help-screen.js?v=admin-modules-2";
     import { createInfrastructureScreen } from "./infrastructure-screen.js?v=admin-modules-2";
+    import { createLayoutPreference } from "./layout-preference.js?v=admin-modules-2";
     import { createActivityScreen } from "./activity-screen.js?v=admin-modules-2";
     import { createMemoryScreen } from "./memory-screen.js?v=admin-modules-2";
     import { createNavigation, hideAllScreens } from "./navigation.js?v=admin-modules-2";
@@ -738,6 +739,7 @@
       }
     });
     const infrastructureScreen = createInfrastructureScreen();
+    createLayoutPreference();
     const helpScreen = createHelpScreen({
       openSection: tab => switchTab(tab)
     });
