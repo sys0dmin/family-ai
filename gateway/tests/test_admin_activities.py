@@ -1,6 +1,7 @@
 """Protected activity preview and lifecycle administration tests."""
 
 import uuid
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -10,6 +11,8 @@ from gateway.admin.activity_router import get_activity_admin_session
 from gateway.admin.auth import verify_admin
 from gateway.admin.main import app as admin_app
 from gateway.app.models import ActivitySession
+
+REPOSITORY = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture
@@ -54,9 +57,18 @@ async def test_admin_previews_catalog_and_resets_session(
         reset = await admin.delete(f"/api/activities/sessions/{session_id}")
 
     assert catalog.status_code == 200
-    assert len(catalog.json()["items"]) == 5
+    assert len(catalog.json()["items"]) == 13
     assert catalog.json()["items"][0]["steps"]
+    assert any(item["total_steps"] == 6 for item in catalog.json()["items"])
     assert sessions.status_code == 200
     assert sessions.json()["items"][0]["activity_id"] == "build_computer"
     assert reset.status_code == 204
     assert db_session.get(ActivitySession, uuid.UUID(session_id)) is None
+
+
+def test_admin_activity_preview_labels_pauses_and_pluralizes_steps() -> None:
+    script = (REPOSITORY / "gateway/admin/static/js/activity-screen.js").read_text(encoding="utf-8")
+
+    assert 'paused: "Пауза"' in script
+    assert "function stepWord(count)" in script
+    assert "${selected.total_steps} ${stepWord(selected.total_steps)}" in script

@@ -3,10 +3,20 @@ import { byId, formatDateTime, setStatus } from "./dom.js?v=admin-modules-2";
 
 const statusLabels = {
   active: "Идёт",
+  paused: "Пауза",
   completed: "Завершено",
-  cancelled: "Остановлено",
+  cancelled: "Недоступно",
   left: "Обычный разговор"
 };
+
+function stepWord(count) {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) return "шагов";
+  if (mod10 === 1) return "шаг";
+  if (mod10 >= 2 && mod10 <= 4) return "шага";
+  return "шагов";
+}
 
 export function createActivityScreen({ openMemory }) {
   let catalog = [];
@@ -20,7 +30,8 @@ export function createActivityScreen({ openMemory }) {
     heading.className = "activity-preview-head";
     heading.innerHTML = `<span style="--activity-color:${selected.color}">${selected.icon}</span><div><strong></strong><small></small></div>`;
     heading.querySelector("strong").textContent = selected.title;
-    heading.querySelector("small").textContent = `${selected.agent_id} · ${selected.total_steps} шага`;
+    heading.querySelector("small").textContent =
+      `${selected.agent_id} · ${selected.total_steps} ${stepWord(selected.total_steps)}`;
     const opening = document.createElement("p");
     opening.className = "activity-opening";
     opening.textContent = selected.opening_text;

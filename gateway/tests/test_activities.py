@@ -13,21 +13,52 @@ from gateway.app.dependencies import get_chat_provider
 from gateway.app.models import ActivitySession, LongTermMemory
 from gateway.app.providers.schemas import ChatResponse, ProviderRole
 
+ORIGINAL_ACTIVITY_IDS = {
+    "space_expedition",
+    "murka_hike",
+    "build_computer",
+    "guess_animal",
+    "shared_story",
+}
+LONG_ACTIVITY_AGENTS = {
+    "star_signal": "space_guide",
+    "forest_lantern_mystery": "outdoor_guide",
+    "cloud_city_rescue": "tech_guide",
+    "rainbow_lab_mystery": "scientist",
+    "dragon_lullaby": "musician",
+    "dream_city_colors": "storyteller",
+    "island_of_choices": "socrates",
+    "museum_of_questions": "teacher_friend",
+}
 
-def test_catalog_contains_five_short_validated_activities() -> None:
+
+def test_catalog_keeps_originals_and_adds_long_adventure_for_every_agent() -> None:
     catalog = ActivityCatalog()
 
     activities = catalog.list()
+    by_id = {item.id: item for item in activities}
 
-    assert len(activities) == 5
-    assert {item.id for item in activities} == {
+    assert catalog.schema_version == 2
+    assert len(activities) == 13
+    assert set(by_id) == ORIGINAL_ACTIVITY_IDS | set(LONG_ACTIVITY_AGENTS)
+    assert all(len(by_id[item_id].steps) == 4 for item_id in ORIGINAL_ACTIVITY_IDS)
+    for activity_id, agent_id in LONG_ACTIVITY_AGENTS.items():
+        activity = by_id[activity_id]
+        assert activity.agent_id == agent_id
+        assert len(activity.steps) == 6
+        assert activity.steps[-1].instruction.startswith("Это финальный шаг.")
+
+
+@pytest.mark.anyio
+async def test_agent_catalog_returns_original_before_new_adventure(client: AsyncClient) -> None:
+    response = await client.get("/v1/activities", params={"agent_id": "space_guide"})
+
+    assert response.status_code == 200
+    assert response.json()["schema_version"] == 2
+    assert [item["id"] for item in response.json()["items"]] == [
         "space_expedition",
-        "murka_hike",
-        "build_computer",
-        "guess_animal",
-        "shared_story",
-    }
-    assert all(2 <= len(item.steps) <= 6 for item in activities)
+        "star_signal",
+    ]
 
 
 @pytest.mark.anyio
@@ -87,6 +118,44 @@ async def test_activity_advances_through_normal_conversation_pipeline(
     assert state.json()["session"]["status"] == "completed"
     assert state.json()["session"]["completion_summary"]
     assert db_session.scalar(select(func.count(LongTermMemory.id))) == 0
+
+
+@pytest.mark.anyio
+async def test_long_adventure_finishes_only_after_six_child_choices(
+    app: FastAPI,
+    client: AsyncClient,
+) -> None:
+    provider = AsyncMock()
+    provider.generate_response.return_value = ChatResponse(content="История продолжается.")
+    app.dependency_overrides[get_chat_provider] = lambda: provider
+    conversation = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "space_guide"},
+    )
+    conversation_id = conversation.json()["conversation_id"]
+    started = await client.post(f"/v1/activities/conversations/{conversation_id}/star_signal/start")
+
+    assert started.status_code == 200
+    assert started.json()["session"]["total_steps"] == 6
+    for index in range(5):
+        response = await client.post(
+            f"/v1/conversations/{conversation_id}/turn",
+            json={"role": "child", "content": f"Выбор {index}"},
+        )
+        assert response.status_code == 200
+    before_final = await client.get(f"/v1/activities/conversations/{conversation_id}")
+    assert before_final.json()["session"]["status"] == "active"
+    assert before_final.json()["session"]["current_step"] == 5
+
+    final = await client.post(
+        f"/v1/conversations/{conversation_id}/turn",
+        json={"role": "child", "content": "Возвращаемся домой"},
+    )
+    finished = await client.get(f"/v1/activities/conversations/{conversation_id}")
+
+    assert final.status_code == 200
+    assert finished.json()["session"]["status"] == "completed"
+    assert provider.generate_response.await_count == 6
 
 
 @pytest.mark.anyio
