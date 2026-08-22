@@ -34,6 +34,9 @@ Add an explicit, parent-armed calibration workflow:
   can proceed;
 - the result contains only aggregate accuracy, latency and silence-rejection
   metrics;
+- the recommendation accepts configurations within three percentage points of
+  the best measured accuracy, preserves the best silence rejection and then
+  minimizes p95 latency, average latency and beam size in that order;
 - all sample audio is deleted after completion, cancellation, failure or the
   configured expiry period.
 

@@ -18,7 +18,7 @@
 
 - код Gateway/Admin/Speech из точного Git commit;
 - Python-зависимости из `uv.lock`;
-- API-ключи, пароли, Speech-настройки и VAD/beam из зашифрованного DR-kit;
+- API-ключи, пароли, Speech-настройки и VAD/beam/token limit из зашифрованного DR-kit;
 - systemd units, node_exporter, PostgreSQL и сетевые ограничения;
 - в salvage-сценарии — вся логическая БД: история, агенты, safety baseline,
   родительская память и Alembic version.

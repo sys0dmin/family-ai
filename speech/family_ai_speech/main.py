@@ -269,6 +269,7 @@ def create_app(
             manager.apply(
                 beam_size=payload.stt_beam_size,
                 vad_filter=payload.stt_vad_filter,
+                max_new_tokens=payload.stt_max_new_tokens,
             )
         except (OSError, RuntimeSettingsApplyError) as exc:
             logger.exception("speech_runtime_settings_apply_failed")
@@ -279,6 +280,7 @@ def create_app(
         return RuntimeSettingsResponse(
             stt_beam_size=payload.stt_beam_size,
             stt_vad_filter=payload.stt_vad_filter,
+            stt_max_new_tokens=payload.stt_max_new_tokens,
             restart_scheduled=True,
             instance_id=instance_id,
         )
@@ -292,6 +294,7 @@ def create_app(
         return RuntimeSettingsResponse(
             stt_beam_size=resolved_settings.stt_beam_size,
             stt_vad_filter=resolved_settings.stt_vad_filter,
+            stt_max_new_tokens=resolved_settings.stt_max_new_tokens,
             instance_id=instance_id,
         )
 

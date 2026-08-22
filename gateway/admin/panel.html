@@ -243,6 +243,7 @@
           <div class="grid three">
             <label class="field"><span>Beam size</span><select id="speech-runtime-beam"><option value="1">1 · быстрее</option><option value="2">2</option><option value="3">3 · баланс</option><option value="4">4</option><option value="5">5 · калибровано</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10 · точнее/медленнее</option></select></label>
             <label class="option-row"><input id="speech-runtime-vad" type="checkbox"><span><strong>VAD</strong><small>Отбрасывать тишину до распознавания</small></span></label>
+            <label class="field"><span>Лимит декодирования <small>токенов на сегмент</small></span><input id="speech-runtime-max-tokens" type="number" min="32" max="448" step="16"></label>
             <div class="field"><span>Активная конфигурация</span><strong id="speech-runtime-state">Загружаем…</strong></div>
           </div>
           <div class="studio-actions"><button id="speech-runtime-apply" class="danger">Сохранить и перезапустить Speech</button><span id="speech-runtime-status"></span></div>

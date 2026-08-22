@@ -143,7 +143,7 @@ class SettingsUpdateRequest(BaseModel):
     acrcloud_access_secret: str | None = Field(default=None, max_length=500)
     music_recognition_timeout_seconds: float = Field(default=8.0, ge=1, le=30)
     voice_max_in_flight: int = Field(default=2, ge=1, le=8)
-    voice_stt_timeout_seconds: float = Field(default=35.0, ge=5, le=120)
+    voice_stt_timeout_seconds: float = Field(default=60.0, ge=5, le=120)
     voice_llm_timeout_seconds: float = Field(default=20.0, ge=5, le=120)
     voice_tts_timeout_seconds: float = Field(default=30.0, ge=5, le=120)
 

@@ -312,8 +312,9 @@
         const settings = await api("/api/speech/runtime-settings", { method: "GET" });
         setValue("speech-runtime-beam", settings.stt_beam_size);
         document.getElementById("speech-runtime-vad").checked = settings.stt_vad_filter;
+        setValue("speech-runtime-max-tokens", settings.stt_max_new_tokens);
         document.getElementById("speech-runtime-state").textContent =
-          `beam ${settings.stt_beam_size} · VAD ${settings.stt_vad_filter ? "вкл." : "выкл."}`;
+          `beam ${settings.stt_beam_size} · VAD ${settings.stt_vad_filter ? "вкл." : "выкл."} · ${settings.stt_max_new_tokens} токенов`;
         setStatus(status, "Значения загружены из Speech", "ok");
       } catch (error) {
         document.getElementById("speech-runtime-state").textContent = "Недоступно";
@@ -325,7 +326,8 @@
       const button = document.getElementById("speech-runtime-apply");
       const beam = Number.parseInt(getValue("speech-runtime-beam"), 10);
       const vad = document.getElementById("speech-runtime-vad").checked;
-      if (!confirm(`Применить beam ${beam}, VAD ${vad ? "вкл." : "выкл."} и перезапустить Speech? Голос будет недоступен около 15 секунд.`)) return;
+      const maxTokens = Number.parseInt(getValue("speech-runtime-max-tokens"), 10);
+      if (!confirm(`Применить beam ${beam}, VAD ${vad ? "вкл." : "выкл."}, лимит ${maxTokens} токенов и перезапустить Speech? Голос будет недоступен около 15 секунд.`)) return;
       button.disabled = true;
       setStatus(
         document.getElementById("speech-runtime-status"),
@@ -337,11 +339,12 @@
           method: "PUT",
           body: JSON.stringify({
             stt_beam_size: beam,
-            stt_vad_filter: vad
+            stt_vad_filter: vad,
+            stt_max_new_tokens: maxTokens
           })
         });
         document.getElementById("speech-runtime-state").textContent =
-          `beam ${settings.stt_beam_size} · VAD ${settings.stt_vad_filter ? "вкл." : "выкл."}`;
+          `beam ${settings.stt_beam_size} · VAD ${settings.stt_vad_filter ? "вкл." : "выкл."} · ${settings.stt_max_new_tokens} токенов`;
         setStatus(
           document.getElementById("speech-runtime-status"),
           "Speech перезапущен, настройки подтверждены",
@@ -487,7 +490,7 @@
       setValue("tts_response_format", data.tts_response_format);
       setValue("message_retention_days", data.message_retention_days);
       setValue("voice_max_in_flight", data.voice_max_in_flight || 2);
-      setValue("voice_stt_timeout_seconds", data.voice_stt_timeout_seconds || 35);
+      setValue("voice_stt_timeout_seconds", data.voice_stt_timeout_seconds || 60);
       setValue("voice_llm_timeout_seconds", data.voice_llm_timeout_seconds || 20);
       setValue("voice_tts_timeout_seconds", data.voice_tts_timeout_seconds || 30);
       setValue("openai_api_key", "");

@@ -26,9 +26,12 @@ replaceable.
   minutes after completion. A duplicate receives HTTP 409.
 - The admission lease covers upload validation, STT, LLM, TTS and the complete
   streaming response. Closing a stream releases it in a `finally` block.
-- Provider-neutral stage budgets default to 35 seconds for STT, 20 seconds for
+- Provider-neutral stage budgets default to 60 seconds for STT, 20 seconds for
   LLM and 30 seconds for TTS. Exceeding one produces HTTP 504 or a child-safe
   streaming error.
+- Local faster-whisper independently limits every decoded segment to 128 new
+  tokens. This bounds pathological search without coupling Gateway to the STT
+  implementation.
 - Capacity and budgets are validated settings managed through the existing
   Admin preview, revision, restart and rollback lifecycle.
 - Observability stores counters and request stages only. It never records

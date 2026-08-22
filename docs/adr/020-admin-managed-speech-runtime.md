@@ -6,7 +6,8 @@ Accepted
 
 ## Context
 
-The parent needs to change the local Whisper `beam_size` and VAD setting from
+The parent needs to change the local Whisper `beam_size`, VAD and bounded
+decode limit from
 the protected Admin UI. The Speech Service runs on another LXC container, so
 the Gateway cannot use its local `systemctl` control. Giving the application a
 general SSH key or unrestricted remote sudo would violate least privilege and
@@ -20,9 +21,11 @@ file was written.
 
 Add a bearer-protected internal Speech runtime-settings API that:
 
-- exposes only the active `stt_beam_size` and `stt_vad_filter`;
+- exposes only the active `stt_beam_size`, `stt_vad_filter` and
+  `stt_max_new_tokens`;
 - validates beam size as an integer from 1 through 10;
-- atomically writes only these two variables to
+- validates the token limit from 32 through the Whisper context limit of 448;
+- atomically writes only these three variables to
   `/var/lib/family-ai-speech/runtime.env`;
 - creates one fixed restart-request file in the same private runtime directory.
 
@@ -52,7 +55,8 @@ the Speech host.
 
 ## Consequences
 
-- Beam and VAD can be changed and verified from Admin with one action.
+- Beam, VAD and the decode limit can be changed and verified from Admin with
+  one action.
 - Deployment must install one path unit, one fixed oneshot unit and one systemd
   drop-in.
 - A failed restart leaves the previous process available until systemd acts;

@@ -23,13 +23,20 @@ class SpeechRuntimeSettingsManager:
         self._restart_request_path = restart_request_path
         self._restart_scheduler = restart_scheduler or self._request_restart
 
-    def apply(self, *, beam_size: int, vad_filter: bool) -> None:
+    def apply(
+        self,
+        *,
+        beam_size: int,
+        vad_filter: bool,
+        max_new_tokens: int,
+    ) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         previous = self._path.read_bytes() if self._path.exists() else None
         temporary = self._path.with_suffix(".tmp")
         content = (
             f"FAMILY_AI_SPEECH_STT_BEAM_SIZE={beam_size}\n"
             f"FAMILY_AI_SPEECH_STT_VAD_FILTER={str(vad_filter).lower()}\n"
+            f"FAMILY_AI_SPEECH_STT_MAX_NEW_TOKENS={max_new_tokens}\n"
         )
         try:
             temporary.write_text(content, encoding="utf-8")

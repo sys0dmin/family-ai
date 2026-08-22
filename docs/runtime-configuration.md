@@ -66,11 +66,12 @@ Rollback выполняется через
 ## Speech runtime
 
 Speech Service остаётся владельцем `/var/lib/family-ai-speech/runtime.env` и
-принимает только `beam size` и `VAD` через свой закрытый API. Gateway не получает
+принимает только `beam size`, `VAD` и `max_new_tokens` через свой закрытый API.
+Gateway не получает
 доступ к файловой системе Speech-хоста.
 
 При изменении Admin запоминает прежние значения, ждёт новый `instance_id` и
-проверяет фактические beam/VAD. Если новый процесс не подтверждается, adapter
+проверяет фактические beam/VAD/token limit. Если новый процесс не подтверждается, adapter
 отправляет прежние значения повторно и ждёт отдельный восстановленный процесс.
 Если недоступен сам закрытый API, Admin явно сообщает, что автоматический rollback
 не смог подтвердить восстановление.
@@ -84,7 +85,7 @@ Speech Service остаётся владельцем `/var/lib/family-ai-speech/
 - `POST /api/settings` — атомарное применение, restart и health-check;
 - `GET /api/settings/revisions` — локальная безопасная история;
 - `POST /api/settings/revisions/{id}/rollback` — контролируемый возврат;
-- `GET/PUT /api/speech/runtime-settings` — чтение и применение beam/VAD.
+- `GET/PUT /api/speech/runtime-settings` — чтение и применение beam/VAD/token limit.
 
 OpenAPI содержит точные request/response-схемы.
 

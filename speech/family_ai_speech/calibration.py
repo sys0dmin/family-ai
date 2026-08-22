@@ -31,6 +31,34 @@ _CONFIGURATIONS = tuple(
 )
 
 
+def select_recommended_configuration(
+    results: list[CalibrationConfigurationResult],
+) -> CalibrationConfigurationResult:
+    """Prefer predictable latency when accuracy remains within three points."""
+
+    best_accuracy = max(item.spoken_accuracy_percent for item in results)
+    accuracy_floor = best_accuracy - 3.0
+    accurate_candidates = [
+        item for item in results if item.spoken_accuracy_percent >= accuracy_floor
+    ]
+    best_silence_rejection = max(
+        item.silence_rejection_percent for item in accurate_candidates
+    )
+    safe_candidates = [
+        item
+        for item in accurate_candidates
+        if item.silence_rejection_percent == best_silence_rejection
+    ]
+    return min(
+        safe_candidates,
+        key=lambda item: (
+            item.p95_processing_ms,
+            item.average_processing_ms,
+            item.beam_size,
+        ),
+    )
+
+
 class CalibrationConflictError(RuntimeError):
     """Raised when a calibration lifecycle transition is invalid."""
 
@@ -160,14 +188,7 @@ class CalibrationManager:
                 results.append(result)
                 state["results"] = [item.model_dump() for item in results]
                 self._save_state()
-            recommended = max(
-                results,
-                key=lambda item: (
-                    item.spoken_accuracy_percent,
-                    item.silence_rejection_percent,
-                    -item.average_processing_ms,
-                ),
-            )
+            recommended = select_recommended_configuration(results)
             state["recommended_beam_size"] = recommended.beam_size
             state["recommended_vad_filter"] = recommended.vad_filter
             state["status"] = "completed"

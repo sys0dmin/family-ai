@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     voice_language: str = "ru"
     voice_max_audio_bytes: int = 10 * 1024 * 1024
     voice_max_in_flight: int = Field(default=2, ge=1, le=8)
-    voice_stt_timeout_seconds: float = Field(default=35.0, ge=5, le=120)
+    voice_stt_timeout_seconds: float = Field(default=60.0, ge=5, le=120)
     voice_llm_timeout_seconds: float = Field(default=20.0, ge=5, le=120)
     voice_tts_timeout_seconds: float = Field(default=30.0, ge=5, le=120)
     calibration_request_timeout_seconds: float = 30.0

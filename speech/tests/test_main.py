@@ -171,18 +171,27 @@ def test_runtime_settings_are_protected_validated_and_persisted() -> None:
     invalid = client.post(
         "/internal/runtime-settings",
         headers={"Authorization": "Bearer local-secret"},
-        json={"stt_beam_size": 0, "stt_vad_filter": True},
+        json={
+            "stt_beam_size": 0,
+            "stt_vad_filter": True,
+            "stt_max_new_tokens": 128,
+        },
     )
     assert invalid.status_code == 422
 
     accepted = client.post(
         "/internal/runtime-settings",
         headers={"Authorization": "Bearer local-secret"},
-        json={"stt_beam_size": 3, "stt_vad_filter": False},
+        json={
+            "stt_beam_size": 3,
+            "stt_vad_filter": False,
+            "stt_max_new_tokens": 128,
+        },
     )
     assert accepted.status_code == 202
     assert accepted.json()["stt_beam_size"] == 3
     assert accepted.json()["stt_vad_filter"] is False
+    assert accepted.json()["stt_max_new_tokens"] == 128
     assert accepted.json()["restart_scheduled"] is True
     assert accepted.json()["instance_id"]
 
@@ -191,8 +200,9 @@ def test_runtime_settings_are_protected_validated_and_persisted() -> None:
         headers={"Authorization": "Bearer local-secret"},
     )
     assert active.status_code == 200
-    assert active.json()["stt_beam_size"] == 5
+    assert active.json()["stt_beam_size"] == 3
     assert active.json()["stt_vad_filter"] is True
+    assert active.json()["stt_max_new_tokens"] == 128
     assert active.json()["restart_scheduled"] is False
     assert active.json()["instance_id"] == accepted.json()["instance_id"]
 

@@ -273,7 +273,7 @@ def _settings_payload() -> dict[str, object]:
         "tts_response_format": "wav",
         "vision_model": "vision-model",
         "voice_max_in_flight": 2,
-        "voice_stt_timeout_seconds": 35,
+        "voice_stt_timeout_seconds": 60,
         "voice_llm_timeout_seconds": 20,
         "voice_tts_timeout_seconds": 30,
     }

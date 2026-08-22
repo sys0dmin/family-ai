@@ -16,8 +16,9 @@ class StubSpeechRuntimeService:
 
     async def current(self) -> SpeechRuntimeSettings:
         return SpeechRuntimeSettings(
-            stt_beam_size=5,
+            stt_beam_size=3,
             stt_vad_filter=True,
+            stt_max_new_tokens=128,
             instance_id="instance-a",
         )
 
@@ -26,6 +27,7 @@ class StubSpeechRuntimeService:
         return SpeechRuntimeSettings(
             stt_beam_size=update.stt_beam_size,
             stt_vad_filter=update.stt_vad_filter,
+            stt_max_new_tokens=update.stt_max_new_tokens,
             instance_id="instance-b",
         )
 
@@ -41,18 +43,27 @@ async def test_admin_reads_and_applies_speech_runtime_settings() -> None:
             current = await client.get("/api/speech/runtime-settings")
             updated = await client.put(
                 "/api/speech/runtime-settings",
-                json={"stt_beam_size": 3, "stt_vad_filter": False},
+                json={
+                    "stt_beam_size": 3,
+                    "stt_vad_filter": False,
+                    "stt_max_new_tokens": 128,
+                },
             )
             invalid = await client.put(
                 "/api/speech/runtime-settings",
-                json={"stt_beam_size": 99, "stt_vad_filter": True},
+                json={
+                    "stt_beam_size": 99,
+                    "stt_vad_filter": True,
+                    "stt_max_new_tokens": 128,
+                },
             )
     finally:
         admin_app.dependency_overrides.clear()
 
     assert current.status_code == 200
-    assert current.json()["stt_beam_size"] == 5
+    assert current.json()["stt_beam_size"] == 3
     assert updated.status_code == 200
     assert updated.json()["instance_id"] == "instance-b"
     assert service.update.stt_beam_size == 3
+    assert service.update.stt_max_new_tokens == 128
     assert invalid.status_code == 422

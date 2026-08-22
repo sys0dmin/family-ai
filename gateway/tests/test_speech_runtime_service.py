@@ -27,11 +27,13 @@ async def test_apply_waits_for_new_process_with_requested_values(monkeypatch) ->
     previous = SpeechRuntimeSettings(
         stt_beam_size=1,
         stt_vad_filter=True,
+        stt_max_new_tokens=96,
         instance_id="old",
     )
     restarted = SpeechRuntimeSettings(
         stt_beam_size=5,
         stt_vad_filter=True,
+        stt_max_new_tokens=128,
         instance_id="new",
     )
     service.current = AsyncMock(
@@ -48,13 +50,21 @@ async def test_apply_waits_for_new_process_with_requested_values(monkeypatch) ->
     )
 
     result = await service.apply_and_restart(
-        SpeechRuntimeSettingsUpdate(stt_beam_size=5, stt_vad_filter=True)
+        SpeechRuntimeSettingsUpdate(
+            stt_beam_size=5,
+            stt_vad_filter=True,
+            stt_max_new_tokens=128,
+        )
     )
 
     assert result == restarted
     service._request.assert_awaited_once_with(
         "POST",
-        json={"stt_beam_size": 5, "stt_vad_filter": True},
+        json={
+            "stt_beam_size": 5,
+            "stt_vad_filter": True,
+            "stt_max_new_tokens": 128,
+        },
     )
 
 
@@ -69,11 +79,13 @@ async def test_failed_speech_restart_compensates_with_previous_values() -> None:
     previous = SpeechRuntimeSettings(
         stt_beam_size=5,
         stt_vad_filter=True,
+        stt_max_new_tokens=160,
         instance_id="old",
     )
     partially_restarted = SpeechRuntimeSettings(
         stt_beam_size=3,
         stt_vad_filter=False,
+        stt_max_new_tokens=128,
         instance_id="bad",
     )
     restored = previous.model_copy(update={"instance_id": "restored"})
@@ -88,14 +100,20 @@ async def test_failed_speech_restart_compensates_with_previous_values() -> None:
 
     with pytest.raises(SpeechRestartTimeoutError, match="previous settings were restored"):
         await service.apply_and_restart(
-            SpeechRuntimeSettingsUpdate(stt_beam_size=3, stt_vad_filter=False)
+            SpeechRuntimeSettingsUpdate(
+                stt_beam_size=3,
+                stt_vad_filter=False,
+                stt_max_new_tokens=128,
+            )
         )
 
     assert service._request.await_args_list[0].kwargs["json"] == {
         "stt_beam_size": 3,
         "stt_vad_filter": False,
+        "stt_max_new_tokens": 128,
     }
     assert service._request.await_args_list[1].kwargs["json"] == {
         "stt_beam_size": 5,
         "stt_vad_filter": True,
+        "stt_max_new_tokens": 160,
     }

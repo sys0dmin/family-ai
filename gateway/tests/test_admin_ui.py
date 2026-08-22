@@ -65,6 +65,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="tts_api_key"' in response.text
     assert 'id="voice_max_in_flight"' in response.text
     assert 'id="voice_stt_timeout_seconds"' in response.text
+    assert 'id="speech-runtime-max-tokens"' in response.text
     assert 'id="voice_llm_timeout_seconds"' in response.text
     assert 'id="voice_tts_timeout_seconds"' in response.text
     assert 'id="clear_stt_api_key"' in response.text
@@ -151,7 +152,7 @@ async def test_admin_settings_expose_visual_search_configuration() -> None:
         assert "stt_api_key_preview" in body
         assert "tts_api_key_preview" in body
         assert body["voice_max_in_flight"] == 2
-        assert body["voice_stt_timeout_seconds"] == 35
+        assert body["voice_stt_timeout_seconds"] == 60
         assert body["voice_llm_timeout_seconds"] == 20
         assert body["voice_tts_timeout_seconds"] == 30
     finally:

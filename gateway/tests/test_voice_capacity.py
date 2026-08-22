@@ -16,8 +16,16 @@ from gateway.app.services.voice_execution import (
     VoiceExecutionPolicy,
     VoiceStageTimeoutError,
     voice_admission_controller,
+    voice_timeout_message,
 )
 from gateway.app.services.voice_service import VoiceService
+
+
+def test_stt_timeout_message_asks_to_repeat_instead_of_blame_answer() -> None:
+    assert voice_timeout_message("stt") == (
+        "Я не успела тебя расслышать. Скажи, пожалуйста, ещё раз покороче."
+    )
+    assert "Ответ не успел" in voice_timeout_message("llm")
 
 
 async def _wait_for_calls(mock: AsyncMock, count: int) -> None:

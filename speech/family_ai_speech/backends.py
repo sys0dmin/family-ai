@@ -170,6 +170,7 @@ class FasterWhisperBackend:
         )
         self._beam_size = settings.stt_beam_size
         self._vad_filter = settings.stt_vad_filter
+        self._max_new_tokens = settings.stt_max_new_tokens
         self._initial_prompt = settings.stt_initial_prompt
         self._min_speech_seconds = settings.stt_min_speech_seconds
         self._min_confidence = settings.stt_min_confidence
@@ -205,6 +206,7 @@ class FasterWhisperBackend:
             language=language,
             beam_size=beam_size,
             vad_filter=vad_filter,
+            max_new_tokens=self._max_new_tokens,
             condition_on_previous_text=False,
             initial_prompt=(prompt or self._initial_prompt).strip() or None,
         )

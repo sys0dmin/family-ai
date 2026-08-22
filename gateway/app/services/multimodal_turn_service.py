@@ -32,6 +32,7 @@ from gateway.app.services.voice_execution import (
     VoiceExecutionPolicy,
     VoiceStageTimeoutError,
     run_with_stage_timeout,
+    voice_timeout_message,
 )
 from gateway.app.services.voice_service import VoiceInputError
 from gateway.app.services.voice_streaming import (
@@ -251,7 +252,7 @@ class MultimodalTurnService:
             yield encode_stream_event(
                 "error",
                 code="voice_timeout",
-                message="Ответ не успел прийти. Давай немного подождём и попробуем ещё раз.",
+                message=voice_timeout_message(exc.stage),
             )
         except Exception:
             telemetry.record(status="error", error_stage="tts")

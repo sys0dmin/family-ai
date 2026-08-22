@@ -34,7 +34,7 @@ class VoiceStageTimeoutError(TimeoutError):
 class VoiceExecutionPolicy:
     """Provider-neutral runtime budgets derived from the J3710 baseline."""
 
-    stt_timeout_seconds: float = 35.0
+    stt_timeout_seconds: float = 60.0
     llm_timeout_seconds: float = 20.0
     tts_timeout_seconds: float = 30.0
 
@@ -120,6 +120,14 @@ class VoiceAdmissionController:
 
 
 voice_admission_controller = VoiceAdmissionController()
+
+
+def voice_timeout_message(stage: str) -> str:
+    """Return a truthful child-friendly explanation for the failed stage."""
+
+    if stage == "stt":
+        return "Я не успела тебя расслышать. Скажи, пожалуйста, ещё раз покороче."
+    return "Ответ не успел прийти. Давай немного подождём и попробуем ещё раз."
 
 
 async def run_with_stage_timeout(awaitable, *, seconds: float, stage: str):

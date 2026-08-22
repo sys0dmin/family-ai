@@ -1,13 +1,54 @@
 """Unit tests for provider-independent audio helpers."""
 
 import io
+import sys
 import wave
+from types import SimpleNamespace
 
 from family_ai_speech.backends import (
+    FasterWhisperBackend,
     normalize_silero_text,
     pcm16_to_wav,
     resolve_voice,
 )
+from family_ai_speech.config import SpeechSettings
+
+
+def test_faster_whisper_receives_bounded_decode_options(monkeypatch, tmp_path) -> None:
+    captured = {}
+
+    class FakeWhisperModel:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def transcribe(self, _audio, **kwargs):
+            captured.update(kwargs)
+            return (), SimpleNamespace(
+                duration=2.0,
+                duration_after_vad=0.0,
+                language="ru",
+            )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "faster_whisper",
+        SimpleNamespace(WhisperModel=FakeWhisperModel),
+    )
+    backend = FasterWhisperBackend(
+        SpeechSettings(
+            model_cache_dir=tmp_path,
+            stt_beam_size=3,
+            stt_vad_filter=True,
+            stt_max_new_tokens=128,
+        )
+    )
+
+    backend.transcribe(b"RIFF", "ru")
+
+    assert captured["beam_size"] == 3
+    assert captured["vad_filter"] is True
+    assert captured["max_new_tokens"] == 128
+    assert captured["condition_on_previous_text"] is False
 
 
 def test_cloud_voice_aliases_resolve_to_local_voices() -> None:

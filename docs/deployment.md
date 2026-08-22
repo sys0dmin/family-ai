@@ -185,7 +185,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
 - `/etc/family-ai/gateway.env` — Gateway/Admin, владелец `familyai-deploy`,
   режим `0600`, потому что защищённая админка редактирует настройки;
 - `/etc/family-ai/speech.env` — основной Speech-конфиг;
-- `/var/lib/family-ai-speech/runtime.env` — управляемые из админки VAD/beam;
+- `/var/lib/family-ai-speech/runtime.env` — управляемые из админки VAD/beam/token limit;
 - `/var/lib/family-ai-speech/models` — кеш моделей;
 - `/var/lib/family-ai-config/gateway` — последние 20 локальных ревизий только
   управляемой части Gateway-конфигурации; каталог `0700`, файлы `0600`;

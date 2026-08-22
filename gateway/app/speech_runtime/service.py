@@ -60,6 +60,7 @@ class SpeechRuntimeService:
         rollback = SpeechRuntimeSettingsUpdate(
             stt_beam_size=previous.stt_beam_size,
             stt_vad_filter=previous.stt_vad_filter,
+            stt_max_new_tokens=previous.stt_max_new_tokens,
         )
         try:
             current = await self.current()
@@ -90,6 +91,7 @@ class SpeechRuntimeService:
                 current.instance_id != previous_instance_id
                 and current.stt_beam_size == expected.stt_beam_size
                 and current.stt_vad_filter is expected.stt_vad_filter
+                and current.stt_max_new_tokens == expected.stt_max_new_tokens
             ):
                 return current
         raise SpeechRestartTimeoutError("Speech restart verification timed out")
