@@ -694,19 +694,29 @@ controller-owned `deployed-version`. PostgreSQL проверяется read-only
 [`docs/release-passport.md`](../docs/release-passport.md), решение — в
 [`ADR 042`](../docs/adr/042-runtime-release-passport.md).
 
-Production-проверка релиза `8ba38bd` подтвердила общий статус `aligned`:
-Gateway и Speech совпали с controller marker, PostgreSQL revision
-`018_add_operational_alerts` совпала с code head, конфигурационный fingerprint
-совпал, а подписанный Android `1.6.0+8` был замечен без идентификатора устройства.
+Production-проверка подтверждает общий статус `aligned`: Gateway и Speech
+совпадают с controller marker, PostgreSQL revision — с code head,
+конфигурационный fingerprint стабилен, а подписанный Android определяется без
+идентификатора устройства. Конкретные текущие commit и версии показывает живой
+паспорт в админке, поэтому они не дублируются в плане как быстро устаревающие
+значения.
 
 ### Этап 24. Единый локальный release gate
 
-Статус: запланирован.
+Статус: выполнен 22 августа 2026 года.
 
-- [ ] объединить Ruff, pytest Gateway/Speech, Flutter analyze/test, visual suite,
+- [x] объединить Ruff, pytest Gateway/Speech, Flutter analyze/test, visual suite,
   Markdown links и проверку release archive одной локальной командой;
-- [ ] проверять случайное добавление секретов и крупных артефактов;
-- [ ] не зависеть от внешнего CI и не отправлять данные домашнего контура наружу.
+- [x] проверять случайное добавление секретов и крупных артефактов;
+- [x] не зависеть от внешнего CI и не отправлять данные домашнего контура наружу;
+- [x] запретить активацию Gateway до явной миграции, если revision production-БД
+  не совпадает с Alembic head подготовленного релиза.
+
+Локальная точка допуска реализована в
+`scripts/release/Invoke-LocalReleaseGate.ps1`; отчёт сохраняется только в
+игнорируемой `.artifacts`. Серверный schema guard остаётся независимым вторым
+барьером. Runbook: [`docs/release-gate.md`](../docs/release-gate.md), решение:
+[`ADR 043`](../docs/adr/043-local-release-gate-and-schema-guard.md).
 
 ### Этап 25. Родительская карта обучения
 
@@ -719,9 +729,8 @@ Gateway и Speech совпали с controller marker, PostgreSQL revision
 
 ## Актуальный порядок работ
 
-1. Выполнить этап 24 — единый локальный release gate.
-2. Вернуться к этапу 10 после расширения Proxmox-кластера до пяти нод.
-3. Вернуться к этапам 15 и 25 после замены аккумулятора телефона и недели
+1. Вернуться к этапу 10 после расширения Proxmox-кластера до пяти нод.
+2. Вернуться к этапам 15 и 25 после замены аккумулятора телефона и недели
    обычного использования Лерой.
 
 Новые агенты, движки и инфраструктурные компоненты не являются приоритетом этого

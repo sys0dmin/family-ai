@@ -314,6 +314,9 @@ Vision-агенту, текстовый и голосовой диалог.
 - Код запускается из неизменяемых релизов `/srv/family-ai/*/releases/<commit>`.
 - Сборка из точного Git commit, миграции, health-check, статус и rollback
   описаны в [`docs/deployment.md`](docs/deployment.md).
+- Перед release одна локальная команда проверяет Python, Flutter, визуальные
+  baseline, документацию, Alembic, секреты и release archives; см.
+  [`docs/release-gate.md`](docs/release-gate.md).
 - Настройки из Admin проходят redacted preview, локальную ревизию, атомарную
   запись, restart и readiness-check. При ошибке Gateway возвращается к прежним
   managed-значениям, не затрагивая БД, пароль Admin и monitoring. Подробности —

@@ -158,6 +158,27 @@ run_gateway_smoke() {
   )
 }
 
+assert_gateway_schema_ready() {
+  local release="$1"
+  local -a database_revisions code_heads
+  mapfile -t database_revisions < <(
+    (
+      cd "$release"
+      "$release/.venv/bin/alembic" -c alembic.ini current 2>/dev/null
+    ) | sed -nE 's/^([0-9A-Za-z_]+).*/\1/p'
+  )
+  mapfile -t code_heads < <(
+    (
+      cd "$release"
+      "$release/.venv/bin/alembic" -c alembic.ini heads 2>/dev/null
+    ) | sed -nE 's/^([0-9A-Za-z_]+).*/\1/p'
+  )
+  [[ "${#database_revisions[@]}" -eq 1 && "${#code_heads[@]}" -eq 1 ]] ||
+    die "cannot verify Gateway database revision"
+  [[ "${database_revisions[0]}" == "${code_heads[0]}" ]] ||
+    die "Gateway schema is not ready: run the explicit migrate phase before activation"
+}
+
 version_for_target() {
   local target="$1"
   case "$target" in
@@ -167,11 +188,14 @@ version_for_target() {
 }
 
 activate_release() {
-  local component="$1" commit="$2" functional_smoke="${3:-true}"
+  local component="$1" commit="$2" functional_smoke="${3:-true}" schema_check="${4:-true}"
   configure_component "$component"
   assert_commit "$commit"
   local release="$COMPONENT_ROOT/releases/$commit"
   [[ -x "$release/.venv/bin/python" ]] || die "release is not prepared: $commit"
+  if [[ "$component" == "gateway" && "$schema_check" == "true" ]]; then
+    assert_gateway_schema_ready "$release"
+  fi
 
   local old_target=""
   if [[ -L "$COMPONENT_ROOT/current" ]]; then
@@ -241,7 +265,7 @@ rollback_release() {
   [[ -x "$target/.venv/bin/python" ]] || die "rollback target is not prepared"
   case "$target" in
     "$COMPONENT_ROOT/releases/"*)
-      activate_release "$component" "$(basename "$target")" false
+      activate_release "$component" "$(basename "$target")" false false
       ;;
     *)
       local old_target
@@ -301,7 +325,7 @@ case "$ACTION" in
   deploy)
     [[ $# -eq 5 ]] || die "usage: deploy COMPONENT ARCHIVE SHA256 COMMIT"
     prepare_release "$COMPONENT" "$3" "$4" "$5"
-    activate_release "$COMPONENT" "$5"
+    activate_release "$COMPONENT" "$5" true true
     ;;
   activate)
     [[ $# -eq 3 ]] || die "usage: activate COMPONENT COMMIT"
