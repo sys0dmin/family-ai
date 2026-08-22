@@ -142,16 +142,6 @@
       isolation: isolate;
       transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
     }
-    .agent-card::before {
-      content: "";
-      position: absolute;
-      inset: 18px 18px auto auto;
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: var(--agent-color, #356fc0);
-      opacity: 0.12;
-    }
     .agent-card:hover, .agent-card:focus-visible {
       transform: translateY(-7px);
       border-color: color-mix(in srgb, var(--agent-color, #356fc0) 58%, white);
