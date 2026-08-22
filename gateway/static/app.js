@@ -254,11 +254,6 @@ function renderAgentCards() {
         art.src = presentation.image;
         art.alt = '';
 
-        const sound = document.createElement('span');
-        sound.className = 'agent-card-sound';
-        sound.setAttribute('aria-hidden', 'true');
-        sound.textContent = '♪';
-
         const copy = document.createElement('span');
         copy.className = 'agent-card-copy';
         const name = document.createElement('span');
@@ -269,7 +264,7 @@ function renderAgentCards() {
         hint.textContent = agent.description;
         copy.append(name, hint);
 
-        card.append(art, sound, copy);
+        card.append(art, copy);
         card.onclick = () => chooseAgent(agent);
         agentGrid.append(card);
     }

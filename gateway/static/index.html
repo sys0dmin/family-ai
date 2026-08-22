@@ -151,9 +151,9 @@
     .agent-card:active { transform: translateY(-2px) scale(0.99); }
     .agent-card-art {
       position: absolute;
-      inset: 12px 0 92px;
-      width: 100%;
-      height: calc(100% - 88px);
+      inset: -10px -12px 92px;
+      width: calc(100% + 24px);
+      height: calc(100% - 64px);
       object-fit: contain;
       object-position: center bottom;
       filter: drop-shadow(0 14px 12px rgba(42, 54, 76, 0.1));
@@ -170,21 +170,6 @@
     }
     .agent-card-name { display: block; font-size: 1.14rem; font-weight: 800; }
     .agent-card-hint { display: block; margin-top: 4px; color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
-    .agent-card-sound {
-      position: absolute;
-      top: 17px;
-      left: 17px;
-      display: grid;
-      place-items: center;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      color: var(--agent-color, #356fc0);
-      background: rgba(255, 255, 255, 0.78);
-      box-shadow: 0 8px 18px rgba(42, 54, 76, 0.08);
-      font-size: 1.25rem;
-    }
-
     .conversation {
       min-height: calc(100dvh - 34px);
       display: grid;
@@ -493,12 +478,10 @@
       .chooser-title p { font-size: 0.88rem; }
       .agent-grid { flex: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(210px, 1fr); gap: 10px; }
       .agent-card { min-height: 0; border-radius: 22px; }
-      .agent-card-art { inset: 3px -5px 48px; width: calc(100% + 10px); height: calc(100% - 38px); }
+      .agent-card-art { inset: -8px -10px 48px; width: calc(100% + 20px); height: calc(100% - 24px); }
       .agent-card-copy { min-height: 61px; padding: 13px 6px 10px; }
       .agent-card-name { font-size: 0.9rem; }
       .agent-card-hint { display: none; }
-      .agent-card-sound { top: 10px; left: 10px; width: 34px; height: 34px; font-size: 0.95rem; }
-
       .conversation { min-height: 100dvh; display: flex; flex-direction: column; }
       .companion-panel { min-height: 196px; height: 29dvh; padding: 12px 14px 0; border: 0; border-bottom: 1px solid var(--line); }
       .companion-top { display: none; }
