@@ -162,6 +162,8 @@
       transition: transform 220ms ease;
     }
     .agent-card:hover .agent-card-art { transform: scale(1.23); }
+    .agent-card[data-agent-id="space_guide"] .agent-card-art { transform: scale(1.03); }
+    .agent-card[data-agent-id="space_guide"]:hover .agent-card-art { transform: scale(1.05); }
     .agent-card-copy {
       position: absolute;
       inset: auto 0 0;
@@ -482,6 +484,8 @@
       .agent-card { min-height: 0; border-radius: 22px; }
       .agent-card-art { inset: -8px -10px 48px; width: calc(100% + 20px); height: calc(100% - 24px); transform: scale(1.12); }
       .agent-card:hover .agent-card-art { transform: scale(1.16); }
+      .agent-card[data-agent-id="space_guide"] .agent-card-art { transform: scale(1.03); }
+      .agent-card[data-agent-id="space_guide"]:hover .agent-card-art { transform: scale(1.05); }
       .agent-card-copy { min-height: 61px; padding: 13px 6px 10px; }
       .agent-card-name { font-size: 0.9rem; }
       .agent-card-hint { display: none; }

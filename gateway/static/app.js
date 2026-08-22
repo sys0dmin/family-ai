@@ -245,6 +245,7 @@ function renderAgentCards() {
         const card = document.createElement('button');
         card.type = 'button';
         card.className = 'agent-card';
+        card.dataset.agentId = agent.id;
         card.setAttribute('aria-label', `${agent.display_name}. ${agent.description}`);
         card.style.setProperty('--agent-color', presentation.color);
         card.style.setProperty('--agent-soft', presentation.soft);
