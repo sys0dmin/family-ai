@@ -60,6 +60,8 @@ class ActivitySession {
   final String? completionSummary;
 
   bool get isActive => status == 'active';
+  bool get isPaused => status == 'paused';
+  bool get isInProgress => isActive || isPaused;
 
   factory ActivitySession.fromJson(Map<String, dynamic> json) {
     return ActivitySession(

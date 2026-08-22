@@ -138,6 +138,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (message != null) await _voice.replay(message);
   }
 
+  Future<void> _resumeActivity() async {
+    final message = await _conversation.resumeActivity();
+    if (message != null) await _voice.replay(message);
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -167,7 +172,20 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   CircleAvatar(
                     backgroundColor: Colors.white,
-                    backgroundImage: AssetImage(presentation.asset),
+                    child: ClipOval(
+                      child: SizedBox.expand(
+                        child: Transform.scale(
+                          scale: presentation.avatarScale,
+                          alignment: presentation.avatarAlignment,
+                          child: Image.asset(
+                            presentation.asset,
+                            key: const Key('agent-avatar-image'),
+                            fit: BoxFit.cover,
+                            alignment: presentation.avatarAlignment,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -206,12 +224,13 @@ class _ChatScreenState extends State<ChatScreen> {
           if (compactInputMode)
             const Spacer()
           else ...[
-            if (_conversation.activitySession?.isActive == true)
+            if (_conversation.activitySession?.isInProgress == true)
               _ActiveActivityCard(
                 session: _conversation.activitySession!,
                 enabled: !_conversation.busy && !_voice.active,
                 onStop: () => _stopActivity(leave: false),
                 onLeave: () => _stopActivity(leave: true),
+                onResume: _resumeActivity,
               )
             else if (_conversation.activities.isNotEmpty)
               _ActivityLaunchButton(
@@ -313,12 +332,14 @@ class _ActiveActivityCard extends StatelessWidget {
     required this.enabled,
     required this.onStop,
     required this.onLeave,
+    required this.onResume,
   });
 
   final ActivitySession session;
   final bool enabled;
   final VoidCallback onStop;
   final VoidCallback onLeave;
+  final VoidCallback onResume;
 
   @override
   Widget build(BuildContext context) {
@@ -363,11 +384,19 @@ class _ActiveActivityCard extends StatelessWidget {
             tooltip: 'Просто поговорить',
             icon: const Icon(Icons.chat_bubble_outline_rounded),
           ),
-          IconButton.filledTonal(
-            onPressed: enabled ? onStop : null,
-            tooltip: 'Остановить приключение',
-            icon: const Icon(Icons.stop_rounded),
-          ),
+          if (session.isPaused)
+            IconButton.filled(
+              key: const Key('activity-resume'),
+              onPressed: enabled ? onResume : null,
+              tooltip: 'Продолжить приключение',
+              icon: const Icon(Icons.play_arrow_rounded),
+            )
+          else
+            IconButton.filledTonal(
+              onPressed: enabled ? onStop : null,
+              tooltip: 'Остановить приключение',
+              icon: const Icon(Icons.stop_rounded),
+            ),
         ],
       ),
     );

@@ -68,9 +68,7 @@ async def test_activity_advances_through_normal_conversation_pipeline(
         json={"agent_id": "tech_guide"},
     )
     conversation_id = conversation.json()["conversation_id"]
-    await client.post(
-        f"/v1/activities/conversations/{conversation_id}/build_computer/start"
-    )
+    await client.post(f"/v1/activities/conversations/{conversation_id}/build_computer/start")
 
     for index in range(4):
         response = await client.post(
@@ -81,9 +79,7 @@ async def test_activity_advances_through_normal_conversation_pipeline(
 
     request = provider.generate_response.await_args_list[-1].args[0]
     system_text = "\n".join(
-        message.content
-        for message in request.messages
-        if message.role is ProviderRole.SYSTEM
+        message.content for message in request.messages if message.role is ProviderRole.SYSTEM
     )
     state = await client.get(f"/v1/activities/conversations/{conversation_id}")
 
@@ -106,9 +102,7 @@ async def test_voice_friendly_control_intent_stops_without_calling_model(
         json={"agent_id": "outdoor_guide"},
     )
     conversation_id = conversation.json()["conversation_id"]
-    await client.post(
-        f"/v1/activities/conversations/{conversation_id}/murka_hike/start"
-    )
+    await client.post(f"/v1/activities/conversations/{conversation_id}/murka_hike/start")
 
     stopped = await client.post(
         f"/v1/conversations/{conversation_id}/turn",
@@ -133,12 +127,62 @@ async def test_starting_another_activity_reuses_single_conversation_state(
     )
     conversation_id = conversation.json()["conversation_id"]
 
-    first = await client.post(
-        f"/v1/activities/conversations/{conversation_id}/shared_story/start"
-    )
-    second = await client.post(
-        f"/v1/activities/conversations/{conversation_id}/shared_story/start"
-    )
+    first = await client.post(f"/v1/activities/conversations/{conversation_id}/shared_story/start")
+    second = await client.post(f"/v1/activities/conversations/{conversation_id}/shared_story/start")
 
     assert first.json()["session"]["id"] == second.json()["session"]["id"]
     assert db_session.scalar(select(func.count(ActivitySession.id))) == 1
+
+
+@pytest.mark.anyio
+async def test_paused_activity_resumes_same_step_and_session(
+    app: FastAPI,
+    client: AsyncClient,
+) -> None:
+    provider = AsyncMock()
+    provider.generate_response.return_value = ChatResponse(content="Первый шаг готов.")
+    app.dependency_overrides[get_chat_provider] = lambda: provider
+    conversation = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "space_guide"},
+    )
+    conversation_id = conversation.json()["conversation_id"]
+    started = await client.post(
+        f"/v1/activities/conversations/{conversation_id}/space_expedition/start"
+    )
+    await client.post(
+        f"/v1/conversations/{conversation_id}/turn",
+        json={"role": "child", "content": "Летим на Марс"},
+    )
+
+    paused = await client.post(
+        f"/v1/activities/conversations/{conversation_id}/stop",
+        json={"leave_for_conversation": False},
+    )
+    resumed = await client.post(
+        f"/v1/activities/conversations/{conversation_id}/resume",
+    )
+
+    assert paused.status_code == 200
+    assert paused.json()["session"]["status"] == "paused"
+    assert paused.json()["session"]["current_step"] == 1
+    assert paused.json()["session"]["current_step_title"]
+    assert resumed.status_code == 200
+    assert resumed.json()["session"]["status"] == "active"
+    assert resumed.json()["session"]["id"] == started.json()["session"]["id"]
+    assert resumed.json()["session"]["current_step"] == 1
+    assert "Продолжаем" in resumed.json()["message"]["content"]
+
+
+@pytest.mark.anyio
+async def test_resume_rejects_non_paused_activity(client: AsyncClient) -> None:
+    conversation = await client.post(
+        "/v1/conversations/",
+        json={"agent_id": "space_guide"},
+    )
+    conversation_id = conversation.json()["conversation_id"]
+    await client.post(f"/v1/activities/conversations/{conversation_id}/space_expedition/start")
+
+    response = await client.post(f"/v1/activities/conversations/{conversation_id}/resume")
+
+    assert response.status_code == 409

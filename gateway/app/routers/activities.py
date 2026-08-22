@@ -30,7 +30,7 @@ def serialize_activity_session(
     definition = service.definition_for(session)
     step = (
         definition.steps[session.current_step]
-        if session.status == "active" and session.current_step < len(definition.steps)
+        if session.status in {"active", "paused"} and session.current_step < len(definition.steps)
         else None
     )
     return ActivitySessionResponse(
@@ -112,6 +112,30 @@ def start_activity(
         conversation_id,
         MessageRole.ASSISTANT,
         definition.opening_text,
+    )
+    return ActivityStartResponse(
+        session=serialize_activity_session(service, activity_session),
+        message=MessageResponse.model_validate(message),
+    )
+
+
+@router.post(
+    "/conversations/{conversation_id}/resume",
+    response_model=ActivityStartResponse,
+)
+def resume_activity(
+    conversation_id: uuid.UUID,
+    service: ActivityService = Depends(get_activity_service),
+    conversation: ConversationService = Depends(get_conversation_service),
+) -> ActivityStartResponse:
+    try:
+        activity_session = service.resume(conversation_id)
+    except (ActivityNotFoundError, ActivityConversationError) as exc:
+        raise HTTPException(status_code=409, detail="Activity cannot be resumed") from exc
+    message = conversation.create_message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "Продолжаем с того места, где остановились!",
     )
     return ActivityStartResponse(
         session=serialize_activity_session(service, activity_session),

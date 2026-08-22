@@ -72,4 +72,46 @@ void main() {
     expect(started.session.currentStepTitle, 'Процессор');
     expect(started.message.content, 'Начинаем сборку!');
   });
+
+  test('resumes a paused activity through the explicit endpoint', () async {
+    final gateway = GatewayClient(
+      serverAddress: ServerAddress.parse('http://server.local'),
+      httpClient: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(
+          request.url.path,
+          '/v1/activities/conversations/conversation-1/resume',
+        );
+        return http.Response(
+          jsonEncode({
+            'session': {
+              'id': 'session-1',
+              'activity_id': 'space_expedition',
+              'title': 'Космическая экспедиция',
+              'icon': '🚀',
+              'color': '#6657D9',
+              'status': 'active',
+              'current_step': 2,
+              'total_steps': 4,
+              'current_step_title': 'Задание',
+              'current_step_icon': '🧭',
+            },
+            'message': {
+              'id': 'message-2',
+              'role': 'assistant',
+              'content': 'Продолжаем с того места!',
+              'media': [],
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    );
+
+    final resumed = await gateway.resumeActivity('conversation-1');
+
+    expect(resumed.session.currentStep, 2);
+    expect(resumed.message.content, 'Продолжаем с того места!');
+  });
 }

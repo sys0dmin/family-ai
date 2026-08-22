@@ -361,9 +361,13 @@ function clearConversationView() {
 function renderActivityState() {
     activityBar.hidden = availableActivities.length === 0;
     const active = currentActivity?.status === 'active';
-    activityOpen.hidden = active;
-    activityActive.hidden = !active;
-    if (!active) return;
+    const paused = currentActivity?.status === 'paused';
+    const inProgress = active || paused;
+    activityOpen.hidden = inProgress;
+    activityActive.hidden = !inProgress;
+    if (!inProgress) return;
+    document.getElementById('activity-resume').hidden = !paused;
+    document.getElementById('activity-stop').hidden = paused;
     document.getElementById('activity-active-icon').textContent = currentActivity.icon;
     document.getElementById('activity-active-title').textContent = currentActivity.title;
     document.getElementById('activity-active-step').textContent =
@@ -472,6 +476,31 @@ async function stopActivity(leaveForConversation) {
         }
     } catch (error) {
         console.error('Activity stop failed:', error);
+        setState('error', 'Нет связи');
+    } finally {
+        setTurnControlsDisabled(false);
+    }
+}
+
+async function resumeActivity() {
+    if (!conversationId || turnInProgress) return;
+    setTurnControlsDisabled(true);
+    try {
+        const response = await fetch(`/v1/activities/conversations/${conversationId}/resume`, {
+            method: 'POST'
+        });
+        if (!response.ok) throw new Error('Activity resume failed');
+        const data = await response.json();
+        currentActivity = data.session;
+        addMessage(data.message.content, 'assistant');
+        renderActivityState();
+        try {
+            await speakAssistantReply(data.message.content);
+        } catch (_) {
+            speakText(data.message.content);
+        }
+    } catch (error) {
+        console.error('Activity resume failed:', error);
         setState('error', 'Нет связи');
     } finally {
         setTurnControlsDisabled(false);
@@ -1011,6 +1040,7 @@ photoInput.onchange = () => sendPhoto(photoInput.files?.[0]);
 activityOpen.onclick = () => activityDialog.showModal();
 document.getElementById('activity-close').onclick = () => activityDialog.close();
 document.getElementById('activity-stop').onclick = () => stopActivity(false);
+document.getElementById('activity-resume').onclick = resumeActivity;
 document.getElementById('activity-leave').onclick = () => stopActivity(true);
 
 sendBtn.onclick = () => sendText();

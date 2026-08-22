@@ -5,11 +5,15 @@ class AgentPresentation {
     required this.asset,
     required this.color,
     required this.softColor,
+    this.avatarScale = 1,
+    this.avatarAlignment = Alignment.center,
   });
 
   final String asset;
   final Color color;
   final Color softColor;
+  final double avatarScale;
+  final Alignment avatarAlignment;
 }
 
 const agentPresentations = <String, AgentPresentation>{
@@ -52,6 +56,8 @@ const agentPresentations = <String, AgentPresentation>{
     asset: 'assets/characters/alice-selezneva.webp',
     color: Color(0xFF7A4FC7),
     softColor: Color(0xFFEEE8FB),
+    avatarScale: 1.7,
+    avatarAlignment: Alignment.topCenter,
   ),
 };
 

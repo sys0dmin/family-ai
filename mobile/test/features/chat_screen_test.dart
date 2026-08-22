@@ -38,6 +38,54 @@ GatewayClient _emptyHistoryGateway() {
   );
 }
 
+GatewayClient _pausedActivityGateway() {
+  return GatewayClient(
+    serverAddress: ServerAddress.parse('http://server.local'),
+    httpClient: MockClient((request) async {
+      if (request.url.path == '/v1/activities') {
+        return http.Response(
+          jsonEncode({'items': <Object>[]}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      if (request.url.path == '/v1/conversations/latest') {
+        return http.Response(
+          jsonEncode({
+            'conversation_id': 'conversation-1',
+            'agent_id': 'tech_guide',
+            'messages': <Object>[],
+            'history_truncated': false,
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      if (request.url.path == '/v1/activities/conversations/conversation-1') {
+        return http.Response(
+          jsonEncode({
+            'session': {
+              'id': 'session-1',
+              'activity_id': 'build_computer',
+              'title': 'Собираем компьютер',
+              'icon': '🖥️',
+              'color': '#2677A8',
+              'status': 'paused',
+              'current_step': 2,
+              'total_steps': 4,
+              'current_step_title': 'Хранилище',
+              'current_step_icon': '💾',
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response('not found', 404);
+    }),
+  );
+}
+
 Future<void> _pumpChat(WidgetTester tester) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -86,5 +134,20 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(AppBar), findsNothing);
     expect(find.byType(TextField), findsOneWidget);
+  });
+
+  testWidgets('paused activity keeps its step and offers a resume button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChatScreen(agent: _agent, gateway: _pausedActivityGateway()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Хранилище'), findsOneWidget);
+    expect(find.byKey(const Key('activity-resume')), findsOneWidget);
+    expect(find.byKey(const Key('activity-launch')), findsNothing);
   });
 }

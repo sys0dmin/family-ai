@@ -60,6 +60,8 @@ abstract interface class ConversationGateway {
     String activityId,
   );
 
+  Future<ActivityActionResult> resumeActivity(String conversationId);
+
   Future<ActivityActionResult> stopActivity(
     String conversationId, {
     required bool leaveForConversation,

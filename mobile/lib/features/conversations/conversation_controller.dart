@@ -232,6 +232,28 @@ class ConversationController extends ChangeNotifier {
     }
   }
 
+  Future<ConversationMessage?> resumeActivity() async {
+    final conversationId = _conversationId;
+    if (busy || conversationId == null || _activitySession?.isPaused != true) {
+      return null;
+    }
+    _sendingText = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final result = await _gateway.resumeActivity(conversationId);
+      _activitySession = result.session;
+      _messages.add(result.message);
+      return result.message;
+    } on GatewayException catch (error) {
+      _error = error.message;
+      return null;
+    } finally {
+      _sendingText = false;
+      notifyListeners();
+    }
+  }
+
   void appendMessage(ConversationMessage message) {
     _messages.add(message);
     notifyListeners();

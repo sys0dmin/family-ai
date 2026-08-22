@@ -148,7 +148,7 @@ class ActivityService:
         normalized = re.sub(r"[^а-яёa-z0-9 ]+", " ", text.casefold())
         normalized = " ".join(normalized.split())
         if normalized in STOP_PHRASES:
-            state.status = "cancelled"
+            state.status = "paused"
             state.updated_at = datetime.now(UTC)
             self._session.flush()
             return "Хорошо, приключение остановлено. Мы можем вернуться к нему в другой раз."
@@ -174,8 +174,31 @@ class ActivityService:
         state = self.get(conversation_id)
         if state is None:
             raise ActivityConversationError("Activity session not found")
-        state.status = "left" if leave else "cancelled"
+        state.status = "left" if leave else "paused"
         state.updated_at = datetime.now(UTC)
+        self._session.flush()
+        return state
+
+    def resume(
+        self,
+        conversation_id: uuid.UUID,
+        *,
+        now: datetime | None = None,
+    ) -> ActivitySession:
+        state = self.get(conversation_id, now=now)
+        if state is None:
+            raise ActivityConversationError("Activity session not found")
+        if state.status != "paused":
+            raise ActivityConversationError("Activity session is not paused")
+        definition = self._catalog.get(state.activity_id)
+        if state.activity_version != definition.version:
+            state.status = "cancelled"
+            self._session.flush()
+            raise ActivityConversationError("Activity version is unavailable")
+        current_time = now or datetime.now(UTC)
+        state.status = "active"
+        state.updated_at = current_time
+        state.expires_at = current_time + timedelta(hours=self._retention_hours)
         self._session.flush()
         return state
 

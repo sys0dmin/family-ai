@@ -28,6 +28,17 @@ const _agent = Agent(
   supportsSpokenImageQuestion: true,
   imageUploadMaxBytes: 10 * 1024 * 1024,
 );
+const _alice = Agent(
+  id: 'space_guide',
+  displayName: 'Алиса Селезнёва',
+  description: 'Рассказывает о космосе и ведёт межпланетные приключения.',
+  icon: '🚀',
+  color: 'cosmos',
+  greeting: 'Полетели к звёздам!',
+  supportsImageUpload: true,
+  supportsSpokenImageQuestion: true,
+  imageUploadMaxBytes: 10 * 1024 * 1024,
+);
 
 class _VisualVoiceSession implements VoiceSession {
   @override
@@ -191,12 +202,12 @@ Future<void> _configureViewport(
   addTearDown(tester.view.reset);
 }
 
-Future<void> _pumpChat(WidgetTester tester) async {
+Future<void> _pumpChat(WidgetTester tester, {Agent agent = _agent}) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: _theme(),
       home: ChatScreen(
-        agent: _agent,
+        agent: agent,
         gateway: _gateway(),
         voiceSession: _VisualVoiceSession(),
         voiceReplyCache: _VisualReplyCache(),
@@ -239,6 +250,16 @@ void main() {
     await expectLater(
       find.byType(Scaffold),
       matchesGoldenFile('goldens/chat-portrait.png'),
+    );
+  });
+
+  testWidgets('Alice app bar avatar visual baseline', (tester) async {
+    await _configureViewport(tester, const Size(430, 900));
+    await _pumpChat(tester, agent: _alice);
+
+    await expectLater(
+      find.byType(CircleAvatar),
+      matchesGoldenFile('goldens/alice-chat-avatar.png'),
     );
   });
 

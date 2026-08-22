@@ -27,7 +27,7 @@ class ActivitySession(Base):
     __tablename__ = "activity_sessions"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('active', 'completed', 'cancelled', 'left')",
+            "status IN ('active', 'paused', 'completed', 'cancelled', 'left')",
             name="ck_activity_sessions_status",
         ),
         CheckConstraint("current_step >= 0", name="ck_activity_sessions_step"),

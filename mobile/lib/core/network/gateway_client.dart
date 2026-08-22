@@ -125,6 +125,17 @@ class GatewayClient implements ConversationGateway {
   }
 
   @override
+  Future<ActivityActionResult> resumeActivity(String conversationId) async {
+    final response = await _postJson(
+      serverAddress.resolve(
+        '/v1/activities/conversations/$conversationId/resume',
+      ),
+      const {},
+    );
+    return _decodeActivityAction(response);
+  }
+
+  @override
   Future<ActivityActionResult> stopActivity(
     String conversationId, {
     required bool leaveForConversation,
