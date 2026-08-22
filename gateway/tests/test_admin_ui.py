@@ -47,6 +47,10 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="release-android"' in response.text
     assert 'id="release-configuration"' in response.text
     assert 'id="history-card"' in response.text
+    assert 'id="help-tab"' in response.text
+    assert 'id="help-card"' in response.text
+    assert 'id="help-search"' in response.text
+    assert 'id="help-topic-list"' in response.text
     assert 'id="quality-feedback-total"' in response.text
     assert 'id="feedback-dialog"' in response.text
     assert 'id="regression-dialog"' in response.text
@@ -95,6 +99,7 @@ async def test_admin_assets_are_local_modular_components() -> None:
         memory = await client.get("/admin-assets/js/memory-screen.js")
         infrastructure = await client.get("/admin-assets/js/infrastructure-screen.js")
         quality = await client.get("/admin-assets/js/quality-screen.js")
+        help_screen = await client.get("/admin-assets/js/help-screen.js")
 
     assert css.status_code == 200
     assert css.headers["cache-control"] == "no-cache, must-revalidate"
@@ -122,6 +127,11 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert quality.status_code == 200
     assert "/api/quality/feedback" in quality.text
     assert "regression-cases" in quality.text
+    assert help_screen.status_code == 200
+    assert "Долгосрочная память" in help_screen.text
+    assert "Если что-то сломалось" in help_screen.text
+    assert 'openSection(topic.target)' in help_screen.text
+    assert 'help: "help-card"' in navigation.text
     assert 'actions.className = "row card-actions"' in quality.text
     assert "@media (max-width: 1100px)" in css.text
     assert ".regression-status-row" in css.text

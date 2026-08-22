@@ -44,6 +44,7 @@
         <button class="tab-button" id="memory-tab" aria-selected="false"><span class="nav-icon">∞</span><span>Память</span></button>
         <button class="tab-button" id="infrastructure-tab" aria-selected="false"><span class="nav-icon">◉</span><span>Инфраструктура</span></button>
         <button class="tab-button" id="history-tab" aria-selected="false"><span class="nav-icon">▥</span><span>Аналитика</span></button>
+        <button class="tab-button" id="help-tab" aria-selected="false"><span class="nav-icon">?</span><span>Справка</span></button>
       </nav>
       <div class="sidebar-meta">
         <div class="connection-line"><i class="pulse-dot"></i><div><strong>System online</strong><span id="environment-label">environment</span></div></div>
@@ -425,6 +426,35 @@
         </article>
         <div class="dashboard-grid"><article class="panel"><div class="panel-head"><div><div class="card-kicker">Activity</div><h2>Динамика общения</h2></div></div><div id="activity-chart"></div></article><article class="panel"><div class="panel-head"><div><div class="card-kicker">Interests</div><h2>Частые вопросы</h2></div></div><div id="frequent-questions" class="question-list"></div></article></div>
         <article class="panel conversation-feed"><div class="panel-head"><div><div class="card-kicker">Conversation feed</div><h2>История сообщений</h2></div><span id="conversation-total" class="muted"></span></div><div id="conversation-list" class="conversation-list"></div><div class="pagination" id="history-pagination" style="display:none"><button id="history-prev" class="secondary">← Назад</button><span id="history-page-label"></span><button id="history-next" class="secondary">Вперёд →</button></div></article>
+      </section>
+
+      <section id="help-card" style="display:none">
+        <div class="help-hero">
+          <div>
+            <div class="card-kicker">Family AI handbook</div>
+            <h2>Шпаргалка администратора</h2>
+            <p>Что показывает каждый раздел, какие действия безопасны и куда смотреть, если что-то пошло не так.</p>
+          </div>
+          <label class="help-search field">
+            <span>Поиск по справке</span>
+            <input id="help-search" type="search" placeholder="Например: память, STT, паспорт релиза" autocomplete="off">
+          </label>
+        </div>
+        <div class="help-quickstart" aria-label="Быстрый порядок проверки">
+          <span>Обычная проверка</span>
+          <strong>Инфраструктура</strong><i>→</i><strong>Тест-студия</strong><i>→</i><strong>Аналитика</strong>
+        </div>
+        <div class="help-layout">
+          <aside class="panel help-index">
+            <div class="card-kicker">Содержание</div>
+            <h2>Разделы</h2>
+            <div id="help-topic-nav" class="help-topic-nav"></div>
+          </aside>
+          <div class="help-content">
+            <div class="help-results-head"><span id="help-results-summary">Все разделы</span><button id="help-search-reset" class="secondary" hidden>Сбросить поиск</button></div>
+            <div id="help-topic-list" class="help-topic-list"></div>
+          </div>
+        </div>
       </section>
     </main>
   </div>

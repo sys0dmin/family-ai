@@ -5,6 +5,7 @@ const copy = {
   agents: ["Агенты", "Agent studio"],
   studio: ["Тест-студия", "Prompt & voice laboratory"],
   infrastructure: ["Инфраструктура", "Project operations"],
+  help: ["Справка", "Administrator handbook"],
 };
 
 function setValue(id, value) {
@@ -32,6 +33,7 @@ function activateScreen(screen) {
     "memory-card",
     "infrastructure-card",
     "history-card",
+    "help-card",
   ]) {
     const element = document.getElementById(id);
     if (element) element.style.display = id === `${screen}-card` ? "block" : "none";
@@ -203,12 +205,40 @@ function fillInfrastructure() {
   setText("infrastructure-checked", "Последняя проверка: 02.08.2026, 12:00");
 }
 
+function fillHelp() {
+  setText("help-results-summary", "Разделов в справке: 10");
+  document.getElementById("help-topic-nav").innerHTML = `
+    <button class="help-topic-link">⌂ С чего начинать</button>
+    <button class="help-topic-link">∞ Долгосрочная память</button>
+    <button class="help-topic-link">◉ Инфраструктура</button>`;
+  document.getElementById("help-topic-list").innerHTML = `
+    <article class="panel help-topic"><div class="help-topic-head"><div class="help-topic-identity">
+      <span class="help-topic-icon">⌂</span><div><h2>С чего начинать</h2>
+      <p class="muted">Короткий маршрут для обычной проверки Family AI.</p></div></div>
+      <button class="secondary help-open-section">Открыть инфраструктуру →</button></div>
+      <ol class="help-list"><li>Проверьте сервисы и паспорт релиза.</li><li>Повторите запрос в тест-студии.</li><li>Отметьте проблему в аналитике.</li></ol>
+      <div class="help-note">Зелёный health-check означает, что компонент отвечает.</div></article>
+    <article class="panel help-topic"><div class="help-topic-head"><div class="help-topic-identity">
+      <span class="help-topic-icon">∞</span><div><h2>Долгосрочная память</h2>
+      <p class="muted">Только сведения, которые родитель сам подтвердил.</p></div></div>
+      <button class="secondary help-open-section">Открыть память →</button></div>
+      <dl class="help-terms"><dt>Интерес</dt><dd>Устойчивая тема, которая нравится Лере</dd><dt>Учебный прогресс</dt><dd>Конкретный навык на указанную дату</dd></dl>
+      <div class="help-warning">Не копируйте сюда историю чата или временное настроение.</div></article>`;
+}
+
 activateScreen(window.__VISUAL_SCREEN__);
 fillSettings();
 fillAgents();
 fillStudio();
 fillInfrastructure();
+fillHelp();
 if (window.__VISUAL_DIALOG__) showConfigurationPreview();
-document.documentElement.dataset.visualOverflow = String(
-  document.documentElement.scrollWidth > window.innerWidth,
-);
+const visualWidth = window.__VISUAL_WIDTH__ || window.innerWidth;
+const activeScreen = document.getElementById(`${window.__VISUAL_SCREEN__}-card`);
+const activeBounds = activeScreen?.getBoundingClientRect();
+document.documentElement.dataset.visualOverflow = String(Boolean(
+  activeScreen && (
+    activeScreen.scrollWidth > activeScreen.clientWidth + 1 ||
+    activeBounds.right > visualWidth + 1
+  )
+));

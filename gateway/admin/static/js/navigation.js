@@ -5,7 +5,8 @@ const pageCopy = {
   safety: ["Safety Policy", "Child safety control"],
   memory: ["Память", "Parent-confirmed context"],
   infrastructure: ["Инфраструктура", "Project operations"],
-  history: ["Аналитика", "Conversation intelligence"]
+  history: ["Аналитика", "Conversation intelligence"],
+  help: ["Справка", "Administrator handbook"]
 };
 
 const screenIds = {
@@ -15,20 +16,26 @@ const screenIds = {
   safety: "safety-policy-card",
   memory: "memory-card",
   infrastructure: "infrastructure-card",
-  history: "history-card"
+  history: "history-card",
+  help: "help-card"
 };
 
 export function createNavigation(onEnter) {
   return function switchTab(name) {
+    let activeButton = null;
     for (const [screenName, screenId] of Object.entries(screenIds)) {
       const active = screenName === name;
       document.getElementById(screenId).style.display = active ? "block" : "none";
       const button = document.getElementById(`${screenName}-tab`);
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
+      if (active) activeButton = button;
     }
     document.getElementById("page-title").textContent = pageCopy[name][0];
     document.getElementById("page-kicker").textContent = pageCopy[name][1];
+    if (activeButton && window.matchMedia("(max-width: 820px)").matches) {
+      activeButton.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
     onEnter(name);
   };
 }

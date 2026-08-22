@@ -6,6 +6,7 @@
     } from "./api-client.js?v=admin-modules-2";
     import { formatDateTime, getValue, setStatus, setValue } from "./dom.js?v=admin-modules-2";
     import { createHistoryScreen } from "./history-screen.js?v=admin-modules-2";
+    import { createHelpScreen } from "./help-screen.js?v=admin-modules-2";
     import { createInfrastructureScreen } from "./infrastructure-screen.js?v=admin-modules-2";
     import { createActivityScreen } from "./activity-screen.js?v=admin-modules-2";
     import { createMemoryScreen } from "./memory-screen.js?v=admin-modules-2";
@@ -737,6 +738,9 @@
       }
     });
     const infrastructureScreen = createInfrastructureScreen();
+    const helpScreen = createHelpScreen({
+      openSection: tab => switchTab(tab)
+    });
     navigate = createNavigation(tab => {
       clearInterval(infrastructureTimer);
       infrastructureTimer = null;
@@ -762,6 +766,7 @@
         historyScreen.load(true);
         qualityScreen.loadSummary();
       }
+      if (tab === "help") helpScreen.load();
     });
 
     document.getElementById("login-btn").onclick = login;
@@ -804,6 +809,7 @@
     document.getElementById("memory-tab").onclick = () => switchTab("memory");
     document.getElementById("infrastructure-tab").onclick = () => switchTab("infrastructure");
     document.getElementById("history-tab").onclick = () => switchTab("history");
+    document.getElementById("help-tab").onclick = () => switchTab("help");
     document.getElementById("safety-baseline-save").onclick = saveSafetyBaseline;
     document.getElementById("gateway-restart").onclick = restartGateway;
     document.getElementById("studio-agent").onchange = syncStudioVoice;

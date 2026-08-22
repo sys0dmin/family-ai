@@ -36,10 +36,12 @@ $Cases = @(
     @{ Name = "agents-desktop"; Screen = "agents"; Width = 1440; Height = 1000 },
     @{ Name = "studio-desktop"; Screen = "studio"; Width = 1440; Height = 1000 },
     @{ Name = "infrastructure-desktop"; Screen = "infrastructure"; Width = 1440; Height = 1000 },
+    @{ Name = "help-desktop"; Screen = "help"; Width = 1440; Height = 1000 },
     @{ Name = "configuration-preview-desktop"; Screen = "settings"; Dialog = $true; Width = 1440; Height = 1000 },
     @{ Name = "settings-mobile"; Screen = "settings"; Width = 390; Height = 844 },
     @{ Name = "studio-mobile"; Screen = "studio"; Width = 390; Height = 844 },
     @{ Name = "infrastructure-mobile"; Screen = "infrastructure"; Width = 390; Height = 844 },
+    @{ Name = "help-mobile"; Screen = "help"; Width = 390; Height = 844 },
     @{ Name = "configuration-preview-mobile"; Screen = "settings"; Dialog = $true; Width = 390; Height = 844 }
 )
 if ($CaseName) {
@@ -117,8 +119,15 @@ try {
         $ActualPath = Join-Path $TempRoot "$($Case.Name).png"
         $BaselinePath = Join-Path $BaselineRoot "$($Case.Name).png"
         $FailureCopy = Join-Path $BaselineRoot "$($Case.Name).actual.png"
-        $Fixture = "<style>*{animation:none!important;transition:none!important;caret-color:transparent!important}</style>" +
+        $ViewportStyle = if ($Case.Width -lt 500) {
+            "html,body{width:$($Case.Width)px!important;max-width:$($Case.Width)px!important}" +
+            ".admin-shell,.main-content{width:$($Case.Width)px!important;max-width:$($Case.Width)px!important}"
+        } else {
+            ""
+        }
+        $Fixture = "<style>*{animation:none!important;transition:none!important;caret-color:transparent!important}$ViewportStyle</style>" +
             "<script>window.__VISUAL_SCREEN__='$($Case.Screen)';</script>" +
+            "<script>window.__VISUAL_WIDTH__=$($Case.Width);</script>" +
             "<script>window.__VISUAL_DIALOG__='$($Case.Dialog)' === 'True';</script>" +
             "<script>$FixtureScript</script>"
         [IO.File]::WriteAllText(
