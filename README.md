@@ -24,7 +24,7 @@
 - `FAMILY_AI_VISION_PROVIDER`: `openai_compatible` для одноразового анализа фото или `disabled`
 - `FAMILY_AI_VISION_MODEL`: отдельная мультимодальная модель
 - `FAMILY_AI_VISION_BASE_URL`, `FAMILY_AI_VISION_API_KEY`: необязательные отдельные настройки Vision; без них используются LLM endpoint/key
-- `FAMILY_AI_VISION_MAX_IMAGE_BYTES`: максимальный размер фото, по умолчанию 3 MiB
+- `FAMILY_AI_VISION_MAX_IMAGE_BYTES`: максимальный размер фото, по умолчанию 10 MiB
 - `FAMILY_AI_SPEECH_API_KEY`: отдельный bearer-токен Speech Service или ключ облачного провайдера
 - `FAMILY_AI_SPEECH_BASE_URL`: API STT/TTS (`http://192.168.31.84:8010/v1` для локального сервиса)
 - `FAMILY_AI_STT_API_KEY`, `FAMILY_AI_STT_BASE_URL`: необязательные отдельные настройки STT; без них используются общие Speech-настройки
@@ -42,6 +42,11 @@
 - `FAMILY_AI_MUSIC_RECOGNITION_PROVIDER`: `disabled` или `acrcloud`
 - `FAMILY_AI_ACRCLOUD_HOST`, `FAMILY_AI_ACRCLOUD_ACCESS_KEY`, `FAMILY_AI_ACRCLOUD_ACCESS_SECRET`: данные Audio & Video Recognition project ACRCloud
 - `FAMILY_AI_MUSIC_RECOGNITION_TIMEOUT_SECONDS`: таймаут внешнего распознавания
+
+`FAMILY_AI_DATABASE_URL` обязателен. Gateway не создаёт неявную локальную
+SQLite-БД: рабочая схема и цепочка Alembic рассчитаны на PostgreSQL. SQLite
+используется только изолированными unit-тестами с явной тестовой строкой
+подключения.
 
 ### Переменные админки
 

@@ -24,3 +24,8 @@ export function formatDateTime(value) {
     minute: "2-digit"
   }).format(new Date(value));
 }
+
+export function formatPipelineMs(value) {
+  if (value == null) return "—";
+  return value >= 1000 ? `${(value / 1000).toFixed(1)} с` : `${value} мс`;
+}

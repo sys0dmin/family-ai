@@ -17,7 +17,7 @@ async def test_admin_session_survives_requests_without_basic_header(monkeypatch)
         admin_force_password_change=False,
     )
     monkeypatch.setattr("gateway.admin.auth.get_settings", lambda: settings)
-    monkeypatch.setattr("gateway.admin.main.get_settings", lambda: settings)
+    monkeypatch.setattr("gateway.admin.session_router.get_settings", lambda: settings)
     credentials = base64.b64encode(b"admin:test-password").decode("ascii")
 
     transport = ASGITransport(app=admin_app)

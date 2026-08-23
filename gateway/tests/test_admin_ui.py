@@ -59,7 +59,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'class="regression-status-row"' in response.text
     assert 'class="row panel-actions"' in response.text
     assert 'href="/admin-assets/admin.css?v=admin-modules-2"' in response.text
-    assert 'type="module" src="/admin-assets/js/app.js?v=admin-modules-2"' in response.text
+    assert 'type="module" src="/admin-assets/js/app.js?v=admin-modules-3"' in response.text
     assert 'id="image_search_provider"' in response.text
     assert 'id="vision_provider"' in response.text
     assert 'id="vision_model"' in response.text
@@ -102,6 +102,10 @@ async def test_admin_assets_are_local_modular_components() -> None:
         quality = await client.get("/admin-assets/js/quality-screen.js")
         help_screen = await client.get("/admin-assets/js/help-screen.js")
         layout_preference = await client.get("/admin-assets/js/layout-preference.js")
+        settings = await client.get("/admin-assets/js/settings-screen.js")
+        agents = await client.get("/admin-assets/js/agents-screen.js")
+        studio = await client.get("/admin-assets/js/studio-screen.js")
+        calibration = await client.get("/admin-assets/js/calibration-screen.js")
 
     assert css.status_code == 200
     assert css.headers["cache-control"] == "no-cache, must-revalidate"
@@ -124,8 +128,13 @@ async def test_admin_assets_are_local_modular_components() -> None:
     assert "/api/diagnostics/traces" in infrastructure.text
     assert "/api/diagnostics/bundle" in infrastructure.text
     assert "/api/infrastructure/release-passport" in infrastructure.text
-    assert "/api/settings/preview" in app.text
-    assert "/api/settings/revisions" in app.text
+    assert settings.status_code == agents.status_code == studio.status_code == 200
+    assert calibration.status_code == 200
+    assert "/api/settings/preview" in settings.text
+    assert "/api/settings/revisions" in settings.text
+    assert "/api/agents" in agents.text
+    assert "/api/studio/agent-test" in studio.text
+    assert "/api/stt-calibration/status" in calibration.text
     assert quality.status_code == 200
     assert "/api/quality/feedback" in quality.text
     assert "regression-cases" in quality.text

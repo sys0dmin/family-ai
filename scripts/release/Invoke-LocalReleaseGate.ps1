@@ -1,12 +1,14 @@
 [CmdletBinding()]
 param(
     [string]$Commit = "HEAD",
-    [string]$BrowserPath = ""
+    [string]$BrowserPath = "",
+    [string]$MigrationAdminDatabaseUrl = $env:FAMILY_AI_MIGRATION_TEST_ADMIN_URL
 )
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $Python = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+$Uv = Join-Path $RepoRoot ".venv\Scripts\uv.exe"
 $Flutter = Join-Path $RepoRoot ".tools\flutter\bin\flutter.bat"
 $Results = [Collections.Generic.List[object]]::new()
 $StartedAt = [DateTimeOffset]::UtcNow
@@ -14,6 +16,9 @@ $Failure = $null
 
 if (-not (Test-Path -LiteralPath $Python)) {
     throw "Project Python environment was not found: $Python"
+}
+if (-not (Test-Path -LiteralPath $Uv)) {
+    throw "Project uv executable was not found: $Uv"
 }
 if (-not (Test-Path -LiteralPath $Flutter)) {
     throw "Project Flutter SDK was not found: $Flutter"
@@ -63,13 +68,60 @@ function Invoke-GateStage {
     }
 }
 
+function Add-GateSkipped {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Reason
+    )
+    $Results.Add([ordered]@{
+        name = $Name
+        status = "skipped"
+        duration_ms = 0
+        reason = $Reason
+    })
+    Write-Warning "[SKIPPED] $Name - $Reason"
+}
+
 try {
+    Invoke-GateStage "working_tree_clean" {
+        $Changes = @(& git -C $RepoRoot status --porcelain)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Git failed to inspect the working tree"
+        }
+        if ($Changes.Count -ne 0) {
+            throw "Release gate requires a clean working tree"
+        }
+    }
     Invoke-GateStage "repository_policy" {
         & $Python (Join-Path $PSScriptRoot "repository_policy.py") `
             --repo $RepoRoot
     }
     Invoke-GateStage "diff_check" {
         & git -C $RepoRoot show --check --format= $ResolvedCommit
+    }
+    Invoke-GateStage "gateway_lock" {
+        Push-Location $RepoRoot
+        try {
+            & $Uv lock --check
+        } finally {
+            Pop-Location
+        }
+    }
+    Invoke-GateStage "speech_lock" {
+        Push-Location (Join-Path $RepoRoot "speech")
+        try {
+            & $Uv lock --check
+        } finally {
+            Pop-Location
+        }
+    }
+    Invoke-GateStage "character_assets" {
+        & $Python (Join-Path $RepoRoot "scripts\assets\sync_character_assets.py") `
+            --repo $RepoRoot
+    }
+    Invoke-GateStage "dependency_audit" {
+        & $Python (Join-Path $PSScriptRoot "audit_dependencies.py") `
+            --repo $RepoRoot --uv $Uv
     }
     Invoke-GateStage "ruff" {
         & $Python -m ruff check gateway alembic scripts speech
@@ -126,6 +178,21 @@ try {
             throw "Expected exactly one Alembic head, got $($HeadLines.Count)"
         }
         Write-Host $HeadLines[0]
+    }
+    if ($MigrationAdminDatabaseUrl) {
+        Invoke-GateStage "postgres_migrations" {
+            $PreviousMigrationUrl = $env:FAMILY_AI_MIGRATION_TEST_ADMIN_URL
+            try {
+                $env:FAMILY_AI_MIGRATION_TEST_ADMIN_URL = $MigrationAdminDatabaseUrl
+                & $Python (Join-Path $PSScriptRoot "test_postgres_migrations.py") `
+                    --repo $RepoRoot
+            } finally {
+                $env:FAMILY_AI_MIGRATION_TEST_ADMIN_URL = $PreviousMigrationUrl
+            }
+        }
+    } else {
+        Add-GateSkipped "postgres_migrations" `
+            "set FAMILY_AI_MIGRATION_TEST_ADMIN_URL to execute the disposable database test"
     }
     Invoke-GateStage "release_archives" {
         foreach ($Component in @("gateway", "speech")) {

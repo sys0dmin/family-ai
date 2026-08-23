@@ -16,14 +16,12 @@ from gateway.app.memory import MemoryService, SqlAlchemyMemoryRepository
 from gateway.app.music import MusicRecognitionProvider
 from gateway.app.music.acrcloud import AcrCloudMusicRecognitionProvider
 from gateway.app.observability.voice_metrics import voice_metrics_registry
-from gateway.app.providers.base import AIProvider
 from gateway.app.providers.contracts import (
     ChatProvider,
     ImageUnderstandingProvider,
     SpeechRecognitionProvider,
     SpeechSynthesisProvider,
 )
-from gateway.app.providers.openai import OpenAIProvider
 from gateway.app.providers.openai_chat import OpenAIChatProvider
 from gateway.app.providers.openai_stt import OpenAISpeechRecognitionProvider
 from gateway.app.providers.openai_tts import OpenAISpeechSynthesisProvider
@@ -48,25 +46,6 @@ logger = logging.getLogger(__name__)
 def get_safety_service() -> SafetyService:
     """Return the safety service singleton."""
     return SafetyService(SafetyPolicyEngine(safety_metrics_registry))
-
-
-def get_ai_provider() -> AIProvider:
-    """Return the deprecated composite provider for compatibility callers."""
-    settings = Settings()
-    return OpenAIProvider(
-        api_key=settings.openai_api_key.get_secret_value(),
-        model=settings.openai_model,
-        base_url=settings.openai_base_url,
-        speech_api_key=settings.speech_api_key.get_secret_value() or None,
-        speech_base_url=settings.speech_base_url,
-        stt_model=settings.stt_model,
-        stt_temperature=settings.stt_temperature,
-        stt_initial_prompt=settings.stt_initial_prompt,
-        tts_model=settings.tts_model,
-        tts_voice=settings.tts_voice,
-        tts_response_format=settings.tts_response_format,
-        web_search_tool_type=settings.web_search_tool_type,
-    )
 
 
 def get_chat_provider() -> ChatProvider:

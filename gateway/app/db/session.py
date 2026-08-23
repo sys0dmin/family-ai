@@ -17,6 +17,11 @@ def get_engine():
     global _engine
     if _engine is None:
         settings = get_settings()
+        if not settings.database_url.strip():
+            raise RuntimeError(
+                "FAMILY_AI_DATABASE_URL is required; Gateway uses PostgreSQL "
+                "and does not create an implicit local database"
+            )
         connect_args = {}
         if settings.database_url.startswith("sqlite"):
             connect_args["check_same_thread"] = False

@@ -12,7 +12,10 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 def test_current_tracked_repository_passes_content_policy() -> None:
     from scripts.release.repository_policy import tracked_paths
 
-    assert inspect_paths(REPOSITORY, tracked_paths(REPOSITORY)) == []
+    existing_paths = [
+        path for path in tracked_paths(REPOSITORY) if (REPOSITORY / path).is_file()
+    ]
+    assert inspect_paths(REPOSITORY, existing_paths) == []
 
 
 def test_repository_policy_rejects_secret_artifact_and_large_file(tmp_path: Path) -> None:
@@ -47,6 +50,11 @@ def test_release_gate_covers_every_local_release_boundary() -> None:
 
     for stage in (
         "repository_policy",
+        "working_tree_clean",
+        "gateway_lock",
+        "speech_lock",
+        "character_assets",
+        "dependency_audit",
         "ruff",
         "gateway_tests",
         "speech_tests",
@@ -55,7 +63,12 @@ def test_release_gate_covers_every_local_release_boundary() -> None:
         "admin_visual",
         "markdown_links",
         "alembic_head",
+        "postgres_migrations",
         "release_archives",
     ):
         assert f'Invoke-GateStage "{stage}"' in gate
+    assert 'Join-Path $RepoRoot ".venv\\Scripts\\uv.exe"' in gate
+    assert "& $Uv lock --check" in gate
+    assert "status --porcelain" in gate
+    assert "Release gate requires a clean working tree" in gate
     assert "--no-pub" in gate

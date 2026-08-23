@@ -10,42 +10,23 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from gateway.app.activities import ActivityService, ActivityTurnContext
-from gateway.app.agents import ActiveAgent, build_agent_system_message
+from gateway.app.agents import ActiveAgent
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.memory import MemoryService
 from gateway.app.models import ChildProfile, Conversation, Message, MessageRole
 from gateway.app.providers.contracts import ChatProvider
-from gateway.app.providers.schemas import ChatMessage, ChatRequest, ProviderRole, ProviderTool
+from gateway.app.providers.schemas import ChatRequest
 from gateway.app.safety.contracts import PolicyAction
 from gateway.app.services.agent_service import AgentService
+from gateway.app.services.conversation_prompt import (
+    ConversationPromptContext,
+    build_conversation_request,
+)
 from gateway.app.services.safety_service import SafetyService
 from gateway.app.services.turn_diagnostics import TurnDiagnostics
 from gateway.app.services.visual_media_service import VisualMediaService
 
 logger = logging.getLogger(__name__)
-
-CONTINUING_CONVERSATION_CONTEXT = (
-    "Это продолжение уже начатого разговора с Лерой. Не здоровайся заново, не "
-    "представляйся повторно и не начинай беседу с чистого листа. Учитывай последние "
-    "реплики. Если Лера исправляет твою ошибку, коротко признай поправку, поблагодари "
-    "и продолжай с учётом верного факта."
-)
-UNVERIFIED_MUSIC_TEXT_CONTEXT = (
-    "В этом текстовом ходе инструмент распознавания музыки не возвращал результата. "
-    "Если доступен веб-поиск, обязательно используй его для проверки фрагмента перед "
-    "ответом. "
-    "Не выдавай догадку языковой модели за распознанную песню и не выдумывай "
-    "правдоподобные названия, исполнителей или источники. Назови ровно одну песню "
-    "только при высокой уверенности, что все данные совпадают; иначе честно попроси "
-    "ещё одну строку или голосовой напев."
-)
-SUPERVISED_OUTDOOR_CONTEXT = (
-    "Этот агент может обсуждать походную безопасность, но это не разрешение "
-    "ребёнку выполнять опасную часть. Всегда давай полезный ответ и явно разделяй "
-    "роли. Ребёнок не берёт, не достаёт и не держит спички, нож, точило, крючок или горячую "
-    "посуду — это делает взрослый. Не давай ребёнку углы заточки и не учи его проверять остроту. "
-    "Отвечай обычным текстом без Markdown."
-)
 
 MAX_RESUMED_MESSAGES = 100
 
@@ -57,6 +38,24 @@ class ConversationHistory:
     conversation: Conversation | None
     messages: tuple[Message, ...] = ()
     truncated: bool = False
+
+
+@dataclass(frozen=True)
+class PreparedConversationTurn:
+    """Context loaded once and shared by every stage of one generated turn."""
+
+    history: tuple[Message, ...]
+    active_agent: ActiveAgent
+    last_child_message: Message | None
+    activity_context: ActivityTurnContext | None
+
+
+@dataclass(frozen=True)
+class EvaluatedOutput:
+    """Normalized model text and whether policy blocked the original output."""
+
+    content: str
+    blocked: bool = False
 
 
 class ConversationService:
@@ -159,163 +158,178 @@ class ConversationService:
         if not self._provider:
             raise RuntimeError("AI Provider is not configured")
 
-        # 1. Get history
+        turn = self._prepare_generated_turn(conversation_id)
+        input_policy_response = self._evaluate_turn_input(
+            turn,
+            input_safety_context=input_safety_context,
+        )
+        if input_policy_response is not None:
+            return self.create_message(
+                conversation_id=conversation_id,
+                role=MessageRole.ASSISTANT,
+                content=input_policy_response,
+            )
+
+        request = self._build_chat_request(
+            conversation_id,
+            turn,
+            runtime_context=runtime_context,
+            request_id=request_id,
+        )
+        response_content = await self._generate_provider_content(request, diagnostics)
+        evaluated_output = self._evaluate_turn_output(
+            response_content,
+            conversation_id=conversation_id,
+            active_agent=turn.active_agent,
+        )
+        message = self.create_message(
+            conversation_id=conversation_id,
+            role=MessageRole.ASSISTANT,
+            content=evaluated_output.content,
+        )
+        if evaluated_output.blocked:
+            return message
+
+        await self._complete_generated_turn(message, turn)
+        return message
+
+    def _prepare_generated_turn(
+        self,
+        conversation_id: uuid.UUID,
+    ) -> PreparedConversationTurn:
         history = self.get_messages_for_conversation(conversation_id)
         if not history:
             raise RuntimeError("No messages in conversation")
-
-        active_agent = self.get_conversation_agent(conversation_id)
-        last_child_msg = next((m for m in reversed(history) if m.role == "child"), None)
-        activity_context: ActivityTurnContext | None = (
-            self._activities.turn_context(conversation_id) if self._activities else None
+        return PreparedConversationTurn(
+            history=tuple(history),
+            active_agent=self.get_conversation_agent(conversation_id),
+            last_child_message=next(
+                (message for message in reversed(history) if message.role == MessageRole.CHILD),
+                None,
+            ),
+            activity_context=(
+                self._activities.turn_context(conversation_id) if self._activities else None
+            ),
         )
 
-        # 2. Safety check: Incoming
-        if self._safety and last_child_msg:
-            input_outcome = (
-                self._safety.evaluate_multimodal_input(
-                    last_child_msg.content,
-                    input_safety_context,
-                    active_agent.permissions,
-                )
-                if input_safety_context
-                else self._safety.evaluate_input(
-                    last_child_msg.content,
-                    active_agent.permissions,
-                )
+    def _evaluate_turn_input(
+        self,
+        turn: PreparedConversationTurn,
+        *,
+        input_safety_context: str | None,
+    ) -> str | None:
+        child_message = turn.last_child_message
+        if not self._safety or child_message is None:
+            return None
+        outcome = (
+            self._safety.evaluate_multimodal_input(
+                child_message.content,
+                input_safety_context,
+                turn.active_agent.permissions,
             )
-            if input_outcome.action is PolicyAction.BLOCK:
-                return self.create_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=(input_outcome.safe_response or "Давай поговорим о чём-нибудь другом?"),
-                )
-            if input_outcome.action is PolicyAction.TRANSFORM:
-                return self.create_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=input_outcome.text,
-                )
+            if input_safety_context
+            else self._safety.evaluate_input(
+                child_message.content,
+                turn.active_agent.permissions,
+            )
+        )
+        if outcome.action is PolicyAction.BLOCK:
+            return outcome.safe_response or "Давай поговорим о чём-нибудь другом?"
+        if outcome.action is PolicyAction.TRANSFORM:
+            return outcome.text
+        return None
 
-        # 3. Build request for AI
-        messages = [
-            build_agent_system_message(
-                active_agent.system_prompt,
-                self._agents.get_safety_baseline(),
-            )
-        ]
+    def _build_chat_request(
+        self,
+        conversation_id: uuid.UUID,
+        turn: PreparedConversationTurn,
+        *,
+        runtime_context: str | None,
+        request_id: uuid.UUID | None,
+    ) -> ChatRequest:
+        if self._agents is None:
+            raise RuntimeError("Agent service is not configured")
+        memory_context = None
         if self._memory:
             memory_context = self._memory.build_prompt_context(
                 self._conversation_profile_id(conversation_id)
             )
-            if memory_context:
-                messages.append(
-                    ChatMessage(
-                        role=ProviderRole.SYSTEM,
-                        content=memory_context,
-                    )
-                )
-        if runtime_context:
-            messages.append(ChatMessage(role=ProviderRole.SYSTEM, content=runtime_context))
-        if activity_context:
-            messages.append(
-                ChatMessage(
-                    role=ProviderRole.SYSTEM,
-                    content=activity_context.prompt_context,
-                )
-            )
-        if "music_recognition" in active_agent.tools:
-            messages.append(
-                ChatMessage(
-                    role=ProviderRole.SYSTEM,
-                    content=UNVERIFIED_MUSIC_TEXT_CONTEXT,
-                )
-            )
-        outdoor_permission = None
-        if self._safety and "supervised_outdoor_safety" in active_agent.permissions:
-            outdoor_permission = self._safety.evaluate_permission(
-                "supervised_outdoor_safety",
-                active_agent.permissions,
-            )
-        if outdoor_permission and outdoor_permission.action is PolicyAction.ALLOW:
-            messages.append(
-                ChatMessage(
-                    role=ProviderRole.SYSTEM,
-                    content=SUPERVISED_OUTDOOR_CONTEXT,
-                )
-            )
-        if any(message.role == MessageRole.ASSISTANT for message in history):
-            messages.append(
-                ChatMessage(
-                    role=ProviderRole.SYSTEM,
-                    content=CONTINUING_CONVERSATION_CONTEXT,
-                )
-            )
-        for msg in history[-10:]:
-            role = ProviderRole.USER if msg.role == "child" else ProviderRole.ASSISTANT
-            messages.append(ChatMessage(role=role, content=msg.content))
-
-        web_search_policy = None
-        if self._safety and "web_search" in active_agent.tools:
-            web_search_policy = self._safety.evaluate_tool(
-                "web_search",
-                active_agent.tools,
-            )
-        tools = (
-            (ProviderTool.WEB_SEARCH,)
-            if web_search_policy and web_search_policy.action is PolicyAction.ALLOW
-            else ()
+        return build_conversation_request(
+            ConversationPromptContext(
+                active_agent=turn.active_agent,
+                safety_baseline=self._agents.get_safety_baseline(),
+                history=turn.history,
+                memory_context=memory_context,
+                runtime_context=runtime_context,
+                activity_context=(
+                    turn.activity_context.prompt_context
+                    if turn.activity_context
+                    else None
+                ),
+            ),
+            self._safety,
+            request_id,
         )
-        request = ChatRequest(messages=messages, tools=tools, request_id=request_id)
 
-        # 4. Call AI
+    async def _generate_provider_content(
+        self,
+        request: ChatRequest,
+        diagnostics: TurnDiagnostics | None,
+    ) -> str:
+        if self._provider is None:
+            raise RuntimeError("AI Provider is not configured")
         llm_started_at = time.perf_counter()
         try:
             response = await self._provider.generate_response(request)
         finally:
             if diagnostics is not None:
                 diagnostics.llm_duration_ms = round((time.perf_counter() - llm_started_at) * 1000)
-        response_content = response.content.replace("\x00", "")
+        return response.content.replace("\x00", "")
 
-        # 5. Safety check: Outgoing
-        if self._safety:
-            output_outcome = self._safety.evaluate_output(
-                response_content,
-                active_agent.permissions,
-            )
-            response_content = output_outcome.text
-            if output_outcome.action is PolicyAction.BLOCK:
-                primary = output_outcome.primary_decision
-                logger.warning(
-                    "unsafe_model_response_blocked",
-                    extra={
-                        "agent_id": active_agent.id,
-                        "conversation_id": str(conversation_id),
-                        "rule_id": primary.rule_id,
-                        "reason": primary.reason,
-                    },
-                )
-                return self.create_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=output_outcome.safe_response or "Давай сменим тему?",
-                )
-
-        # 6. Store and return response
-        message = self.create_message(
-            conversation_id=conversation_id,
-            role="assistant",
-            content=response_content,
+    def _evaluate_turn_output(
+        self,
+        response_content: str,
+        *,
+        conversation_id: uuid.UUID,
+        active_agent: ActiveAgent,
+    ) -> EvaluatedOutput:
+        if not self._safety:
+            return EvaluatedOutput(response_content)
+        outcome = self._safety.evaluate_output(
+            response_content,
+            active_agent.permissions,
         )
-        if self._activities and activity_context:
-            self._activities.advance(activity_context)
-        if self._visual_media and last_child_msg:
+        if outcome.action is not PolicyAction.BLOCK:
+            return EvaluatedOutput(outcome.text)
+
+        primary = outcome.primary_decision
+        logger.warning(
+            "unsafe_model_response_blocked",
+            extra={
+                "agent_id": active_agent.id,
+                "conversation_id": str(conversation_id),
+                "rule_id": primary.rule_id,
+                "reason": primary.reason,
+            },
+        )
+        return EvaluatedOutput(
+            outcome.safe_response or "Давай сменим тему?",
+            blocked=True,
+        )
+
+    async def _complete_generated_turn(
+        self,
+        message: Message,
+        turn: PreparedConversationTurn,
+    ) -> None:
+        if self._activities and turn.activity_context:
+            self._activities.advance(turn.activity_context)
+        if self._visual_media and turn.last_child_message:
             await self._visual_media.attach_for_turn(
                 message=message,
-                agent=active_agent,
-                child_text=last_child_msg.content,
+                agent=turn.active_agent,
+                child_text=turn.last_child_message.content,
             )
-        return message
 
     def _get_or_create_conversation(self, conversation_id: uuid.UUID) -> Conversation:
         conversation = self._session.get(Conversation, conversation_id)

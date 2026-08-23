@@ -61,7 +61,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
     assert "browser-speech-toggle" in page.text
     assert 'id="activity-open"' in page.text
     assert 'id="activity-dialog"' in page.text
-    assert 'src="/static/app.js?v=18"' in page.text
+    assert '<script type="module" src="/static/app.js?v=19"></script>' in page.text
     assert page.text.count('class="icon-button new-conversation"') == 2
     assert 'data-state="ready"' in page.text
 
@@ -79,6 +79,18 @@ async def test_child_interface_serves_visual_first_agent_assets(
         assert asset.status_code == 200
         assert asset.headers["content-type"] == "image/webp"
         assert len(asset.content) > 10_000
+
+
+@pytest.mark.anyio
+async def test_child_interface_javascript_modules_are_served(client: AsyncClient) -> None:
+    app = await client.get("/static/app.js?v=19")
+    presentation = await client.get("/static/js/presentation.js")
+    image_upload = await client.get("/static/js/image-upload.js")
+
+    assert app.status_code == presentation.status_code == image_upload.status_code == 200
+    assert "from './js/presentation.js'" in app.text
+    assert "export const PROMPTS_BY_AGENT" in presentation.text
+    assert "export async function preparePhotoForUpload" in image_upload.text
 
 
 @pytest.mark.anyio

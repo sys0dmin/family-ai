@@ -1,5 +1,10 @@
 import { api } from "./api-client.js?v=admin-modules-2";
-import { byId, formatDateTime, setStatus } from "./dom.js?v=admin-modules-2";
+import {
+  byId,
+  formatDateTime,
+  formatPipelineMs,
+  setStatus
+} from "./dom.js?v=admin-modules-3";
 
 export function createInfrastructureScreen() {
   const history = { gateway: [], database: [], speech: [] };
@@ -120,11 +125,6 @@ export function createInfrastructureScreen() {
         : `${database.connections} / ${database.max_connections}`;
     byId("infrastructure-checked").textContent =
       `Последняя проверка: ${formatDateTime(data.checked_at)}`;
-  }
-
-  function formatPipelineMs(value) {
-    if (value == null) return "—";
-    return value >= 1000 ? `${(value / 1000).toFixed(1)} с` : `${value} мс`;
   }
 
   function renderVoiceObservability(data) {

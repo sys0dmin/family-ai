@@ -4,6 +4,20 @@
 агентов, истории и AI-логики; приложение не содержит промптов, секретов или
 захардкоженного адреса домашней сети.
 
+## Границы модулей
+
+- `GatewayClient` содержит сценарии API, а HTTP-заголовки, единые ошибки и JSON
+  transport вынесены в `gateway_client_transport.dart`;
+- `ChatScreen` координирует контроллеры, а визуальные компоненты приключений и
+  фото находятся в `chat_screen_widgets.dart`;
+- `VoiceChatController` управляет жизненным циклом записи и отменой, а Voice 2.0
+  streaming/legacy execution — в `voice_turn_runner.dart`;
+- изображения из `mobile/assets/characters` являются проверяемым зеркалом
+  канонического `gateway/static/assets/characters`, а не второй точкой правки.
+
+Это Dart `part` одной библиотеки: приватность реализации сохраняется, публичные
+контракты экранов, `ConversationGateway` и тестовых doubles не меняются.
+
 ## Возможности
 
 - ручной ввод адреса Gateway с автоматическим добавлением `http://`;

@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from uuid import UUID
@@ -17,7 +16,6 @@ from gateway.app.providers.schemas import (
     SpeechRequest,
     SpeechResponse,
     TranscriptionRequest,
-    TranscriptionResponse,
 )
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.music_recognition_service import MusicRecognitionService
@@ -28,21 +26,17 @@ from gateway.app.services.voice_execution import (
     run_with_stage_timeout,
     voice_timeout_message,
 )
+from gateway.app.services.voice_pipeline import VoiceInputError, VoicePipeline
 from gateway.app.services.voice_streaming import (
     VOICE_RESPONSE_CONTEXT,
     PreparedVoiceResponse,
     VoiceTurnTelemetry,
     combine_runtime_context,
     encode_stream_event,
-    stream_speech_events,
     voice_stream_registry,
 )
 
 logger = logging.getLogger(__name__)
-
-
-class VoiceInputError(ValueError):
-    """Raised when a recording cannot produce a useful transcript."""
 
 
 @dataclass(frozen=True)
@@ -65,12 +59,16 @@ class VoiceService:
         metrics: VoiceMetricsRegistry | None = None,
         execution_policy: VoiceExecutionPolicy | None = None,
     ) -> None:
-        self._recognition_provider = recognition_provider
         self._synthesis_provider = synthesis_provider
         self._conversation_service = conversation_service
         self._music_recognition_service = music_recognition_service
         self._metrics = metrics or VoiceMetricsRegistry()
         self._execution_policy = execution_policy or VoiceExecutionPolicy()
+        self._pipeline = VoicePipeline(
+            recognition_provider,
+            synthesis_provider,
+            self._execution_policy,
+        )
 
     async def process_voice_turn(
         self,
@@ -101,54 +99,7 @@ class VoiceService:
             optimize_for_stream=False,
             request_id=request_id,
         )
-        tts_started_at = time.perf_counter()
-        request_trace_registry.event(request_id, "tts", "started")
-        try:
-            speech = await run_with_stage_timeout(
-                self._synthesis_provider.synthesize_speech(
-                    SpeechRequest(
-                        text=prepared.text,
-                        voice=prepared.voice,
-                        request_id=request_id,
-                    )
-                ),
-                seconds=self._execution_policy.tts_timeout_seconds,
-                stage="tts",
-            )
-        except VoiceStageTimeoutError:
-            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
-            telemetry.record(status="error", error_stage="tts_timeout")
-            request_trace_registry.event(
-                request_id,
-                "tts",
-                "error",
-                duration_ms=telemetry.tts_duration_ms,
-                error_code="timeout",
-            )
-            request_trace_registry.finish(request_id, "error", error_code="tts_timeout")
-            raise
-        except Exception:
-            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
-            telemetry.record(status="error", error_stage="tts")
-            request_trace_registry.event(
-                request_id,
-                "tts",
-                "error",
-                duration_ms=telemetry.tts_duration_ms,
-                error_code="provider_error",
-            )
-            request_trace_registry.finish(request_id, "error", error_code="tts")
-            raise
-        finally:
-            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
-        telemetry.record(status="success")
-        request_trace_registry.event(
-            request_id,
-            "tts",
-            "success",
-            duration_ms=telemetry.tts_duration_ms,
-        )
-        request_trace_registry.finish(request_id, "success")
+        speech = await self._pipeline.synthesize(prepared)
         logger.info(
             "voice_synthesis_completed",
             extra={"audio_bytes": len(speech.audio_content)},
@@ -187,24 +138,8 @@ class VoiceService:
                 optimize_for_stream=True,
                 request_id=request_id,
             )
-            tts_started_at = time.perf_counter()
-            request_trace_registry.event(request_id, "tts", "started")
-            try:
-                async with asyncio.timeout(self._execution_policy.tts_timeout_seconds):
-                    async for event in stream_speech_events(
-                        prepared,
-                        self._synthesis_provider,
-                    ):
-                        yield event
-            except TimeoutError as exc:
-                raise VoiceStageTimeoutError("tts") from exc
-            request_trace_registry.event(
-                request_id,
-                "tts",
-                "success",
-                duration_ms=round((time.perf_counter() - tts_started_at) * 1000),
-            )
-            request_trace_registry.finish(request_id, "success")
+            async for event in self._pipeline.stream_synthesis(prepared):
+                yield event
         except asyncio.CancelledError:
             telemetry.record(
                 status="cancelled",
@@ -267,43 +202,6 @@ class VoiceService:
             request_id=request_id,
         )
 
-        async def transcribe() -> TranscriptionResponse:
-            started_at = time.perf_counter()
-            request_trace_registry.event(request_id, "stt", "started")
-            try:
-                result = await run_with_stage_timeout(
-                    self._recognition_provider.transcribe_audio(transcription_request),
-                    seconds=self._execution_policy.stt_timeout_seconds,
-                    stage="stt",
-                )
-            except VoiceStageTimeoutError:
-                request_trace_registry.event(
-                    request_id,
-                    "stt",
-                    "error",
-                    duration_ms=round((time.perf_counter() - started_at) * 1000),
-                    error_code="timeout",
-                )
-                raise
-            except Exception:
-                request_trace_registry.event(
-                    request_id,
-                    "stt",
-                    "error",
-                    duration_ms=round((time.perf_counter() - started_at) * 1000),
-                    error_code="provider_error",
-                )
-                raise
-            finally:
-                telemetry.stt_duration_ms = round((time.perf_counter() - started_at) * 1000)
-            request_trace_registry.event(
-                request_id,
-                "stt",
-                "success",
-                duration_ms=telemetry.stt_duration_ms,
-            )
-            return result
-
         try:
             recognition_task = None
             if self._music_recognition_service is not None:
@@ -314,11 +212,19 @@ class VoiceService:
                     content_type=content_type,
                 )
             if recognition_task is None:
-                transcription = await transcribe()
+                transcription = await self._pipeline.transcribe(
+                    transcription_request,
+                    telemetry,
+                    request_id,
+                )
                 recognition = None
             else:
                 transcription, recognition = await asyncio.gather(
-                    transcribe(),
+                    self._pipeline.transcribe(
+                        transcription_request,
+                        telemetry,
+                        request_id,
+                    ),
                     recognition_task,
                 )
 

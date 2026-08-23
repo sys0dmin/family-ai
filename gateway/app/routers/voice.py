@@ -15,7 +15,8 @@ from gateway.app.routers.speech_response import speech_response
 from gateway.app.routers.voice_admission import admit_voice_request, release_after_stream
 from gateway.app.schemas.voice import SynthesizeTextRequest, VoicePlaybackReport
 from gateway.app.services.voice_execution import VoiceStageTimeoutError
-from gateway.app.services.voice_service import VoiceInputError, VoiceService
+from gateway.app.services.voice_pipeline import VoiceInputError
+from gateway.app.services.voice_service import VoiceService
 from gateway.app.services.voice_streaming import (
     VOICE_STREAM_PROTOCOL,
     voice_stream_registry,

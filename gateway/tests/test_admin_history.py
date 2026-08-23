@@ -7,14 +7,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.orm import Session
 
+from gateway.admin.auth import verify_admin as _verify_admin
+from gateway.admin.history_router import get_history_service
 from gateway.admin.history_service import HistoryService
-from gateway.admin.main import (
-    _verify_admin,
-    get_history_service,
-)
-from gateway.admin.main import (
-    app as admin_app,
-)
+from gateway.admin.main import app as admin_app
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.models import Conversation, Message, MessageRole
 

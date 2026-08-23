@@ -20,9 +20,7 @@ from gateway.admin.configuration_service import (
 from gateway.admin.main import (
     app as admin_app,
 )
-from gateway.admin.main import (
-    get_gateway_configuration_service,
-)
+from gateway.admin.settings_router import get_gateway_configuration_service
 from gateway.admin.system_service import GatewayRestartError, GatewayRestartResult
 from gateway.app.config import Settings, get_settings
 

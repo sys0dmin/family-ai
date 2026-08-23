@@ -20,7 +20,7 @@ from gateway.app.services.image_understanding_service import (
 )
 from gateway.app.services.multimodal_turn_service import MultimodalTurnService
 from gateway.app.services.voice_execution import VoiceStageTimeoutError
-from gateway.app.services.voice_service import VoiceInputError
+from gateway.app.services.voice_pipeline import VoiceInputError
 from gateway.app.services.voice_streaming import VOICE_STREAM_PROTOCOL
 from gateway.app.upload_formats import (
     AUDIO_EXTENSIONS,

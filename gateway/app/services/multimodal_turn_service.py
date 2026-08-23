@@ -13,12 +13,7 @@ from gateway.app.providers.contracts import (
     SpeechRecognitionProvider,
     SpeechSynthesisProvider,
 )
-from gateway.app.providers.schemas import (
-    SpeechRequest,
-    SpeechResponse,
-    TranscriptionRequest,
-    TranscriptionResponse,
-)
+from gateway.app.providers.schemas import SpeechResponse, TranscriptionRequest
 from gateway.app.services.conversation_service import ConversationService
 from gateway.app.services.image_understanding_service import (
     EphemeralImageObservations,
@@ -34,14 +29,13 @@ from gateway.app.services.voice_execution import (
     run_with_stage_timeout,
     voice_timeout_message,
 )
-from gateway.app.services.voice_service import VoiceInputError
+from gateway.app.services.voice_pipeline import VoiceInputError, VoicePipeline
 from gateway.app.services.voice_streaming import (
     VOICE_RESPONSE_CONTEXT,
     PreparedVoiceResponse,
     VoiceTurnTelemetry,
     combine_runtime_context,
     encode_stream_event,
-    stream_speech_events,
     voice_stream_registry,
 )
 
@@ -72,12 +66,15 @@ class MultimodalTurnService:
         metrics: VoiceMetricsRegistry,
         execution_policy: VoiceExecutionPolicy | None = None,
     ) -> None:
-        self._recognition_provider = recognition_provider
-        self._synthesis_provider = synthesis_provider
         self._image_understanding = image_understanding
         self._conversation = conversation
         self._metrics = metrics
         self._execution_policy = execution_policy or VoiceExecutionPolicy()
+        self._pipeline = VoicePipeline(
+            recognition_provider,
+            synthesis_provider,
+            self._execution_policy,
+        )
 
     async def process_turn(
         self,
@@ -111,51 +108,7 @@ class MultimodalTurnService:
             optimize_for_stream=False,
             request_id=request_id,
         )
-        tts_started_at = time.perf_counter()
-        request_trace_registry.event(request_id, "tts", "started")
-        try:
-            speech = await run_with_stage_timeout(
-                self._synthesis_provider.synthesize_speech(
-                    SpeechRequest(
-                        text=prepared.text,
-                        voice=prepared.voice,
-                        request_id=request_id,
-                    )
-                ),
-                seconds=self._execution_policy.tts_timeout_seconds,
-                stage="tts",
-            )
-        except VoiceStageTimeoutError:
-            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
-            telemetry.record(status="error", error_stage="tts_timeout")
-            request_trace_registry.event(
-                request_id,
-                "tts",
-                "error",
-                duration_ms=telemetry.tts_duration_ms,
-                error_code="timeout",
-            )
-            request_trace_registry.finish(request_id, "error", error_code="tts_timeout")
-            raise
-        except Exception:
-            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
-            telemetry.record(status="error", error_stage="tts")
-            request_trace_registry.event(
-                request_id,
-                "tts",
-                "error",
-                duration_ms=telemetry.tts_duration_ms,
-                error_code="provider_error",
-            )
-            request_trace_registry.finish(request_id, "error", error_code="tts")
-            raise
-        finally:
-            telemetry.tts_duration_ms = round((time.perf_counter() - tts_started_at) * 1000)
-        telemetry.record(status="success")
-        request_trace_registry.event(
-            request_id, "tts", "success", duration_ms=telemetry.tts_duration_ms
-        )
-        request_trace_registry.finish(request_id, "success")
+        speech = await self._pipeline.synthesize(prepared)
         return MultimodalTurnResult(speech=speech, message_id=prepared.message_id)
 
     async def stream_turn(
@@ -195,24 +148,8 @@ class MultimodalTurnService:
                 optimize_for_stream=True,
                 request_id=request_id,
             )
-            tts_started_at = time.perf_counter()
-            request_trace_registry.event(request_id, "tts", "started")
-            try:
-                async with asyncio.timeout(self._execution_policy.tts_timeout_seconds):
-                    async for event in stream_speech_events(
-                        prepared,
-                        self._synthesis_provider,
-                    ):
-                        yield event
-            except TimeoutError as exc:
-                raise VoiceStageTimeoutError("tts") from exc
-            request_trace_registry.event(
-                request_id,
-                "tts",
-                "success",
-                duration_ms=round((time.perf_counter() - tts_started_at) * 1000),
-            )
-            request_trace_registry.finish(request_id, "success")
+            async for event in self._pipeline.stream_synthesis(prepared):
+                yield event
         except asyncio.CancelledError:
             telemetry.record(
                 status="cancelled",
@@ -286,26 +223,6 @@ class MultimodalTurnService:
             self._image_understanding.ensure_allowed(conversation_id)
             active_agent = self._conversation.get_conversation_agent(conversation_id)
 
-            async def transcribe() -> TranscriptionResponse:
-                started_at = time.perf_counter()
-                request_trace_registry.event(request_id, "stt", "started")
-                try:
-                    return await run_with_stage_timeout(
-                        self._recognition_provider.transcribe_audio(
-                            TranscriptionRequest(
-                                audio_content=audio_content,
-                                filename=audio_filename,
-                                content_type=audio_content_type,
-                                language=language,
-                                request_id=request_id,
-                            )
-                        ),
-                        seconds=self._execution_policy.stt_timeout_seconds,
-                        stage="stt",
-                    )
-                finally:
-                    telemetry.stt_duration_ms = round((time.perf_counter() - started_at) * 1000)
-
             async def inspect() -> EphemeralImageObservations:
                 started_at = time.perf_counter()
                 try:
@@ -320,27 +237,23 @@ class MultimodalTurnService:
                     telemetry.vision_duration_ms = round((time.perf_counter() - started_at) * 1000)
 
             transcription_result, observations_result = await asyncio.gather(
-                transcribe(),
+                self._pipeline.transcribe(
+                    TranscriptionRequest(
+                        audio_content=audio_content,
+                        filename=audio_filename,
+                        content_type=audio_content_type,
+                        language=language,
+                        request_id=request_id,
+                    ),
+                    telemetry,
+                    request_id,
+                ),
                 inspect(),
                 return_exceptions=True,
             )
             if isinstance(transcription_result, BaseException):
                 error_stage = "stt"
-                request_trace_registry.event(
-                    request_id,
-                    "stt",
-                    "error",
-                    duration_ms=telemetry.stt_duration_ms,
-                    error_code=(
-                        "timeout"
-                        if isinstance(transcription_result, VoiceStageTimeoutError)
-                        else "provider_error"
-                    ),
-                )
                 raise transcription_result
-            request_trace_registry.event(
-                request_id, "stt", "success", duration_ms=telemetry.stt_duration_ms
-            )
             if isinstance(observations_result, BaseException):
                 error_stage = "vision"
                 raise observations_result

@@ -4,8 +4,9 @@ Release gate — последняя обязательная локальная 
 перед push, сборкой Android или развёртыванием. Он не изменяет production, не
 читает домашнюю БД и не отправляет исходники или детские данные во внешние CI.
 
-Архитектурное решение зафиксировано в
-[`ADR 043`](adr/043-local-release-gate-and-schema-guard.md).
+Архитектурные решения зафиксированы в
+[`ADR 043`](adr/043-local-release-gate-and-schema-guard.md) и
+[`ADR 044`](adr/044-modular-clients-and-build-time-drift-guards.md).
 
 ## Запуск
 
@@ -28,18 +29,49 @@ powershell -NoProfile -ExecutionPolicy Bypass -File `
 
 1. политику tracked-файлов и чистоту рабочего дерева;
 2. `git diff --check`;
-3. Ruff для Gateway, Alembic, Speech и эксплуатационных Python-скриптов;
-4. полный pytest Gateway и отдельный pytest Speech Service;
-5. `flutter analyze --no-pub` и полный Flutter test suite;
-6. визуальные baseline Admin UI в локальном headless-браузере;
-7. все локальные Markdown-ссылки;
-8. наличие ровно одного Alembic head;
-9. детерминированные Gateway и Speech release archives из точного commit;
-10. повторную проверку repository policy после сборки.
+3. актуальность корневого `uv.lock` и отдельного `speech/uv.lock`;
+4. совпадение канонических web-ассетов персонажей с Flutter-зеркалом;
+5. известные уязвимости в точных lock-графах Gateway и Speech, включая PyTorch
+   CPU wheel;
+6. Ruff для Gateway, Alembic, Speech и эксплуатационных Python-скриптов;
+7. полный pytest Gateway и отдельный pytest Speech Service;
+8. `flutter analyze --no-pub` и полный Flutter test suite;
+9. визуальные baseline Admin UI в локальном headless-браузере;
+10. все локальные Markdown-ссылки;
+11. наличие ровно одного Alembic head и, если задан тестовый PostgreSQL,
+    полный `upgrade → downgrade → upgrade`;
+12. детерминированные Gateway и Speech release archives из точного commit;
+13. повторную проверку repository policy после сборки.
 
-Flutter запускается с `--no-pub`, браузер — с отключённой фоновой сетью. Gate
-использует только уже установленные локальные зависимости. Обычные unit-тесты
-не обращаются к production и внешним LLM/STT/TTS/Vision.
+Проверка lock-файлов их не обновляет. Dependency audit использует закреплённый
+`pip-audit 2.10.1` и обращается только к публичной базе advisory; исходники,
+конфигурация и детские данные туда не отправляются. Flutter запускается с
+`--no-pub`, браузер — с отключённой фоновой сетью. Обычные unit-тесты не
+обращаются к production и внешним LLM/STT/TTS/Vision.
+
+## Disposable PostgreSQL
+
+Для полного доказательства миграционной цепочки передайте административный URL
+отдельной системной БД `postgres` или `template1`:
+
+```powershell
+$env:FAMILY_AI_MIGRATION_TEST_ADMIN_URL = `
+  "postgresql+psycopg://migration_test:password@db-host/postgres"
+```
+
+Gate создаст БД `family_ai_migration_test_<случайный суффикс>`, выполнит
+`upgrade head`, `downgrade base`, повторный `upgrade head`, проверит
+`alembic_version` и удалит БД в `finally`. Скрипт откажется работать, если URL
+указывает на прикладную БД. Без переменной стадия явно помечается как skipped;
+остальные проверки продолжаются и не подключаются к PostgreSQL.
+
+Канонические изображения лежат в `gateway/static/assets/characters`. После
+осознанной замены персонажа Flutter-зеркало обновляется командой:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\assets\sync_character_assets.py `
+  --repo . --write
+```
 
 ## Политика репозитория
 
