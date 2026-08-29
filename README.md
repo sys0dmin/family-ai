@@ -1,449 +1,229 @@
-﻿# Family AI Mentor
+<div align="center">
 
-Домашний голосовой наставник для ребёнка. Основной сервис — AI Gateway.
+# Family AI Mentor
 
-## Архитектура (Production/Stage)
+**Домашний голосовой AI-наставник, который помогает ребёнку исследовать мир безопасно и с интересом.**
 
-Проект развёрнут на трёх узлах в домашней сети:
+Русскоязычная self-hosted платформа с голосовым и текстовым диалогом,
+настраиваемыми персонажами, пониманием фотографий и родительским контролем.
 
-- **Gateway (шлюз):** `192.168.31.173` (Debian 13, Python 3.13, `uv`)
-- **Database (БД):** `192.168.31.163` (PostgreSQL 17)
-- **Speech:** `192.168.31.84` (Debian 13 LXC, локальные faster-whisper и Silero)
+[![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Flutter](https://img.shields.io/badge/Flutter-Android-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
+[![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Child safety](https://img.shields.io/badge/Child_safety-by_design-7656D6)](docs/child-safety-boundaries.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F4C542.svg)](LICENSE)
 
-## Переменные окружения
+<sub>Russian-first by design · Local speech available · Built for a family, structured as a replaceable service platform</sub>
 
-Все настройки передаются через префикс `FAMILY_AI_` (см. `.env.example`):
+</div>
 
-- `FAMILY_AI_DATABASE_URL`: `postgresql+psycopg://user:pass@192.168.31.163:5432/family_ai`
-- `FAMILY_AI_OPENAI_API_KEY`: ключ текстового LLM-провайдера
-- `FAMILY_AI_OPENAI_MODEL`: модель чата (например, `deepseek-chat`)
-- `FAMILY_AI_OPENAI_BASE_URL`: базовый URL провайдера (для DeepSeek: `https://api.deepseek.com/v1`)
-- `FAMILY_AI_WEB_SEARCH_TOOL_TYPE`: `browser_search` для provider-native поиска Groq GPT-OSS или `disabled`
-- `FAMILY_AI_IMAGE_SEARCH_PROVIDER`: `openverse` для лицензированных визуальных ответов или `disabled`
-- `FAMILY_AI_IMAGE_SEARCH_TIMEOUT_SECONDS`: таймаут поиска и загрузки изображения
-- `FAMILY_AI_VISION_PROVIDER`: `openai_compatible` для одноразового анализа фото или `disabled`
-- `FAMILY_AI_VISION_MODEL`: отдельная мультимодальная модель
-- `FAMILY_AI_VISION_BASE_URL`, `FAMILY_AI_VISION_API_KEY`: необязательные отдельные настройки Vision; без них используются LLM endpoint/key
-- `FAMILY_AI_VISION_MAX_IMAGE_BYTES`: максимальный размер фото, по умолчанию 10 MiB
-- `FAMILY_AI_SPEECH_API_KEY`: отдельный bearer-токен Speech Service или ключ облачного провайдера
-- `FAMILY_AI_SPEECH_BASE_URL`: API STT/TTS (`http://192.168.31.84:8010/v1` для локального сервиса)
-- `FAMILY_AI_STT_API_KEY`, `FAMILY_AI_STT_BASE_URL`: необязательные отдельные настройки STT; без них используются общие Speech-настройки
-- `FAMILY_AI_STT_MODEL`: модель распознавания речи
-- `FAMILY_AI_STT_TEMPERATURE`: вариативность распознавания (`0` для стабильного результата)
-- `FAMILY_AI_STT_INITIAL_PROMPT`: локальный словарь имён и терминов для детской речи
-- `FAMILY_AI_TTS_MODEL`: модель синтеза речи
-- `FAMILY_AI_TTS_API_KEY`, `FAMILY_AI_TTS_BASE_URL`: необязательные отдельные настройки TTS; без них используются общие Speech-настройки
-- `FAMILY_AI_TTS_VOICE`: голос синтеза
-- `FAMILY_AI_TTS_RESPONSE_FORMAT`: формат аудиоответа (`mp3` или `wav`)
-- `FAMILY_AI_MESSAGE_RETENTION_DAYS`: срок хранения истории (дней)
-- `FAMILY_AI_ACTIVITY_RETENTION_HOURS`: срок жизни состояния незавершённого занятия (по умолчанию 24 часа)
-- `FAMILY_AI_ADMIN_SESSION_TTL_HOURS`: срок HttpOnly-сессии админки после входа
-- `FAMILY_AI_DEFAULT_AGENT_ID`: агент для клиентов, которые не передали выбор явно
-- `FAMILY_AI_MUSIC_RECOGNITION_PROVIDER`: `disabled` или `acrcloud`
-- `FAMILY_AI_ACRCLOUD_HOST`, `FAMILY_AI_ACRCLOUD_ACCESS_KEY`, `FAMILY_AI_ACRCLOUD_ACCESS_SECRET`: данные Audio & Video Recognition project ACRCloud
-- `FAMILY_AI_MUSIC_RECOGNITION_TIMEOUT_SECONDS`: таймаут внешнего распознавания
+![Веб-интерфейс выбора AI-наставника](docs/assets/screenshots/child-web.png)
 
-`FAMILY_AI_DATABASE_URL` обязателен. Gateway не создаёт неявную локальную
-SQLite-БД: рабочая схема и цепочка Alembic рассчитаны на PostgreSQL. SQLite
-используется только изолированными unit-тестами с явной тестовой строкой
-подключения.
+## Зачем этот проект
 
-### Переменные админки
+Большинство AI-чатов рассчитано на взрослого, умеющего читать, формулировать
+запросы и оценивать достоверность ответа. Family AI Mentor решает другую задачу:
+даёт ребёнку понятный визуальный интерфейс, живой голосовой диалог и несколько
+узких наставников, а родителю — контроль памяти, безопасности и эксплуатации.
 
-- `FAMILY_AI_ADMIN_USERNAME`: логин администратора
-- `FAMILY_AI_ADMIN_PASSWORD`: пароль администратора
-- `FAMILY_AI_ADMIN_FORCE_PASSWORD_CHANGE`: `true/false`, требовать смену пароля при первом входе
-- `FAMILY_AI_ADMIN_ENV_FILE`: путь к env-файлу, который редактирует админка
+Это не замена родителю и не бесконечная развлекательная лента. Платформа
+помогает задавать вопросы, проходить короткие занятия и приключения, изучать
+природу, технологии, музыку и космос — в пределах правил, подтверждённых
+родителем.
 
-## Локальный запуск
+## Возможности
 
-Требуется Python 3.13 и `uv`.
+| Для ребёнка | Для родителя | Для эксплуатации |
+| --- | --- | --- |
+| Голосовой и текстовый диалог | Версионные промпты и настройки агентов | Раздельные Gateway, Speech и PostgreSQL |
+| Визуальный выбор из 8 наставников | Формальный Safety Policy Engine | Метрики STT, Vision, LLM и TTS |
+| Продолжение истории каждого персонажа | Только подтверждённая долгосрочная память | Release passport и redacted diagnostics |
+| Короткие голосовые занятия и приключения | Тест-студия без записи в детскую историю | Воспроизводимый deploy, rollback и DR |
+| Одноразовый режим «Покажи и спроси» | Аналитика, обратная связь и regression cases | Web, Android и адаптивная Admin UI |
+| Повторное прослушивание ответа | Настраиваемые retention и локальный Speech | Visual и release regression gates |
 
-### Gateway API (порт 8000)
+## Интерфейсы
 
-```powershell
-uv sync --all-groups
-uv run uvicorn gateway.app.main:app --reload
+<table>
+  <tr>
+    <td width="36%" align="center">
+      <img src="mobile/test/visual/goldens/chat-portrait.png" alt="Голосовой и текстовый чат Android" width="360" />
+      <br /><strong>Android-клиент</strong><br />
+      <sub>Большие действия, голосовой сценарий и адаптация под клавиатуру.</sub>
+    </td>
+    <td width="64%" align="center">
+      <img src="gateway/tests/visual/admin/studio-desktop.png" alt="Тест-студия в панели администратора" />
+      <br /><strong>Admin Control Room</strong><br />
+      <sub>Проверка prompt, safety и голоса без загрязнения истории ребёнка.</sub>
+    </td>
+  </tr>
+</table>
+
+Ключевые интерфейсы дополнительно закреплены visual regression baselines:
+изменения проверяются до релиза, а не только глазами после развёртывания.
+
+## Архитектура
+
+```mermaid
+flowchart LR
+    subgraph Clients[Клиенты]
+        Web[Web UI]
+        Android[Android / Flutter]
+        Admin[Admin UI]
+    end
+
+    subgraph Core[Домашний контур]
+        Gateway[AI Gateway<br/>FastAPI]
+        Speech[Speech Service<br/>faster-whisper + Silero]
+        DB[(PostgreSQL)]
+    end
+
+    subgraph Providers[Заменяемые провайдеры]
+        LLM[LLM / Vision<br/>OpenAI-compatible API]
+        Search[Web / image /<br/>music providers]
+    end
+
+    Web --> Gateway
+    Android --> Gateway
+    Admin --> Gateway
+    Gateway --> DB
+    Gateway --> Speech
+    Gateway --> LLM
+    Gateway --> Search
 ```
 
-Проверка: `http://127.0.0.1:8000/healthz`
+- **AI Gateway** владеет бизнес-логикой, контекстом, safety, инструментами и историей.
+- **Speech Service** предоставляет OpenAI-совместимые STT/TTS endpoints и может
+  работать полностью локально.
+- **PostgreSQL** хранит диалоги, версии агентов, подтверждённую память и
+  обезличенную техническую телеметрию.
+- **Провайдеры заменяемы**: остальные компоненты не зависят от конкретной LLM,
+  Vision, STT или TTS реализации.
 
-Короткие голосовые приключения, их API, retention и родительский контроль
-описаны в [`docs/activities.md`](docs/activities.md).
+Подробная схема и границы модулей: [Architecture](plans/Architecture.md) и
+[Architecture Decision Records](docs/adr/).
 
-Постоянные границы хранения детских данных, Vision, памяти и игровых механик:
-[`docs/child-safety-boundaries.md`](docs/child-safety-boundaries.md).
+## Безопасность ребёнка
 
-### Local Speech Service (порт 8010)
+Safety здесь — отдельный программный контур, а не одна фраза в system prompt.
 
-Speech Service живёт отдельно от Gateway и реализует используемую часть
-OpenAI Audio API. STT работает на `faster-whisper base` INT8, TTS — на русском
-Silero `v5_2_ru`. Исходное и синтезированное аудио сервис не сохраняет.
+- вход, выход модели, инструменты и permissions проверяются отдельно;
+- обязательные правила нельзя отключить из админки;
+- исходное аудио и загруженные фотографии не сохраняются;
+- история автоматически удаляется по настраиваемому retention;
+- долгосрочную память создаёт только родитель;
+- опасные темы не замалчиваются, но практические действия передаются взрослому;
+- механики зависимости, скрытый profiling и распознавание личности отсутствуют.
+
+Подробнее: [границы детской безопасности](docs/child-safety-boundaries.md),
+[Safety Policy Engine](docs/safety-policy.md) и [модель долгосрочной памяти](docs/long-term-memory.md).
+
+## Быстрый запуск для разработки
+
+Понадобятся [Python 3.13](https://www.python.org/),
+[uv](https://docs.astral.sh/uv/) и Docker с Compose.
 
 ```bash
-cd speech
-uv sync --frozen --no-dev
-cp .env.example .env
-uv run uvicorn family_ai_speech.main:app --host 0.0.0.0 --port 8010
-```
+git clone https://github.com/sys0dmin/family-ai.git
+cd family-ai
 
-Для подключения Gateway:
-
-```dotenv
-FAMILY_AI_SPEECH_BASE_URL=http://192.168.31.84:8010/v1
-FAMILY_AI_SPEECH_API_KEY=<тот же случайный bearer-токен>
-FAMILY_AI_STT_MODEL=base
-FAMILY_AI_TTS_MODEL=silero-v5_2-ru
-FAMILY_AI_TTS_VOICE=xenia
-FAMILY_AI_TTS_RESPONSE_FORMAT=wav
-```
-
-Облачный STT/TTS остаётся ручным резервным вариантом: для возврата достаточно
-изменить speech-настройки Gateway. Автоматического fallback нет, чтобы аудио
-ребёнка не уходило во внешний сервис без явного решения родителя.
-
-На текущем Intel J3710 распознавание короткой фразы занимает около 10 секунд и
-на это время закономерно загружает все четыре ядра почти до 100%. Speech Service
-последовательно выполняет STT и TTS, поэтому два тяжёлых inference-процесса не
-конкурируют за CPU и память. При будущем переносе на более современный x86 CPU
-или GPU меняется только реализация/конфигурация Speech Service — Gateway,
-мобильное приложение и история диалогов остаются без изменений.
-
-Полевой замер 24 июля 2026 года на 12 фразах Леры и 3 образцах тишины выбрал
-Полевой профиль — `VAD=true`, `beam_size=3`, `max_new_tokens=128`: точность
-50%, отбрасывание тишины 100% и P95 9,55 секунды. Beam 5 дал 53% точности,
-но после реального 56-секундного выброса выбран более предсказуемый баланс.
-
-### Admin Panel (порт 8001)
-
-```powershell
-uv run uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001 --reload
-```
-
-Админка доступна по адресу: `http://127.0.0.1:8001`
-
-Интерфейс адаптирован для компьютера и телефона и не загружает внешние UI-библиотеки или шрифты.
-`panel.html` содержит только разметку; локальный CSS и нативные ES-модули
-раздаются Admin-сервисом через `/admin-assets`. Safety Policy, аналитика и
-инфраструктура имеют независимые экранные контроллеры, а API/session и навигация
-не дублируются между экранами.
-После входа админка создаёт HttpOnly cookie-сессию, поэтому обновление страницы
-не требует повторного ввода пароля. Выход удаляет сессию, а смена пароля
-автоматически делает старые сессии недействительными.
-
-После входа доступны отдельные вкладки:
-
-- «Настройки» — модели, ключи, голос, распознавание мелодий и срок хранения;
-  там же локально переключается ограниченная или полноэкранная раскладка Admin UI;
-- «Агенты» — карточки персонажей, голоса, инструменты, версионные промпты,
-  редактируемый базовый контур безопасности и контролируемый перезапуск Gateway;
-- «Тест-студия» — проверка агента, safety и голоса без записи в детскую историю;
-- «Safety Policy» — обязательные правила входа, выхода, инструментов и
-  разрешений, обезличенные счётчики и локальная контрольная матрица;
-- «Память» — подтверждённые родителем интересы, предпочтения и учебный
-  прогресс с источником, датой, редактированием и физическим удалением;
-- «Инфраструктура» — состояние Gateway, БД, Speech, CPU, память, диски, uptime,
-  локальные предупреждения с подтверждением и 30-дневной технической историей,
-  изолированная самопроверка их полного lifecycle, временная шкала неуспешных
-  запросов и redacted диагностический пакет;
-  PostgreSQL, этапы голосового конвейера и очередь Speech Service;
-- «История и аналитика» — недавние диалоги, поиск, активность и частые вопросы.
-- «Справка» — встроенная поисковая шпаргалка по всем экранам, статусам,
-  безопасным действиям и диагностике.
-
-Полный автономный мануал администратора:
-[`docs/admin-guide.md`](docs/admin-guide.md).
-
-Сквозная техническая трассировка связывает Android, Gateway, STT, Vision, LLM и
-TTS случайным UUID, но не сохраняет сообщения и медиа. Формат, срок хранения и
-порядок диагностики описаны в
-[`docs/request-tracing.md`](docs/request-tracing.md).
-
-Промпт личности не редактируется на месте. Админ создаёт новую неизменяемую
-версию и отдельно публикует её. Новая версия применяется только к новым
-диалогам; уже начатые продолжают использовать закреплённую версию.
-
-Базовый prompt безопасности редактируется отдельно и применяется ко всем
-агентам сразу. Каждое сохранение создаёт неизменяемую ревизию с автором и
-временем. Формальный Safety Policy Engine возвращает `ALLOW`, `TRANSFORM` или
-`BLOCK`, присваивает решению стабильный идентификатор и проверяет вход, выход,
-инструменты и permissions отдельно. Обязательные правила остаются в коде и не
-отключаются изменением prompt или через админку. Админ может запускать
-контрольные сценарии, сбрасывать только агрегированные счётчики и управлять
-разрешениями конкретного агента. Тексты сообщений в safety-метрики не попадают.
-Подробности: [`docs/safety-policy.md`](docs/safety-policy.md).
-
-История доступна только через защищённую админку. Исходное аудио не сохраняется,
-а текстовые сообщения автоматически удаляются согласно сроку хранения.
-
-Долгосрочная память хранится отдельно от истории и не очищается 10-дневным
-retention timer. Языковая модель не может создавать записи самостоятельно:
-это делает только родитель во вкладке «Память». В prompt попадают не более 30
-подтверждённых записей без внутренних комментариев родителя. Изменение и
-удаление начинают действовать со следующего ответа без перезапуска Gateway.
-Политика описана в
-[`docs/long-term-memory.md`](docs/long-term-memory.md).
-
-В «Тест-студии» также запускается явно разрешённая родителем локальная
-калибровка детской речи. Android-приложение озвучивает 12 фраз и автоматически
-проводит 3 проверки тишины, после чего Speech Service сравнивает VAD
-включён/выключен и beam size 1/3/5. Записи имеют случайные имена, не попадают в
-историю, Git или облако и удаляются после анализа, отмены, ошибки либо истечения
-24 часов. Подробный порядок прохождения и применения результата:
-[`docs/stt-calibration-guide.md`](docs/stt-calibration-guide.md).
-Там же можно выбрать production beam size, включить или выключить VAD,
-ограничить число декодируемых токенов и одной
-кнопкой перезапустить Speech. Админка завершает операцию только после того, как
-новый процесс подтвердил фактически загруженные значения.
-
-### Метрики инфраструктуры
-
-На `family-ai-gateway`, `family-ai-db` и `family-ai-speech` устанавливается
-`prometheus-node-exporter`.
-Админка читает endpoints только на серверной стороне; браузер не обращается к
-exporter напрямую. Вкладка отображает все три сервера проекта. Для production
-задаются:
-
-```dotenv
-FAMILY_AI_GATEWAY_NODE_METRICS_URL=http://127.0.0.1:9100/metrics
-FAMILY_AI_DATABASE_NODE_METRICS_URL=http://192.168.31.163:9100/metrics
-FAMILY_AI_SPEECH_NODE_METRICS_URL=http://192.168.31.84:9100/metrics
-FAMILY_AI_MONITORING_REQUEST_TIMEOUT_SECONDS=2
-```
-
-Порт `9100` на БД и Speech должен быть доступен только с Gateway
-`192.168.31.173`. История мини-графиков хранится только в текущей вкладке браузера.
-
-## Агенты
-
-Детский API `GET /v1/agents` возвращает только безопасные данные для карточек:
-имя, описание, иконку, цвет и приветствие. Промпты, версии и настройки голоса
-доступны только родителю через защищённую админку.
-
-Новый диалог создаётся запросом `POST /v1/conversations/` с телом
-`{"agent_id": "scientist"}`. Выбранный агент и точная ревизия сохраняются в
-таблице `conversations`. Голос TTS берётся из конфигурации выбранного агента.
-При повторном выборе персонажа детский интерфейс запрашивает
-`GET /v1/conversations/latest?agent_id=scientist` и продолжает только его
-последний разговор в пределах 10-дневного окна хранения. Контексты разных
-агентов не смешиваются. Кнопка `↻` с повторным нажатием создаёт чистый разговор,
-не удаляя прежнюю историю из родительской админки.
-
-Агент «Нотка» умеет сочинять с ребёнком новые песни и получает два явно разрешённых инструмента: `music_recognition` для аудио и `web_search` для фрагментов текста. Только его голосовые ходы могут отправляться в ACRCloud, а текстовые фрагменты — в provider-native веб-поиск. Исходное аудио не сохраняется; если инструмент выключен или не нашёл совпадение, агент не выдумывает ответ, а просит напеть ещё раз или добавить слова.
-
-Агент «Мурка» имеет узкое permission `supervised_outdoor_safety`. Она даёт полезные ответы о палатке, костре, спичках, рыбалке, ноже и опасностях дикой природы, но опасную часть действия всегда отдаёт родителю. Она может объяснять, чем опасны растения, клещи, змеи, животные, вода, погода и другие походные риски. Gateway программно добавляет напоминание о родителях, если модель его пропустила. Мурка не определяет найденный вид или съедобность по тексту или фото.
-
-Агент «Байтик» — енотовое ИТ-альтер эго папы. Он объясняет Лере серверы, ЦОД, облако, базы данных, код, искусственный интеллект и устройство Family AI простыми образами и играми без чтения. Для актуальных фактов о X5 Tech он использует веб-поиск и только официальные источники. Gateway программно блокирует запросы на взлом и раскрытие инфраструктурных секретов.
-
-Агент «Алиса Селезнёва» рассказывает о реальном космосе, звёздах, планетах и
-исследованиях. В фантастическое путешествие она переходит только по явной
-просьбе ребёнка и отмечает, что это игра воображения. Алиса принимает фото через
-отдельный Vision-контур. Файл не сохраняется: в историю попадают только вопрос и
-ответ. Для снимков неба она не выдаёт догадку за точное созвездие и при
-необходимости просит узнать дату, примерное место и направление вместе с
-родителем. Подробности: [`docs/image-understanding.md`](docs/image-understanding.md).
-
-«Учитель-друг», «Почемучка», «Мурка» и «Байтик» могут дополнять подходящие ответы одной фотографией из Openverse. Поиск включается только для визуального вопроса, чувствительные результаты исключаются, а автор и лицензия показываются под изображением. Детский браузер получает файл через Gateway и не обращается к внешнему хосту напрямую. Мурка никогда не использует фотографию как доказательство съедобности или безопасности найденного вида. «Сказочник» потребует отдельного генератора иллюстраций; «Нотка» и «Подумай сама» намеренно не получают автоматические изображения.
-
-### Детский интерфейс
-
-Интерфейс рассчитан на ребёнка, который ещё не читает: агенты различаются
-крупными иллюстрациями, цветами и визуальными предметами, а основные состояния
-передаются движением и цветовым индикатором. Нажатие на персонажа может озвучить
-его приветствие системным голосом браузера. Вся автоматическая озвучка текстового
-режима отключается кнопкой `🔊 / 🔇`, а выбор сохраняется локально на устройстве.
-На голосовой диалог эта настройка не влияет. Голосовая кнопка является основным действием, текстовый ввод
-открывается отдельно как дополнительный режим.
-
-В Android-клиенте состояния голосового хода показываются явно:
-«Слушаю → Понимаю → Думаю → Отвечаю». Во время активного хода появляется
-крупная кнопка отмены. Она сразу прекращает запись или воспроизведение и
-игнорирует поздний сетевой ответ. Уже начатая серверная обработка при текущем
-one-shot HTTP API может завершиться в Gateway; для настоящей server-side отмены
-потребуется будущий streaming/job API.
-
-Визуальные подсказки запускают обычный текстовый ход Gateway, после чего ответ
-озвучивается голосом закреплённого агента через
-`POST /v1/voice/{conversation_id}/synthesize`. Интерфейс адаптирован для
-desktop, Android-планшета и узкого мобильного экрана.
-
-## Локальная база данных
-
-```powershell
 docker compose up -d postgres
-copy .env.example .env
+cp .env.example .env
+uv sync --all-groups
 uv run alembic upgrade head
+uv run uvicorn gateway.app.main:app --reload --port 8000
 ```
 
-## Проверки и тесты
+Веб-интерфейс откроется на <http://127.0.0.1:8000>. Для настоящих ответов
+замените provider placeholders в `.env` своими значениями.
 
-```powershell
+Панель администратора запускается отдельным процессом:
+
+```bash
+uv run uvicorn gateway.admin.main:app --reload --port 8001
+```
+
+Админка будет доступна на <http://127.0.0.1:8001>. Значения `admin/change-me`
+в `.env.example` предназначены только для локальной разработки и требуют смены
+перед любым сетевым развёртыванием.
+
+Локальный Speech Service и Android-клиент подключаются независимо:
+
+- [Speech Service и калибровка STT](speech/README.md)
+- [Android: запуск из VS Code и сборка APK](mobile/README.md)
+- [Production deployment и rollback](docs/deployment.md)
+
+## Проверки
+
+```bash
 uv run ruff check .
 uv run pytest
 ```
 
-Тесты используют мок-провайдер AI и не требуют реального API-ключа.
+Полный локальный release gate дополнительно проверяет миграции, зависимости,
+структуру репозитория, Android, visual baselines и воспроизводимость релизных
+архивов:
 
-## Родительский контроль качества
-
-Во вкладке «Аналитика» родитель может отметить проблемный ответ стабильной
-причиной и увидеть агрегированную сводку. Оценка не копирует текст сообщения и
-удаляется вместе с ним по общему retention. Только после полного просмотра,
-редактирования и явного подтверждения пример можно сохранить как постоянный
-regression case и запускать через production-like контур тест-студии.
-
-Жизненный цикл, удаление, экспорт и post-deploy проверка описаны в
-[`docs/parent-quality.md`](docs/parent-quality.md).
-
-## Android-приложение
-
-Flutter-клиент находится в `mobile/` и использует Gateway только через его
-публичный REST API. При первом запуске родитель вручную вводит адрес сервера,
-например `192.168.31.173:8000`. Приложение добавляет `http://`, проверяет
-`/healthz` и сохраняет нормализованный адрес локально. Захардкоженного IP нет.
-
-Текущий мобильный срез поддерживает визуальный выбор агента, отдельное
-возобновление его истории, фотографии в ответах, одноразовую отправку фото
-Vision-агенту, текстовый и голосовой диалог.
-Голос записывается временно, отправляется в существующий voice API Gateway,
-а ответ агента сразу воспроизводится и кешируется для повторного прослушивания.
-Потоковые WAV-ответы провайдера финализируются Gateway и дополнительно
-нормализуются клиентом для совместимости с Android. Инструкции по VS Code,
-тестированию, сборке APK и подключению телефона находятся в
-[`mobile/README.md`](mobile/README.md).
-
-Если родитель запустил калибровку в админке, приложение само откроет отдельный
-голосовой экран. Загружать или удалять файлы вручную не требуется.
-
-## Production
-
-- PostgreSQL разворачивается на `family-ai-db` (Debian 13).
-- Скрипты: `scripts/postgres/fix-install.sh`, `scripts/postgres/harden.sh`.
-- Runtime-конфигурация и секреты Gateway хранятся в
-  `/etc/family-ai/gateway.env` (`chmod 600`), Speech — в
-  `/etc/family-ai/speech.env`.
-- Код запускается из неизменяемых релизов `/srv/family-ai/*/releases/<commit>`.
-- Сборка из точного Git commit, миграции, health-check, статус и rollback
-  описаны в [`docs/deployment.md`](docs/deployment.md).
-- Перед release одна локальная команда проверяет Python, Flutter, визуальные
-  baseline, документацию, Alembic, секреты и release archives; см.
-  [`docs/release-gate.md`](docs/release-gate.md).
-- Настройки из Admin проходят redacted preview, локальную ревизию, атомарную
-  запись, restart и readiness-check. При ошибке Gateway возвращается к прежним
-  managed-значениям, не затрагивая БД, пароль Admin и monitoring. Подробности —
-  в [`docs/runtime-configuration.md`](docs/runtime-configuration.md).
-- Voice защищён общим лимитом одновременных turn, повторной отправкой
-  `X-Request-ID` и отдельными бюджетами STT/LLM/TTS. Параметры доступны через
-  безопасный Admin lifecycle, а эксплуатационная проверка описана в
-  [`docs/voice-load-control.md`](docs/voice-load-control.md).
-- Вкладка «Инфраструктура» показывает паспорт реально запущенных Gateway и
-  Speech commits, Alembic revision, последнюю release-версию Android и
-  безопасный fingerprint конфигурации. Подробности — в
-  [`docs/release-passport.md`](docs/release-passport.md).
-- Полное восстановление трёх чистых VM и перенос доступной старой PostgreSQL
-  описаны в [`docs/disaster-recovery.md`](docs/disaster-recovery.md); критерии
-  fire drill находятся в
-  [`plans/DisasterRecoveryPlan.md`](plans/DisasterRecoveryPlan.md).
-- Ежедневная очистка сообщений выполняется `family-ai-retention.timer`.
-
-### Управление админкой через systemd
-
-```bash
-sudo systemctl status family-ai-admin
-sudo systemctl restart family-ai-admin
-sudo journalctl -u family-ai-admin -n 100 --no-pager
+```powershell
+.\scripts\release\Invoke-LocalReleaseGate.ps1
 ```
 
-Кнопка перезапуска Gateway не вызывает `sudo` из веб-процесса. Обычный deploy
-устанавливает root-owned `family-ai-gateway-admin.path` и фиксированный helper:
+Тесты Gateway используют mock AI provider и не требуют реального API-ключа.
+Подробнее: [Release gate](docs/release-gate.md) и
+[Visual regression](docs/visual-regression.md).
 
-```bash
-sudo systemctl status family-ai-gateway-admin.path
-sudo journalctl -u family-ai-gateway-admin.service -n 50 --no-pager
+## Карта проекта
+
+```text
+family-ai/
+├── gateway/         # AI Gateway, Web UI и Admin UI
+├── speech/          # локальные STT/TTS и очередь inference
+├── mobile/          # Flutter-клиент для Android
+├── alembic/         # миграции PostgreSQL
+├── infrastructure/  # systemd, monitoring и production templates
+├── scripts/         # deploy, DR, release и эксплуатационные проверки
+├── docs/            # руководства и ADR
+└── plans/           # roadmap и технические планы
 ```
 
-Admin атомарно пишет одноразовый nonce в закрытый `restart.request`. Path unit
-перезапускает только `family-ai-gateway.service` и возвращает подтверждение с
-тем же nonce. Произвольные команды и другие службы через админку недоступны;
-`NoNewPrivileges=true` остаётся включённым.
+## Документация
 
-### Управление Gateway через systemd
+| Задача | Документ |
+| --- | --- |
+| Развернуть или откатить релиз | [Deployment](docs/deployment.md) |
+| Разобраться с админкой | [Admin guide](docs/admin-guide.md) |
+| Настроить локальную речь | [STT calibration](docs/stt-calibration-guide.md) |
+| Понять голосовой streaming | [Voice streaming](docs/voice-streaming.md) |
+| Диагностировать долгий запрос | [Request tracing](docs/request-tracing.md) |
+| Восстановить проект после аварии | [Disaster recovery](docs/disaster-recovery.md) |
+| Проверить privacy и retention | [Child safety boundaries](docs/child-safety-boundaries.md) |
+| Посмотреть принятые решения | [ADR index](docs/adr/) |
 
-```bash
-sudo systemctl status family-ai-gateway
-sudo systemctl restart family-ai-gateway
-sudo journalctl -u family-ai-gateway -n 100 --no-pager
-```
+## Участие в разработке
 
-### Управление Speech Service через systemd
+Проект вырос из реальной домашней эксплуатации, но архитектура рассчитана на
+повторное использование и замену отдельных сервисов. Обсуждения, bug reports и
+небольшие сфокусированные pull requests приветствуются. Перед изменениями
+прочитайте [CONTRIBUTING.md](CONTRIBUTING.md) и не публикуйте детские данные,
+медиа, ключи или адреса своей инфраструктуры.
 
-Для управления beam/VAD из админки один раз установить системный file-trigger
-на Speech:
+## Статус и лицензирование
 
-```bash
-cd /home/familyai-deploy/family-ai/scripts/speech
-sudo ./install-admin-control.sh familyai-deploy
-```
+Проект активно развивается и уже используется в домашнем контуре. API пока
+имеет версию `0.1.0`, поэтому до первого стабильного релиза возможны изменения.
 
-Скрипт создаёт `/var/lib/family-ai-speech/runtime.env`, подключает его последним
-`EnvironmentFile` службы и устанавливает root-owned `.path` unit. Приложение
-может создать только фиксированный файл-запрос, после чего systemd перезапускает
-только `family-ai-speech.service`. `NoNewPrivileges=true` сохраняется; SSH-ключи,
-sudo и содержимое `/etc/family-ai/speech.env` приложению не выдаются.
+Код, документация и оригинальные материалы распространяются по разрешительной
+[лицензии MIT](LICENSE): проект можно использовать, изменять и распространять,
+в том числе коммерчески, сохранив текст лицензии.
 
-```bash
-sudo systemctl status family-ai-speech
-sudo systemctl restart family-ai-speech
-sudo journalctl -u family-ai-speech -n 100 --no-pager
-```
+Узнаваемые сторонние персонажи и получаемые во время работы лицензированные
+изображения имеют отдельные условия. Они перечислены в
+[уведомлении об изображениях и сторонних материалах](ASSET_NOTICE.md).
 
-### Автоматическая очистка истории
+---
 
-```bash
-sudo systemctl status family-ai-retention.timer
-sudo systemctl start family-ai-retention.service
-sudo journalctl -u family-ai-retention.service -n 50 --no-pager
-```
-
-Timer запускает очистку ежедневно и удаляет сообщения старше
-`FAMILY_AI_MESSAGE_RETENTION_DAYS`. `Persistent=true` выполняет пропущенную
-очистку после включения сервера.
-
-### Первый вход в админку
-
-1. Открыть `http://<gateway-ip>:8001`
-2. Войти логином/паролем из `.env`
-3. Если включён `FAMILY_AI_ADMIN_FORCE_PASSWORD_CHANGE=true`, админка сразу потребует сменить пароль
-
-Конфигурация передаётся через переменные окружения. Секреты и `.env` не добавляются в репозиторий.
-
-## Аварийный запуск в проде (без systemd)
-
-```bash
-cd /srv/family-ai/gateway/current
-nohup ./.venv/bin/python -m uvicorn gateway.app.main:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
-nohup ./.venv/bin/python -m uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001 > admin.log 2>&1 &
-```
-
-Проверка портов:
-
-```bash
-ss -ltnp | grep -E '8000|8001'
-```
-
-### Перезапуск без systemd
-
-```bash
-pkill -f "gateway.app.main:app" || true
-pkill -f "gateway.admin.main:app" || true
-
-nohup ./.venv/bin/python -m uvicorn gateway.app.main:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
-nohup ./.venv/bin/python -m uvicorn gateway.admin.main:app --host 0.0.0.0 --port 8001 > admin.log 2>&1 &
-```
-
-Логи:
-
-```bash
-tail -n 100 server.log
-tail -n 100 admin.log
-```
+<div align="center">
+  <strong>Family AI Mentor</strong><br />
+  <sub>Технологии, которые помогают родителю поддерживать любопытство ребёнка.</sub>
+</div>

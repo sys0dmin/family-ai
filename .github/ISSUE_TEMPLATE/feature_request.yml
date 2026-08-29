@@ -1,0 +1,42 @@
+name: Предложить улучшение
+description: Новая возможность или архитектурное улучшение Family AI Mentor
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую проблему решаем
+      description: Опишите пользовательскую или эксплуатационную потребность, а не только желаемую реализацию.
+    validations:
+      required: true
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Для кого это
+      multiple: true
+      options:
+        - Ребёнок
+        - Родитель
+        - Администратор
+        - Разработчик
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предлагаемое решение
+      description: Если есть варианты, перечислите их и основные компромиссы.
+    validations:
+      required: true
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Возможное влияние
+      options:
+        - label: Детская безопасность или privacy
+        - label: Публичный API
+        - label: Схема базы данных
+        - label: Новая внешняя зависимость или провайдер
+        - label: Развёртывание и эксплуатация

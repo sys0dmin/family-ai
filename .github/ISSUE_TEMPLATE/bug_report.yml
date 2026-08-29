@@ -1,0 +1,61 @@
+name: Сообщить об ошибке
+description: Воспроизводимая техническая проблема без детских данных и секретов
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за отчёт. Не прикладывайте детские сообщения, голос, фотографии, `.env`, ключи, домашние адреса или диагностические пакеты без дополнительной проверки.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Компонент
+      options:
+        - AI Gateway
+        - Speech Service
+        - Web UI
+        - Admin UI
+        - Android
+        - PostgreSQL / migrations
+        - Deployment / monitoring
+        - Другое
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия или commit
+      placeholder: Например, main@abcdef12 или Android 0.1.0+1
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Что произошло
+      description: Опишите ожидаемое и фактическое поведение обезличенно.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+      placeholder: |
+        1. Запустить...
+        2. Открыть...
+        3. Нажать...
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Что уже проверено
+      description: Логи можно приложить только после удаления секретов и пользовательского содержимого.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: Я проверил отчёт и вложения — в них нет детских данных, медиа, ключей и адресов домашней инфраструктуры.
+          required: true
