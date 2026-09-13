@@ -9,6 +9,7 @@ class Agent {
     this.supportsImageUpload = false,
     this.supportsSpokenImageQuestion = false,
     this.imageUploadMaxBytes,
+    this.supportsClinicGame = false,
   });
 
   final String id;
@@ -20,6 +21,7 @@ class Agent {
   final bool supportsImageUpload;
   final bool supportsSpokenImageQuestion;
   final int? imageUploadMaxBytes;
+  final bool supportsClinicGame;
 
   factory Agent.fromJson(Map<String, dynamic> json) {
     return Agent(
@@ -33,6 +35,7 @@ class Agent {
       supportsSpokenImageQuestion:
           json['supports_spoken_image_question'] as bool? ?? false,
       imageUploadMaxBytes: (json['image_upload_max_bytes'] as num?)?.toInt(),
+      supportsClinicGame: json['supports_clinic_game'] as bool? ?? false,
     );
   }
 }

@@ -13,6 +13,7 @@ class AgentResponse(BaseModel):
     supports_image_upload: bool = False
     supports_spoken_image_question: bool = False
     image_upload_max_bytes: int | None = None
+    supports_clinic_game: bool = False
 
 
 class AgentListResponse(BaseModel):

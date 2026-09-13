@@ -60,6 +60,7 @@ class ReleaseSmokeRunner:
         stages: list[tuple[str, Callable[[], str]]] = [
             ("admin_ui", self._check_admin_ui),
             ("gateway_database", self._check_gateway_database),
+            ("clinic_catalog", self._check_clinic_catalog),
             ("llm", self._check_llm),
             ("tts", self._check_tts),
             ("stt", self._check_stt),
@@ -101,6 +102,22 @@ class ReleaseSmokeRunner:
             raise SmokeStageError("gateway_database", "invalid agent response") from exc
         if not agents:
             raise SmokeStageError("gateway_database", "database returned no active agents")
+        return "passed"
+
+    def _check_clinic_catalog(self) -> str:
+        response = self._get(
+            "clinic_catalog",
+            f"{self._admin_url}/api/clinic/catalog",
+            auth=self._auth,
+        )
+        try:
+            body = response.json()
+            cases = body["items"]
+            valid = all(item.get("vitals") and item.get("actions") for item in cases)
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            raise SmokeStageError("clinic_catalog", "invalid clinic response") from exc
+        if body.get("schema_version") != 1 or not cases or not valid:
+            raise SmokeStageError("clinic_catalog", "clinic catalog is incomplete")
         return "passed"
 
     def _check_llm(self) -> str:

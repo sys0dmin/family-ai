@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from gateway.admin.release_passport_schemas import (
     AndroidReleaseIdentity,
+    CatalogReleaseIdentity,
     ComponentReleaseIdentity,
     ConfigurationIdentity,
     DatabaseReleaseIdentity,
@@ -25,7 +26,10 @@ from gateway.admin.release_passport_schemas import (
 )
 from gateway.admin.voice_observability_service import VoiceObservabilityService
 from gateway.app.config import Settings
-from gateway.app.observability.runtime_identity import configuration_fingerprint
+from gateway.app.observability.runtime_identity import (
+    clinic_catalog_identity,
+    configuration_fingerprint,
+)
 
 
 def _active_code_head() -> str | None:
@@ -71,12 +75,14 @@ class ReleasePassportService:
         )
         database = self._database()
         configuration = self._configuration(gateway_payload)
+        clinic_catalog = self._clinic_catalog(gateway_payload)
         android = self._android(gateway_payload)
         statuses: list[PassportStatus] = [
             gateway.status,
             speech.status,
             database.status,
             configuration.status,
+            clinic_catalog.status,
         ]
         if "drift" in statuses:
             overall: PassportStatus = "drift"
@@ -92,6 +98,7 @@ class ReleasePassportService:
             database=database,
             android=android,
             configuration=configuration,
+            clinic_catalog=clinic_catalog,
         )
 
     def _fetch_gateway_identity(self) -> dict[str, object] | None:
@@ -169,6 +176,22 @@ class ReleasePassportService:
         return ConfigurationIdentity(
             status="aligned" if actual == expected else "drift",
             fingerprint=actual,
+        )
+
+    @staticmethod
+    def _clinic_catalog(payload: dict[str, object] | None) -> CatalogReleaseIdentity:
+        actual = payload.get("clinic_catalog") if payload else None
+        if not isinstance(actual, dict):
+            return CatalogReleaseIdentity(status="unavailable")
+        expected = clinic_catalog_identity()
+        version = actual.get("schema_version")
+        fingerprint = actual.get("fingerprint")
+        if not isinstance(version, int) or not isinstance(fingerprint, str):
+            return CatalogReleaseIdentity(status="unavailable")
+        return CatalogReleaseIdentity(
+            status="aligned" if actual == expected else "drift",
+            schema_version=version,
+            fingerprint=fingerprint,
         )
 
     @staticmethod

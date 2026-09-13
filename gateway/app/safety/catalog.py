@@ -62,6 +62,13 @@ RULE_CATALOG = (
         "Опасная практическая инструкция",
     ),
     _rule(
+        "input.medical.self_treatment.block",
+        PolicyPhase.INPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.BLOCK,
+        "Запрос диагноза, лекарства или настоящей процедуры",
+    ),
+    _rule(
         "input.outdoor.fire.safe_guidance",
         PolicyPhase.INPUT,
         PolicyCategory.OUTDOOR_SAFETY,
@@ -104,6 +111,20 @@ RULE_CATALOG = (
         "Агенту разрешена походная безопасность",
     ),
     _rule(
+        "permission.clinic_play.required",
+        PolicyPhase.PERMISSION,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.BLOCK,
+        "Игровая больница доступна только специальному агенту",
+    ),
+    _rule(
+        "permission.clinic_play.allow",
+        PolicyPhase.PERMISSION,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.ALLOW,
+        "Агенту разрешено вести безопасную игру в больницу",
+    ),
+    _rule(
         "output.default.allow",
         PolicyPhase.OUTPUT,
         PolicyCategory.CHILD_SAFETY,
@@ -137,6 +158,13 @@ RULE_CATALOG = (
         PolicyCategory.CHILD_SAFETY,
         PolicyAction.BLOCK,
         "Ответ адресует ребёнку опасное действие",
+    ),
+    _rule(
+        "output.medical.directive.block",
+        PolicyPhase.OUTPUT,
+        PolicyCategory.CHILD_SAFETY,
+        PolicyAction.BLOCK,
+        "Ответ назначает лекарство или настоящую процедуру",
     ),
     _rule(
         "input.visual.identity.transform",

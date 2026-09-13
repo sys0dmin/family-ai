@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from gateway.app.activities import ActivityCatalog, ActivityService
 from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.calibration.service import SpeechCalibrationService
+from gateway.app.clinic import ClinicCaseCatalog, ClinicGameService
 from gateway.app.config import Settings, get_settings
 from gateway.app.db.session import get_db_session
 from gateway.app.images import ImageSearchProvider, OpenverseImageSearchProvider
@@ -143,6 +144,17 @@ def get_activity_service(
     )
 
 
+def get_clinic_service(
+    session: Session = Depends(get_db_session),
+    settings: Settings = Depends(get_settings),
+) -> ClinicGameService:
+    return ClinicGameService(
+        session,
+        ClinicCaseCatalog(),
+        retention_hours=settings.activity_retention_hours,
+    )
+
+
 def get_music_recognition_provider() -> MusicRecognitionProvider | None:
     """Build the configured optional melody recognition provider."""
 
@@ -221,6 +233,7 @@ def get_conversation_service(
     visual_media: VisualMediaService = Depends(get_visual_media_service),
     memory: MemoryService = Depends(get_memory_service),
     activities: ActivityService = Depends(get_activity_service),
+    clinic: ClinicGameService = Depends(get_clinic_service),
     settings: Settings = Depends(get_settings),
 ) -> ConversationService:
     """Return a conversation service with injected dependencies."""
@@ -234,6 +247,7 @@ def get_conversation_service(
         retention_days=settings.message_retention_days,
         memory=memory,
         activities=activities,
+        clinic=clinic,
     )
 
 

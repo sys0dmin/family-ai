@@ -47,6 +47,9 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'id="release-database"' in response.text
     assert 'id="release-android"' in response.text
     assert 'id="release-configuration"' in response.text
+    assert 'id="release-clinic-catalog"' in response.text
+    assert 'id="clinic-preview-select"' in response.text
+    assert 'id="clinic-session-list"' in response.text
     assert 'id="history-card"' in response.text
     assert 'id="help-tab"' in response.text
     assert 'id="help-card"' in response.text
@@ -59,7 +62,7 @@ async def test_admin_page_exposes_responsive_control_room() -> None:
     assert 'class="regression-status-row"' in response.text
     assert 'class="row panel-actions"' in response.text
     assert 'href="/admin-assets/admin.css?v=admin-modules-2"' in response.text
-    assert 'type="module" src="/admin-assets/js/app.js?v=admin-modules-3"' in response.text
+    assert 'type="module" src="/admin-assets/js/app.js?v=admin-modules-4"' in response.text
     assert 'id="image_search_provider"' in response.text
     assert 'id="vision_provider"' in response.text
     assert 'id="vision_model"' in response.text

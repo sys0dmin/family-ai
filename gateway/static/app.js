@@ -20,6 +20,10 @@ let newConversationConfirmationTimer = null;
 let browserSpeechEnabled = loadBrowserSpeechPreference();
 let availableActivities = [];
 let currentActivity = null;
+let availableClinicCases = [];
+let currentClinic = null;
+let clinicSoundEnabled = loadClinicSoundPreference();
+let clinicHeartbeatTimer = null;
 
 const chooser = document.getElementById('chooser');
 const conversation = document.getElementById('conversation');
@@ -40,6 +44,11 @@ const activityOpen = document.getElementById('activity-open');
 const activityActive = document.getElementById('activity-active');
 const activityDialog = document.getElementById('activity-dialog');
 const activityCardGrid = document.getElementById('activity-card-grid');
+const clinicBar = document.getElementById('clinic-bar');
+const clinicOpen = document.getElementById('clinic-open');
+const clinicDialog = document.getElementById('clinic-dialog');
+const clinicCases = document.getElementById('clinic-cases');
+const clinicRoom = document.getElementById('clinic-room');
 
 const promptsByAgent = PROMPTS_BY_AGENT;
 
@@ -56,6 +65,26 @@ function loadBrowserSpeechPreference() {
     } catch (error) {
         console.warn('Browser speech preference is unavailable:', error);
         return true;
+    }
+}
+
+function loadClinicSoundPreference() {
+    try {
+        return window.localStorage.getItem('family-ai-clinic-sound') !== 'off';
+    } catch (error) {
+        console.warn('Clinic sound preference is unavailable:', error);
+        return true;
+    }
+}
+
+function saveClinicSoundPreference() {
+    try {
+        window.localStorage.setItem(
+            'family-ai-clinic-sound',
+            clinicSoundEnabled ? 'on' : 'off'
+        );
+    } catch (error) {
+        console.warn('Clinic sound preference could not be saved:', error);
     }
 }
 
@@ -306,6 +335,181 @@ async function loadActivitiesForAgent(agentId) {
     renderActivityState();
 }
 
+function renderClinic() {
+    clinicBar.hidden = !selectedAgent?.supports_clinic_game;
+    clinicCases.replaceChildren();
+    for (const item of availableClinicCases) {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'clinic-case';
+        card.style.setProperty('--case-color', item.color);
+        card.setAttribute('aria-label', `${item.title}. ${item.description}`);
+        const icon = document.createElement('span');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = item.patient_icon;
+        const title = document.createElement('strong');
+        title.textContent = item.short_title;
+        const description = document.createElement('small');
+        description.textContent = item.description;
+        card.append(icon, title, description);
+        card.onclick = () => startClinicCase(item.id);
+        clinicCases.append(card);
+    }
+    clinicRoom.hidden = !currentClinic;
+    clinicCases.hidden = Boolean(currentClinic);
+    if (!currentClinic) return;
+    document.getElementById('clinic-patient-icon').textContent = currentClinic.patient_icon;
+    document.getElementById('clinic-patient-name').textContent = currentClinic.patient_name;
+    const vitals = document.getElementById('clinic-vitals');
+    vitals.replaceChildren();
+    for (const vital of currentClinic.vitals) {
+        const item = document.createElement('div');
+        item.className = `clinic-vital ${vital.state}`;
+        const icon = document.createElement('span');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = vital.icon;
+        const value = document.createElement('strong');
+        value.textContent = `${vital.value}${vital.unit}`;
+        const label = document.createElement('small');
+        label.textContent = vital.label;
+        item.append(icon, value, label);
+        vitals.append(item);
+    }
+    const actions = document.getElementById('clinic-actions');
+    actions.replaceChildren();
+    for (const action of currentClinic.actions) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `clinic-action${action.completed ? ' done' : ''}`;
+        button.disabled = action.completed || currentClinic.status !== 'active';
+        button.setAttribute('aria-label', action.label);
+        const icon = document.createElement('span');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = action.icon;
+        button.append(icon, document.createTextNode(action.label));
+        button.onclick = () => performClinicAction(action.id);
+        actions.append(button);
+    }
+    const paused = currentClinic.status === 'paused';
+    document.getElementById('clinic-pause').hidden = paused || currentClinic.status !== 'active';
+    document.getElementById('clinic-resume').hidden = !paused;
+}
+
+async function loadClinicCases(agent) {
+    availableClinicCases = [];
+    currentClinic = null;
+    if (!agent.supports_clinic_game) {
+        renderClinic();
+        return;
+    }
+    try {
+        const response = await fetch('/v1/clinic/cases');
+        if (!response.ok) throw new Error('Clinic catalog unavailable');
+        availableClinicCases = (await response.json()).items;
+    } catch (error) {
+        console.warn('Clinic catalog loading failed:', error);
+    }
+    renderClinic();
+}
+
+async function refreshClinicState() {
+    if (!selectedAgent?.supports_clinic_game || !conversationId) {
+        currentClinic = null;
+        renderClinic();
+        return;
+    }
+    try {
+        const response = await fetch(`/v1/clinic/conversations/${conversationId}`);
+        if (!response.ok) throw new Error('Clinic state unavailable');
+        currentClinic = (await response.json()).session;
+    } catch (error) {
+        console.warn('Clinic state loading failed:', error);
+        currentClinic = null;
+    }
+    renderClinic();
+}
+
+async function startClinicCase(caseId) {
+    if (turnInProgress) return;
+    setTurnControlsDisabled(true);
+    try {
+        await ensureConversation();
+        const response = await fetch(`/v1/clinic/conversations/${conversationId}/cases/${encodeURIComponent(caseId)}/start`, { method: 'POST' });
+        if (!response.ok) throw new Error('Clinic case start failed');
+        const data = await response.json();
+        currentClinic = data.session;
+        document.getElementById('welcome-card').hidden = true;
+        addMessage(data.message.content, 'assistant');
+        renderClinic();
+        await speakAssistantReply(data.message.content).catch(() => speakText(data.message.content));
+    } catch (error) {
+        console.error('Clinic case start failed:', error);
+        addMessage('Игровая палата пока не открылась. Попробуем ещё раз.', 'system');
+    } finally {
+        setTurnControlsDisabled(false);
+    }
+}
+
+async function performClinicAction(actionId) {
+    if (!conversationId || turnInProgress) return;
+    setTurnControlsDisabled(true);
+    try {
+        const response = await fetch(`/v1/clinic/conversations/${conversationId}/actions/${encodeURIComponent(actionId)}`, { method: 'POST' });
+        if (!response.ok) throw new Error('Clinic action failed');
+        const data = await response.json();
+        currentClinic = data.session;
+        addMessage(data.message.content, 'assistant');
+        renderClinic();
+        await speakAssistantReply(data.message.content).catch(() => speakText(data.message.content));
+    } catch (error) {
+        console.error('Clinic action failed:', error);
+        speakText('Не получилось поставить отметку. Попробуй ещё раз.');
+    } finally {
+        setTurnControlsDisabled(false);
+    }
+}
+
+async function transitionClinic(transition) {
+    if (!conversationId || turnInProgress) return;
+    try {
+        const response = await fetch(`/v1/clinic/conversations/${conversationId}/${transition}`, { method: 'POST' });
+        if (!response.ok) throw new Error('Clinic transition failed');
+        currentClinic = (await response.json()).session;
+        renderClinic();
+        if (transition === 'leave') clinicDialog.close();
+    } catch (error) {
+        console.error('Clinic transition failed:', error);
+    }
+}
+
+function stopClinicHeartbeat() {
+    if (clinicHeartbeatTimer) window.clearInterval(clinicHeartbeatTimer);
+    clinicHeartbeatTimer = null;
+}
+
+function playClinicBeat() {
+    if (!clinicSoundEnabled) return;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const context = new AudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = 390;
+    gain.gain.setValueAtTime(0.025, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.08);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.08);
+    oscillator.onended = () => context.close();
+}
+
+function startClinicHeartbeat() {
+    stopClinicHeartbeat();
+    if (!clinicSoundEnabled) return;
+    playClinicBeat();
+    clinicHeartbeatTimer = window.setInterval(playClinicBeat, 1200);
+}
+
 async function refreshActivityState() {
     if (!conversationId) {
         currentActivity = null;
@@ -438,6 +642,7 @@ async function chooseAgent(agent, announce = true) {
     voiceControls.classList.toggle('has-photo', supportsPhoto);
     renderQuickReplies();
     await loadActivitiesForAgent(agent.id);
+    await loadClinicCases(agent);
     chooser.hidden = true;
     conversation.hidden = false;
     setControlsEnabled(false);
@@ -457,6 +662,7 @@ async function chooseAgent(agent, announce = true) {
         }
         const hasMessages = data.messages.length > 0;
         await refreshActivityState();
+        await refreshClinicState();
         document.getElementById('welcome-card').hidden = hasMessages;
         setState('ready', 'Готов слушать');
         if (announce && !hasMessages) speakText(agent.greeting);
@@ -488,6 +694,7 @@ function setControlsEnabled(enabled) {
     keyboardToggle.disabled = !enabled;
     photoBtn.disabled = !enabled;
     activityOpen.disabled = !enabled;
+    clinicOpen.disabled = !enabled;
     quickReplies.querySelectorAll('button').forEach((button) => {
         button.disabled = !enabled;
     });
@@ -505,6 +712,7 @@ function setTurnControlsDisabled(disabled) {
     keyboardToggle.disabled = disabled;
     photoBtn.disabled = disabled;
     activityOpen.disabled = disabled;
+    clinicOpen.disabled = disabled;
     document.getElementById('activity-stop').disabled = disabled;
     document.getElementById('activity-leave').disabled = disabled;
     document.querySelectorAll('.browser-speech-toggle').forEach((button) => {
@@ -590,7 +798,9 @@ async function startNewConversation() {
         if (selectionVersion !== agentSelectionVersion) return;
         conversationId = data.conversation_id;
         currentActivity = null;
+        currentClinic = null;
         renderActivityState();
+        renderClinic();
         setState('ready', 'Готов слушать');
         speakText(agent.greeting);
     } catch (error) {
@@ -624,6 +834,7 @@ async function sendText(forcedText = null) {
         const data = await response.json();
         addMessage(data.content, 'assistant', data.media);
         await refreshActivityState();
+        await refreshClinicState();
         showTyping(false);
         if (browserSpeechEnabled) {
             try {
@@ -681,6 +892,7 @@ async function sendPhoto(file) {
         const data = await response.json();
         addMessage(data.content, 'assistant', data.media || []);
         await refreshActivityState();
+        await refreshClinicState();
         showTyping(false);
         if (browserSpeechEnabled) {
             try {
@@ -880,6 +1092,23 @@ document.getElementById('activity-close').onclick = () => activityDialog.close()
 document.getElementById('activity-stop').onclick = () => stopActivity(false);
 document.getElementById('activity-resume').onclick = resumeActivity;
 document.getElementById('activity-leave').onclick = () => stopActivity(true);
+clinicOpen.onclick = () => {
+    renderClinic();
+    clinicDialog.showModal();
+    startClinicHeartbeat();
+};
+document.getElementById('clinic-close').onclick = () => clinicDialog.close();
+document.getElementById('clinic-pause').onclick = () => transitionClinic('pause');
+document.getElementById('clinic-resume').onclick = () => transitionClinic('resume');
+document.getElementById('clinic-leave').onclick = () => transitionClinic('leave');
+document.getElementById('clinic-sound').onclick = () => {
+    clinicSoundEnabled = !clinicSoundEnabled;
+    saveClinicSoundPreference();
+    document.getElementById('clinic-sound').textContent = clinicSoundEnabled ? '🔈' : '🔇';
+    if (clinicSoundEnabled) startClinicHeartbeat();
+    else stopClinicHeartbeat();
+};
+clinicDialog.addEventListener('close', stopClinicHeartbeat);
 
 sendBtn.onclick = () => sendText();
 textInput.onkeydown = (event) => {

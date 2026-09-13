@@ -943,6 +943,23 @@
     .activity-session-head > div:first-child { min-width:0; }
     .activity-session-head .card-actions { margin-left:auto; }
     .activity-current-step { margin-top:11px; padding:10px 12px; border-radius:11px; background:rgba(66,216,237,.06); color:var(--muted-strong); font-size:12px; }
+    .clinic-preview { margin-top:16px; }
+    .clinic-preview-head, .clinic-session-head, .clinic-session-head > div:first-child { display:flex; align-items:center; gap:12px; }
+    .clinic-preview-head > span, .clinic-session-head > div:first-child > span { width:50px; height:50px; display:grid; place-items:center; flex:0 0 auto; border-radius:16px; background:rgba(84,223,168,.09); font-size:28px; }
+    .clinic-preview-head strong, .clinic-preview-head small, .clinic-session-head strong, .clinic-session-head small { display:block; }
+    .clinic-preview-head small, .clinic-session-head small { margin-top:4px; color:var(--muted); font-size:11px; }
+    .clinic-monitor-preview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:14px; padding:12px; border-radius:15px; background:#10282c; }
+    .clinic-monitor-preview > div { padding:10px; border-radius:11px; background:#19393d; }
+    .clinic-monitor-preview span, .clinic-monitor-preview strong { display:block; }
+    .clinic-monitor-preview span { color:#a8d8d2; font-size:11px; }
+    .clinic-monitor-preview strong { margin-top:4px; color:#fff; }
+    .clinic-action-preview { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+    .clinic-action-preview > div { padding:11px 12px; border:1px solid var(--line); border-radius:12px; background:var(--surface-soft); }
+    .clinic-action-preview strong, .clinic-action-preview small { display:block; }
+    .clinic-action-preview small { margin-top:5px; color:var(--muted); line-height:1.45; }
+    .clinic-safety-note { margin-top:12px; padding:12px; border:1px solid rgba(84,223,168,.25); border-radius:12px; color:var(--green); background:rgba(84,223,168,.05); }
+    .clinic-session-card { padding:14px; border:1px solid var(--line); border-radius:15px; background:var(--surface-soft); }
+    .clinic-session-head { justify-content:space-between; align-items:flex-start; }
     .panel-head.compact { margin-bottom:14px; }
     .pipeline-panel { margin-top:18px; padding:22px; }
     .pipeline-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; margin-top:16px; }

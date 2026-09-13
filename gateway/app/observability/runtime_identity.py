@@ -13,6 +13,7 @@ from pathlib import Path
 
 from pydantic import SecretStr
 
+from gateway.app.clinic.catalog import ClinicCaseCatalog
 from gateway.app.config import Settings
 
 APP_VERSION = "0.1.0"
@@ -116,6 +117,22 @@ class ClientBuildRegistry:
 client_build_registry = ClientBuildRegistry()
 
 
+def clinic_catalog_identity() -> dict[str, object]:
+    """Return a stable version and hash for the validated clinic catalog."""
+
+    catalog = ClinicCaseCatalog()
+    payload = json.dumps(
+        [item.model_dump(mode="json") for item in catalog.list()],
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return {
+        "schema_version": catalog.schema_version,
+        "fingerprint": hashlib.sha256(payload).hexdigest(),
+    }
+
+
 def runtime_identity(
     settings: Settings,
     *,
@@ -141,4 +158,5 @@ def runtime_identity(
         "uptime_seconds": round(time.perf_counter() - _PROCESS_STARTED, 1),
         "config_fingerprint": configuration_fingerprint(settings),
         "android": client_build_registry.snapshot(),
+        "clinic_catalog": clinic_catalog_identity(),
     }

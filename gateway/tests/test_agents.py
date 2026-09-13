@@ -29,6 +29,7 @@ async def test_agent_manifest_exposes_only_child_safe_metadata(
         "outdoor_guide",
         "tech_guide",
         "space_guide",
+        "clinic_guide",
     ]
     assert all("system_prompt" not in item for item in items)
     assert all("tts_voice" not in item for item in items)
@@ -42,11 +43,14 @@ async def test_agent_manifest_exposes_only_child_safe_metadata(
         "supports_image_upload",
         "supports_spoken_image_question",
         "image_upload_max_bytes",
+        "supports_clinic_game",
     }
     assert items[0]["image_upload_max_bytes"] == 10 * 1024 * 1024
     assert items[0]["supports_spoken_image_question"] is True
     assert items[1]["image_upload_max_bytes"] is None
-    assert items[-1]["image_upload_max_bytes"] == 10 * 1024 * 1024
+    assert items[-2]["image_upload_max_bytes"] == 10 * 1024 * 1024
+    assert items[-1]["image_upload_max_bytes"] is None
+    assert items[-1]["supports_clinic_game"] is True
 
 
 @pytest.mark.anyio
@@ -61,7 +65,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
     assert "browser-speech-toggle" in page.text
     assert 'id="activity-open"' in page.text
     assert 'id="activity-dialog"' in page.text
-    assert '<script type="module" src="/static/app.js?v=19"></script>' in page.text
+    assert '<script type="module" src="/static/app.js?v=20"></script>' in page.text
     assert page.text.count('class="icon-button new-conversation"') == 2
     assert 'data-state="ready"' in page.text
 
@@ -74,16 +78,18 @@ async def test_child_interface_serves_visual_first_agent_assets(
         "murka.webp",
         "baytik.webp",
         "alice-selezneva.webp",
+        "doctor-pulse.png",
     ):
         asset = await client.get(f"/static/assets/characters/{filename}")
         assert asset.status_code == 200
-        assert asset.headers["content-type"] == "image/webp"
+        expected_type = "image/png" if filename.endswith(".png") else "image/webp"
+        assert asset.headers["content-type"] == expected_type
         assert len(asset.content) > 10_000
 
 
 @pytest.mark.anyio
 async def test_child_interface_javascript_modules_are_served(client: AsyncClient) -> None:
-    app = await client.get("/static/app.js?v=19")
+    app = await client.get("/static/app.js?v=20")
     presentation = await client.get("/static/js/presentation.js")
     image_upload = await client.get("/static/js/image-upload.js")
 

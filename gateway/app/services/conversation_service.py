@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from gateway.app.activities import ActivityService, ActivityTurnContext
 from gateway.app.agents import ActiveAgent
+from gateway.app.clinic import ClinicGameService, ClinicTurnContext
 from gateway.app.constants import LERA_PROFILE_ID
 from gateway.app.memory import MemoryService
 from gateway.app.models import ChildProfile, Conversation, Message, MessageRole
@@ -48,6 +49,7 @@ class PreparedConversationTurn:
     active_agent: ActiveAgent
     last_child_message: Message | None
     activity_context: ActivityTurnContext | None
+    clinic_context: ClinicTurnContext | None
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,7 @@ class ConversationService:
         retention_days: int = 10,
         memory: MemoryService | None = None,
         activities: ActivityService | None = None,
+        clinic: ClinicGameService | None = None,
     ) -> None:
         self._session = session
         self._provider = provider
@@ -82,6 +85,7 @@ class ConversationService:
         self._retention_days = retention_days
         self._memory = memory
         self._activities = activities
+        self._clinic = clinic
 
     def create_message(
         self,
@@ -136,6 +140,17 @@ class ConversationService:
                     conversation_id=conversation_id,
                     role=MessageRole.ASSISTANT,
                     content=control_response,
+                )
+        if self._clinic:
+            clinic_response = self._clinic.handle_real_health_input(
+                conversation_id,
+                text,
+            )
+            if clinic_response:
+                return self.create_message(
+                    conversation_id=conversation_id,
+                    role=MessageRole.ASSISTANT,
+                    content=clinic_response,
                 )
         return await self.generate_ai_response(
             conversation_id,
@@ -210,6 +225,9 @@ class ConversationService:
             activity_context=(
                 self._activities.turn_context(conversation_id) if self._activities else None
             ),
+            clinic_context=(
+                self._clinic.turn_context(conversation_id) if self._clinic else None
+            ),
         )
 
     def _evaluate_turn_input(
@@ -265,6 +283,9 @@ class ConversationService:
                     turn.activity_context.prompt_context
                     if turn.activity_context
                     else None
+                ),
+                clinic_context=(
+                    turn.clinic_context.prompt_context if turn.clinic_context else None
                 ),
             ),
             self._safety,

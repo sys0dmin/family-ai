@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from gateway.app.clinic.metrics import clinic_metrics_registry
 from gateway.app.config import Settings, get_settings
 from gateway.app.observability.runtime_identity import runtime_identity
 from gateway.app.observability.voice_metrics import voice_metrics_registry
@@ -61,3 +62,11 @@ async def reset_safety_metrics(request: Request) -> dict[str, object]:
     _require_loopback(request)
     safety_metrics_registry.reset()
     return policy_snapshot()
+
+
+@router.get("/clinic-metrics")
+async def clinic_metrics(request: Request) -> dict[str, object]:
+    """Expose content-free clinic transition counters to local operations."""
+
+    _require_loopback(request)
+    return clinic_metrics_registry.snapshot()

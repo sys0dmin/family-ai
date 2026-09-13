@@ -1,5 +1,31 @@
 part of 'chat_screen.dart';
 
+class _ClinicLaunchButton extends StatelessWidget {
+  const _ClinicLaunchButton({required this.enabled, required this.onPressed});
+
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+    child: FilledButton.icon(
+      key: const Key('clinic-launch'),
+      onPressed: enabled ? onPressed : null,
+      icon: const Icon(Icons.medical_services_rounded, size: 27),
+      label: const Text(
+        'Открыть больницу',
+        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+      ),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(double.infinity, 58),
+        backgroundColor: const Color(0xFF168675),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+    ),
+  );
+}
+
 class _ActivityLaunchButton extends StatelessWidget {
   const _ActivityLaunchButton({required this.enabled, required this.onPressed});
 

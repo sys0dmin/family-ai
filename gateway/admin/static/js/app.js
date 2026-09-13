@@ -11,6 +11,7 @@
     import { createLayoutPreference } from "./layout-preference.js?v=admin-modules-2";
     import { createActivityScreen } from "./activity-screen.js?v=admin-modules-2";
     import { createCalibrationScreen } from "./calibration-screen.js?v=admin-modules-3";
+    import { createClinicScreen } from "./clinic-screen.js?v=admin-modules-4";
     import { createMemoryScreen } from "./memory-screen.js?v=admin-modules-2";
     import { createNavigation, hideAllScreens } from "./navigation.js?v=admin-modules-2";
     import { createQualityScreen } from "./quality-screen.js?v=admin-modules-2";
@@ -83,6 +84,7 @@
     });
     const infrastructureScreen = createInfrastructureScreen();
     const calibrationScreen = createCalibrationScreen();
+    const clinicScreen = createClinicScreen();
     const settingsScreen = createSettingsScreen();
     const agentsScreen = createAgentsScreen();
     const studioScreen = createStudioScreen(agentsScreen);
@@ -101,6 +103,7 @@
         studioScreen.load();
         qualityScreen.loadCases();
         activityScreen.load();
+        clinicScreen.load();
         calibrationScreen.loadStatus();
         calibrationScreen.loadRuntimeSettings();
         calibrationTimer = setInterval(calibrationScreen.loadStatus, 5000);

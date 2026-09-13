@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from gateway.app.models.activity_session import ActivitySession
     from gateway.app.models.agent import Agent, AgentRevision
     from gateway.app.models.child_profile import ChildProfile
+    from gateway.app.models.clinic_session import ClinicSession
     from gateway.app.models.message import Message
 
 
@@ -61,6 +62,11 @@ class Conversation(Base):
         order_by="Message.created_at",
     )
     activity_session: Mapped["ActivitySession | None"] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    clinic_session: Mapped["ClinicSession | None"] = relationship(
         back_populates="conversation",
         cascade="all, delete-orphan",
         uselist=False,

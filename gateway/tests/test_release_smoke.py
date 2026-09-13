@@ -24,6 +24,14 @@ def _successful_transport(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=b"asset")
     if path == "/v1/agents":
         return httpx.Response(200, json={"items": [{"id": "teacher_friend"}]})
+    if path == "/api/clinic/catalog":
+        return httpx.Response(
+            200,
+            json={
+                "schema_version": 1,
+                "items": [{"vitals": [{"id": "heart"}], "actions": [{"id": "rest"}]}],
+            },
+        )
     if path == "/api/studio/agent-test":
         return httpx.Response(200, json={"final_response": "Готово"})
     if path == "/api/studio/speech":
@@ -51,6 +59,7 @@ def test_release_smoke_exercises_all_functional_stages() -> None:
     assert [item.name for item in results] == [
         "admin_ui",
         "gateway_database",
+        "clinic_catalog",
         "llm",
         "tts",
         "stt",

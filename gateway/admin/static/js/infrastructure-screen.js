@@ -233,6 +233,19 @@ export function createInfrastructureScreen() {
       data.configuration.fingerprint
         ? "Показан необратимый fingerprint без ключей и значений"
         : "Runtime fingerprint недоступен";
+
+    const clinicCatalog = byId("release-clinic-catalog");
+    setPassportStatus(clinicCatalog.querySelector('[data-field="status"]'), data.clinic_catalog.status);
+    clinicCatalog.querySelector('[data-field="version"]').textContent = data.clinic_catalog.schema_version
+      ? `Схема ${data.clinic_catalog.schema_version}`
+      : "Схема недоступна";
+    const clinicFingerprint = clinicCatalog.querySelector('[data-field="commit"]');
+    clinicFingerprint.textContent = shortCommit(data.clinic_catalog.fingerprint);
+    clinicFingerprint.title = data.clinic_catalog.fingerprint || "";
+    clinicCatalog.querySelector('[data-field="detail"]').textContent =
+      data.clinic_catalog.fingerprint
+        ? "Каталог пациентов совпадает с запущенным Gateway"
+        : "Runtime-каталог недоступен";
     byId("release-passport-checked").textContent =
       `Паспорт проверен: ${formatDateTime(data.checked_at)}`;
   }

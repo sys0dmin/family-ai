@@ -42,6 +42,7 @@ class ConversationPromptContext:
     memory_context: str | None = None
     runtime_context: str | None = None
     activity_context: str | None = None
+    clinic_context: str | None = None
 
 
 def build_conversation_request(
@@ -59,6 +60,7 @@ def build_conversation_request(
         context.memory_context,
         context.runtime_context,
         context.activity_context,
+        context.clinic_context,
     ):
         if optional_context:
             messages.append(

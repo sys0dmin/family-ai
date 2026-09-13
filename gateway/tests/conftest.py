@@ -70,6 +70,16 @@ TEST_AGENTS = (
         ["web_search", "image_search", "image_understanding"],
         [],
     ),
+    (
+        "clinic_guide",
+        "Доктор Пульс",
+        "🩺",
+        "clinic",
+        "fahad",
+        90,
+        [],
+        ["supervised_clinic_play"],
+    ),
 )
 
 

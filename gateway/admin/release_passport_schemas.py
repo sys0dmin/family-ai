@@ -35,6 +35,12 @@ class ConfigurationIdentity(BaseModel):
     fingerprint: str | None = None
 
 
+class CatalogReleaseIdentity(BaseModel):
+    status: PassportStatus
+    schema_version: int | None = None
+    fingerprint: str | None = None
+
+
 class ReleasePassportResponse(BaseModel):
     status: PassportStatus
     checked_at: datetime
@@ -43,3 +49,4 @@ class ReleasePassportResponse(BaseModel):
     database: DatabaseReleaseIdentity
     android: AndroidReleaseIdentity
     configuration: ConfigurationIdentity
+    clinic_catalog: CatalogReleaseIdentity

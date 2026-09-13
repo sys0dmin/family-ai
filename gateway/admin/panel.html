@@ -248,6 +248,20 @@
             </section>
           </div>
         </article>
+        <article class="panel clinic-studio" style="margin-top:18px">
+          <div class="panel-head"><div><div class="card-kicker">Pretend clinic</div><h2>Игровая больница</h2></div><div class="row panel-actions"><span id="clinic-studio-status" class="muted"></span><button id="clinic-studio-refresh" class="secondary">↻ Обновить</button></div></div>
+          <p class="muted">Предпросмотр конечного каталога и управление сохранёнными карточками. Сброс удаляет только состояние игры — сообщения в истории остаются.</p>
+          <div class="activity-studio-grid">
+            <section class="activity-preview-panel">
+              <label class="field"><span>Пациент</span><select id="clinic-preview-select"></select></label>
+              <div id="clinic-preview" class="clinic-preview"></div>
+            </section>
+            <section>
+              <div class="panel-head compact"><div><div class="card-kicker">Runtime state</div><h3>Карточки пациентов</h3></div></div>
+              <div id="clinic-session-list" class="activity-session-list"><div class="empty">Карточек пациентов пока нет</div></div>
+            </section>
+          </div>
+        </article>
         <article class="panel studio-controls" style="margin-top:18px">
           <div class="panel-head"><div><div class="card-kicker">Child speech lab</div><h2>Калибровка речи Леры</h2></div><span id="calibration-state" class="health-pill">Не запускалась</span></div>
           <div class="grid three">
@@ -320,6 +334,7 @@
             <section class="release-identity" id="release-database"><div class="release-identity-head"><strong>PostgreSQL schema</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">Alembic</span><code data-field="commit">—</code><small data-field="detail">Ожидаем данные</small></section>
             <section class="release-identity" id="release-android"><div class="release-identity-head"><strong>Android</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">—</span><code data-field="commit">—</code><small data-field="detail">Последняя замеченная сборка</small></section>
             <section class="release-identity release-configuration" id="release-configuration"><div class="release-identity-head"><strong>Конфигурация</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">Без секретов</span><code data-field="commit">—</code><small data-field="detail">SHA-256 effective config</small></section>
+            <section class="release-identity" id="release-clinic-catalog"><div class="release-identity-head"><strong>Clinic catalog</strong><span data-field="status" class="health-pill">—</span></div><span data-field="version">Схема —</span><code data-field="commit">—</code><small data-field="detail">Версия игровых пациентов</small></section>
           </div>
           <div class="ops-footnote" id="release-passport-checked">Ожидаем снимок паспорта</div>
         </article>
@@ -493,6 +508,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="/admin-assets/js/app.js?v=admin-modules-3"></script>
+  <script type="module" src="/admin-assets/js/app.js?v=admin-modules-4"></script>
 </body>
 </html>

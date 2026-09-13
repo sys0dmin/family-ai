@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "teddy_after_walk",
+      "version": 1,
+      "title": "Мишка после прогулки",
+      "short_title": "Мишка",
+      "description": "Помоги уставшему Мишке попить, поесть и отдохнуть.",
+      "patient_name": "Мишка Топа",
+      "patient_icon": "🧸",
+      "color": "#28A5A0",
+      "opening_text": "Это игровая палата, она ничего не измеряет. Мишка Топа устал после прогулки. Давай сначала послушаем сердце и позаботимся о нём.",
+      "completion_text": "Мишка отдохнул, попил и снова улыбается. Игровая карточка заполнена — палата закрывается до следующего приёма!",
+      "vitals": [
+        {"id": "heart", "icon": "❤", "label": "Сердце", "value": "тук-тук", "unit": "", "state": "calm"},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "ровно", "unit": "", "state": "calm"},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,6", "unit": "°", "state": "good"},
+        {"id": "mood", "icon": "🙂", "label": "Самочувствие", "value": "устал", "unit": "", "state": "attention"}
+      ],
+      "actions": [
+        {"id": "listen_heart", "icon": "🩺", "label": "Послушать", "response": "Слушаем игрушечным фонендоскопом: сердце стучит спокойно — тук-тук.", "updates": []},
+        {"id": "give_water", "icon": "💧", "label": "Дать воды", "response": "Мишка сделал несколько глотков воды и повеселел.", "updates": [{"vital_id": "mood", "value": "лучше", "state": "calm"}]},
+        {"id": "feed", "icon": "🥣", "label": "Накормить", "response": "Мишка поел вкусной каши. Теперь у него больше сил.", "updates": []},
+        {"id": "rest", "icon": "🛏", "label": "Уложить", "response": "Мишка уютно устроился под пледом и отдохнул.", "updates": [{"vital_id": "mood", "value": "отлично", "state": "good"}]}
+      ],
+      "required_action_ids": ["listen_heart", "give_water", "feed", "rest"]
+    },
+    {
+      "id": "robot_checkup",
+      "version": 1,
+      "title": "Осмотр робота Рони",
+      "short_title": "Робот",
+      "description": "Проведи безопасный игровой осмотр робота перед полётом.",
+      "patient_name": "Робот Рони",
+      "patient_icon": "🤖",
+      "color": "#5578D1",
+      "opening_text": "Это только игра, монитор ничего не измеряет. Роботу Рони нужен осмотр перед полётом. Проверим его показатели и отметим заботу.",
+      "completion_text": "Осмотр закончен! Все игровые показатели Рони спокойные, и старший врач разрешил ему готовиться к полёту.",
+      "vitals": [
+        {"id": "heart", "icon": "❤", "label": "Ритм", "value": "бип-бип", "unit": "", "state": "calm"},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "ровно", "unit": "", "state": "good"},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,5", "unit": "°", "state": "good"},
+        {"id": "mood", "icon": "🙂", "label": "Самочувствие", "value": "волнуется", "unit": "", "state": "attention"}
+      ],
+      "actions": [
+        {"id": "measure_temperature", "icon": "🌡", "label": "Температура", "response": "Игровой термометр показывает спокойную температуру.", "updates": []},
+        {"id": "measure_pressure", "icon": "🩺", "label": "Давление", "response": "Игровая манжета закончила проверку. На мониторе всё спокойно.", "updates": []},
+        {"id": "give_blanket", "icon": "🧣", "label": "Дать плед", "response": "Рони стало уютнее, и он перестал волноваться.", "updates": [{"vital_id": "mood", "value": "спокоен", "state": "good"}]},
+        {"id": "call_senior", "icon": "👩‍⚕️", "label": "Старший врач", "response": "Старший врач посмотрел игровую карточку и подтвердил завершение осмотра.", "updates": []}
+      ],
+      "required_action_ids": ["measure_temperature", "measure_pressure", "give_blanket", "call_senior"]
+    },
+    {
+      "id": "fox_after_procedure",
+      "version": 1,
+      "title": "Забота о лисёнке",
+      "short_title": "Лисёнок",
+      "description": "Отметь назначенные старшим врачом процедуры и позаботься о пациенте.",
+      "patient_name": "Лисёнок Рыжик",
+      "patient_icon": "🦊",
+      "color": "#E58B45",
+      "opening_text": "Это игровая палата и вымышленный пациент. Старший врач уже назначил Рыжику игровые процедуры. Мы только отметим их и поможем ему отдохнуть.",
+      "completion_text": "Все назначения старшего врача отмечены, Рыжик накормлен и отдыхает. Ты очень внимательно заполнила игровую карточку!",
+      "vitals": [
+        {"id": "heart", "icon": "❤", "label": "Сердце", "value": "ровно", "unit": "", "state": "calm"},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "ровно", "unit": "", "state": "calm"},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,7", "unit": "°", "state": "good"},
+        {"id": "mood", "icon": "🙂", "label": "Самочувствие", "value": "ждёт", "unit": "", "state": "attention"}
+      ],
+      "actions": [
+        {"id": "mark_injection", "icon": "☑", "label": "Укол сделан", "response": "Отмечаем в игровой карточке: назначенный старшим врачом укол уже сделан. Настоящие уколы делают только взрослые медики.", "updates": []},
+        {"id": "mark_iv", "icon": "💧", "label": "Капельница", "response": "Ставим галочку: назначенная игровая капельница уже выполнена старшим врачом. Мы её только отмечаем.", "updates": []},
+        {"id": "feed", "icon": "🥣", "label": "Накормить", "response": "Рыжик поел и благодарно улыбнулся.", "updates": []},
+        {"id": "rest", "icon": "🛏", "label": "Отдых", "response": "Рыжик устроился поудобнее и спокойно отдыхает.", "updates": [{"vital_id": "mood", "value": "отдыхает", "state": "good"}]}
+      ],
+      "required_action_ids": ["mark_injection", "mark_iv", "feed", "rest"]
+    }
+  ]
+}

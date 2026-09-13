@@ -33,6 +33,7 @@ def list_agents(
                 image_upload_max_bytes=(
                     settings.vision_max_image_bytes if supports_images else None
                 ),
+                supports_clinic_game="supervised_clinic_play" in agent.permissions,
             )
         )
     return AgentListResponse(items=items)

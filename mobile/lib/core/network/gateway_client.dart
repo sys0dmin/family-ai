@@ -7,6 +7,8 @@ import 'package:http_parser/http_parser.dart';
 
 import '../../features/agents/agent.dart';
 import '../../features/calibration/calibration_models.dart';
+import '../../features/clinic/clinic_gateway.dart';
+import '../../features/clinic/clinic_models.dart';
 import '../../features/conversations/activity_models.dart';
 import '../../features/conversations/conversation_models.dart';
 import '../../features/conversations/conversation_gateway.dart';
@@ -31,7 +33,7 @@ class SpeechAudio {
   final String contentType;
 }
 
-class GatewayClient implements ConversationGateway {
+class GatewayClient implements ConversationGateway, ClinicGateway {
   factory GatewayClient({
     required ServerAddress serverAddress,
     required http.Client httpClient,
@@ -52,6 +54,83 @@ class GatewayClient implements ConversationGateway {
   final http.Client _httpClient;
   final Duration timeout;
   final Duration voiceTimeout;
+
+  @override
+  Future<List<ClinicCaseSummary>> getClinicCases() async {
+    final response = await _get(serverAddress.resolve('/v1/clinic/cases'));
+    final items = _decodeObject(response)['items'];
+    if (items is! List<dynamic>) {
+      throw const GatewayException('Сервер вернул неверный список пациентов.');
+    }
+    return items
+        .map((item) => ClinicCaseSummary.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<ClinicSession?> getClinicState(String conversationId) async {
+    final response = await _get(
+      serverAddress.resolve('/v1/clinic/conversations/$conversationId'),
+    );
+    final session = _decodeObject(response)['session'];
+    return session == null
+        ? null
+        : ClinicSession.fromJson(session as Map<String, dynamic>);
+  }
+
+  @override
+  Future<ClinicTurnResult> startClinicCase(
+    String conversationId,
+    String caseId,
+  ) async {
+    final response = await _postJson(
+      serverAddress.resolve(
+        '/v1/clinic/conversations/$conversationId/cases/$caseId/start',
+      ),
+      const {},
+    );
+    return _decodeClinicTurn(response);
+  }
+
+  @override
+  Future<ClinicTurnResult> performClinicAction(
+    String conversationId,
+    String actionId,
+  ) async {
+    final response = await _postJson(
+      serverAddress.resolve(
+        '/v1/clinic/conversations/$conversationId/actions/$actionId',
+      ),
+      const {},
+    );
+    return _decodeClinicTurn(response);
+  }
+
+  @override
+  Future<ClinicSession> transitionClinic(
+    String conversationId,
+    String transition,
+  ) async {
+    final response = await _postJson(
+      serverAddress.resolve(
+        '/v1/clinic/conversations/$conversationId/$transition',
+      ),
+      const {},
+    );
+    return ClinicSession.fromJson(
+      _decodeObject(response)['session'] as Map<String, dynamic>,
+    );
+  }
+
+  ClinicTurnResult _decodeClinicTurn(http.Response response) {
+    final body = _decodeObject(response);
+    final message = body['message'] as Map<String, dynamic>;
+    return ClinicTurnResult(
+      session: ClinicSession.fromJson(body['session'] as Map<String, dynamic>),
+      messageId: message['id'] as String,
+      message: message['content'] as String,
+    );
+  }
 
   @override
   Future<List<ActivitySummary>> getActivities(String agentId) async {

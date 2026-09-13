@@ -203,6 +203,12 @@ function fillInfrastructure() {
   configRelease.querySelector('[data-field="status"]').textContent = "Совпадает";
   configRelease.querySelector('[data-field="status"]').className = "health-pill healthy";
   configRelease.querySelector('[data-field="commit"]').textContent = "9d4e72c1d4b8…";
+  const clinicCatalogRelease = document.getElementById("release-clinic-catalog");
+  clinicCatalogRelease.querySelector('[data-field="status"]').textContent = "Совпадает";
+  clinicCatalogRelease.querySelector('[data-field="status"]').className = "health-pill healthy";
+  clinicCatalogRelease.querySelector('[data-field="version"]').textContent = "Схема 1";
+  clinicCatalogRelease.querySelector('[data-field="commit"]').textContent = "f6bb31cc1047…";
+  clinicCatalogRelease.querySelector('[data-field="detail"]').textContent = "3 игровых пациента";
   setText("release-passport-checked", "Паспорт проверен: 15.08.2026, 16:30");
   setText("infrastructure-checked", "Последняя проверка: 02.08.2026, 12:00");
 }

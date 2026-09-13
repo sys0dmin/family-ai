@@ -5,7 +5,13 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
-from gateway.app.models import ActivitySession, Message, MessageFeedback, RegressionCase
+from gateway.app.models import (
+    ActivitySession,
+    ClinicSession,
+    Message,
+    MessageFeedback,
+    RegressionCase,
+)
 
 
 class RetentionService:
@@ -22,6 +28,9 @@ class RetentionService:
         cutoff = current_time - timedelta(days=self._retention_days)
         self._session.execute(
             delete(ActivitySession).where(ActivitySession.expires_at <= current_time)
+        )
+        self._session.execute(
+            delete(ClinicSession).where(ClinicSession.expires_at <= current_time)
         )
         expired_message_ids = select(Message.id).where(Message.created_at < cutoff)
         expired_feedback_ids = select(MessageFeedback.id).where(

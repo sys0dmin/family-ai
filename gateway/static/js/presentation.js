@@ -6,7 +6,8 @@ const AGENT_PRESENTATION = {
   musician: { image: '/static/assets/characters/musician.webp', color: '#159c9a', soft: '#dff7f4', deep: '#116b72' },
   outdoor_guide: { image: '/static/assets/characters/murka.webp', color: '#5f8f42', soft: '#edf5df', deep: '#385e32' },
   tech_guide: { image: '/static/assets/characters/baytik.webp', color: '#176b91', soft: '#e2f3f8', deep: '#173f64' },
-  space_guide: { image: '/static/assets/characters/alice-selezneva.webp', color: '#7a4fc7', soft: '#eee8fb', deep: '#49317d' }
+  space_guide: { image: '/static/assets/characters/alice-selezneva.webp', color: '#7a4fc7', soft: '#eee8fb', deep: '#49317d' },
+  clinic_guide: { image: '/static/assets/characters/doctor-pulse.png', color: '#168b88', soft: '#dff5f2', deep: '#155d61' }
 };
 
 export const PROMPTS_BY_AGENT = {
@@ -57,6 +58,12 @@ export const PROMPTS_BY_AGENT = {
     { icon: '🪐', label: 'Планеты', phrase: 'Алиса, какая планета самая необычная?' },
     { icon: '✨', label: 'Звёзды', phrase: 'Алиса, почему звёзды мерцают?' },
     { icon: '🚀', label: 'Полетели!', phrase: 'Давай представим наше путешествие на новую планету' }
+  ],
+  clinic_guide: [
+    { icon: '🩺', label: 'Палата', phrase: 'Откроем игровую палату' },
+    { icon: '❤', label: 'Сердце', phrase: 'Зачем врач слушает сердце?' },
+    { icon: '🌡', label: 'Термометр', phrase: 'Зачем измеряют температуру?' },
+    { icon: '🐾', label: 'Доктор', phrase: 'Расскажи, как врач заботится о пациентах' }
   ]
 };
 

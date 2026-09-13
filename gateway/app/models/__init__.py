@@ -3,6 +3,7 @@
 from gateway.app.models.activity_session import ActivitySession
 from gateway.app.models.agent import Agent, AgentRevision
 from gateway.app.models.child_profile import ChildProfile
+from gateway.app.models.clinic_session import ClinicProcedureEvent, ClinicSession
 from gateway.app.models.conversation import Conversation
 from gateway.app.models.long_term_memory import (
     LongTermMemory,
@@ -28,6 +29,8 @@ __all__ = [
     "AgentRevision",
     "ActivitySession",
     "ChildProfile",
+    "ClinicProcedureEvent",
+    "ClinicSession",
     "Conversation",
     "LongTermMemory",
     "MemoryCategory",

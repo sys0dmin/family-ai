@@ -355,6 +355,8 @@ Get-ChildItem .dr\work
 - проводить clean-room fire drill не реже одного раза в год;
 - обязательно повторять fire drill после изменения PostgreSQL major version,
   bootstrap Speech или release-controller;
+- после восстановления проверять, что Alembic дошёл как минимум до миграции
+  `020_add_clinic_game`, а Clinic catalog в release passport совпадает;
 - измерять фактический RTO отдельно для Gateway/DB и Speech;
 - не считать этот runbook заменой backup: без доступной старой БД сценарий
   `TotalLoss` не возвращает пользовательские данные.

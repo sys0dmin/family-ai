@@ -7,7 +7,10 @@ from sqlalchemy.orm import Session
 
 from gateway.admin.release_passport_service import ReleasePassportService
 from gateway.app.config import Settings
-from gateway.app.observability.runtime_identity import configuration_fingerprint
+from gateway.app.observability.runtime_identity import (
+    clinic_catalog_identity,
+    configuration_fingerprint,
+)
 
 
 class StubVoiceObservability:
@@ -38,6 +41,7 @@ def test_release_passport_reports_aligned_runtime(monkeypatch) -> None:
         "matches_expected": True,
         "uptime_seconds": 20,
         "config_fingerprint": configuration_fingerprint(settings),
+        "clinic_catalog": clinic_catalog_identity(),
         "android": {
             "version": "1.6.0+8",
             "source_commit": commit,
@@ -68,6 +72,8 @@ def test_release_passport_reports_aligned_runtime(monkeypatch) -> None:
     assert passport.database.current_revision == "head-1"
     assert passport.android.version == "1.6.0+8"
     assert passport.configuration.fingerprint == configuration_fingerprint(settings)
+    assert passport.clinic_catalog.status == "aligned"
+    assert passport.clinic_catalog.schema_version == 1
     session.close()
 
 
@@ -78,6 +84,7 @@ def test_release_passport_marks_commit_and_schema_drift(monkeypatch) -> None:
         "expected_commit": "b" * 40,
         "matches_expected": False,
         "config_fingerprint": "0" * 64,
+        "clinic_catalog": {"schema_version": 99, "fingerprint": "0" * 64},
     }
     session = _session()
     service = ReleasePassportService(
@@ -94,4 +101,5 @@ def test_release_passport_marks_commit_and_schema_drift(monkeypatch) -> None:
     assert passport.gateway.status == "drift"
     assert passport.database.status == "drift"
     assert passport.configuration.status == "drift"
+    assert passport.clinic_catalog.status == "drift"
     session.close()

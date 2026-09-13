@@ -11,6 +11,7 @@ from gateway.admin.activity_router import router as activity_router
 from gateway.admin.agents_router import router as agents_router
 from gateway.admin.auth import verify_admin
 from gateway.admin.calibration_router import router as calibration_router
+from gateway.admin.clinic_router import router as clinic_router
 from gateway.admin.diagnostics_router import router as diagnostics_router
 from gateway.admin.history_router import router as history_router
 from gateway.admin.memory_router import router as memory_router
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
         history_router,
         agents_router,
         activity_router,
+        clinic_router,
         monitoring_router,
         release_passport_router,
         system_router,

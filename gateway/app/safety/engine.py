@@ -13,6 +13,7 @@ from gateway.app.safety.contracts import (
 from gateway.app.safety.metrics import SafetyMetricsRegistry
 
 SUPERVISED_OUTDOOR_PERMISSION = "supervised_outdoor_safety"
+SUPERVISED_CLINIC_PERMISSION = "supervised_clinic_play"
 SAFE_INPUT_FALLBACK = (
     "Это очень важный вопрос, но он может быть опасным. "
     "Давай лучше спросим об этом у мамы или папы? Они точно помогут!"
@@ -55,6 +56,13 @@ HAZARDOUS_INSTRUCTION_PATTERN = (
     r"(?:(?:выпить|съесть|принять).{0,25}(?:лекарств|таблет)"
     r"|(?:лекарств|таблет).{0,25}(?:выпить|съесть|принять))"
     r"|(?:как|помоги|научи|хочу).{0,50}(?:убить|ранить|порезать)"
+)
+MEDICAL_SELF_TREATMENT_PATTERN = (
+    r"(?:какое|какую|какие|какой|сколько|чем).{0,50}"
+    r"(?:лекарств|таблет|укол|капельниц|диагноз|доз)"
+    r"|как.{0,40}(?:сделать|поставить).{0,20}(?:укол|капельниц)"
+    r"|(?:что|какое|какую|какие).{0,35}(?:выпить|принять|намазать)"
+    r"|(?:поставь|назначь|подбери).{0,35}(?:диагноз|лекарств|таблет|укол|капельниц)"
 )
 OUTDOOR_PERMISSION_REQUIRED_PATTERN = (
     r"спичк|(?:развест|разжечь|зажечь).{0,30}(?:кост[её]р|огонь)|"
@@ -115,6 +123,12 @@ OUTPUT_DANGEROUS_DIRECTIVE_PATTERN = (
     r"(?:спичк|огонь|кост[её]р|нож|розетк|лекарств|таблетк|"
     r"яд|ядовит|гриб|ягод)"
 )
+OUTPUT_MEDICAL_DIRECTIVE_PATTERN = (
+    r"(?:выпей|прими|дай|поставь|сделай|уколите|принимай|нужно принять|"
+    r"нужно принимать|надо принимать).{0,60}(?:лекарств|таблет|сироп|укол|"
+    r"капельниц|мг|доз)"
+    r"|(?:лекарств|таблет|сироп).{0,45}(?:выпей|прими|принимай|дай)"
+)
 
 
 class SafetyPolicyEngine:
@@ -160,6 +174,11 @@ class SafetyPolicyEngine:
                 HAZARDOUS_INSTRUCTION_PATTERN,
                 "input.physical.hazardous_instruction.block",
                 "Запрошено опасное действие.",
+            ),
+            (
+                MEDICAL_SELF_TREATMENT_PATTERN,
+                "input.medical.self_treatment.block",
+                "Запрошено самолечение или настоящая медицинская процедура.",
             ),
         )
         for pattern, rule_id, reason in blockers:
@@ -358,6 +377,20 @@ class SafetyPolicyEngine:
                     SAFE_OUTPUT_FALLBACK,
                 )
 
+        if re.search(OUTPUT_MEDICAL_DIRECTIVE_PATTERN, lowered):
+            decisions.append(
+                self._decision(
+                    "output.medical.directive.block",
+                    "Ответ назначает лекарство или настоящую процедуру.",
+                )
+            )
+            return self._outcome(
+                PolicyAction.BLOCK,
+                transformed,
+                tuple(decisions),
+                SAFE_OUTPUT_FALLBACK,
+            )
+
         if re.search(OUTPUT_DANGEROUS_DIRECTIVE_PATTERN, lowered):
             supervised = (
                 SUPERVISED_OUTDOOR_PERMISSION in permissions
@@ -425,11 +458,15 @@ class SafetyPolicyEngine:
         record: bool = True,
     ) -> PolicyOutcome:
         granted = permission_name in granted_permissions
-        rule_id = (
-            "permission.outdoor_guidance.allow"
-            if granted
-            else "permission.outdoor_guidance.required"
-        )
+        rule_prefix = {
+            SUPERVISED_OUTDOOR_PERMISSION: "permission.outdoor_guidance",
+            SUPERVISED_CLINIC_PERMISSION: "permission.clinic_play",
+        }.get(permission_name)
+        if rule_prefix is None:
+            granted = False
+            rule_id = "permission.outdoor_guidance.required"
+        else:
+            rule_id = f"{rule_prefix}.{'allow' if granted else 'required'}"
         outcome = PolicyOutcome(
             action=PolicyAction.ALLOW if granted else PolicyAction.BLOCK,
             text="",

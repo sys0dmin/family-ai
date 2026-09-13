@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 
 import '../agents/agent.dart';
 import '../agents/agent_presentation.dart';
+import '../clinic/clinic_gateway.dart';
+import '../clinic/clinic_screen.dart';
 import '../voice/voice_reply_cache.dart';
 import '../voice/voice_session.dart';
 import 'activity_models.dart';
 import 'chat_widgets.dart';
 import 'conversation_controller.dart';
 import 'conversation_gateway.dart';
+import 'conversation_models.dart';
 import 'photo_picker.dart';
 import 'voice_chat_controller.dart';
 
@@ -145,6 +148,30 @@ class _ChatScreenState extends State<ChatScreen> {
     if (message != null) await _voice.replay(message);
   }
 
+  Future<void> _openClinic() async {
+    final gateway = widget.gateway;
+    if (gateway is! ClinicGateway) return;
+    final clinicGateway = gateway as ClinicGateway;
+    final conversationId = await _conversation.ensureConversation();
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ClinicScreen(
+          gateway: clinicGateway,
+          conversationId: conversationId,
+          onSpeak: (messageId, text) => _voice.replay(
+            ConversationMessage(
+              id: messageId,
+              role: 'assistant',
+              content: text,
+            ),
+          ),
+        ),
+      ),
+    );
+    await _conversation.loadHistory();
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -226,6 +253,12 @@ class _ChatScreenState extends State<ChatScreen> {
           if (compactInputMode)
             const Spacer()
           else ...[
+            if (widget.agent.supportsClinicGame &&
+                widget.gateway is ClinicGateway)
+              _ClinicLaunchButton(
+                enabled: !_conversation.busy && !_voice.active,
+                onPressed: _openClinic,
+              ),
             if (_conversation.activitySession?.isInProgress == true)
               _ActiveActivityCard(
                 session: _conversation.activitySession!,

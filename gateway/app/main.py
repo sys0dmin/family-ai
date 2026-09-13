@@ -11,6 +11,7 @@ from gateway.app.observability.runtime_identity import client_build_registry
 from gateway.app.routers.activities import router as activities_router
 from gateway.app.routers.agents import router as agents_router
 from gateway.app.routers.calibration import router as calibration_router
+from gateway.app.routers.clinic import router as clinic_router
 from gateway.app.routers.conversations import router as conversations_router
 from gateway.app.routers.health import router as health_router
 from gateway.app.routers.internal_metrics import router as internal_metrics_router
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(agents_router)
     app.include_router(activities_router)
+    app.include_router(clinic_router)
     app.include_router(conversations_router)
     app.include_router(media_router)
     app.include_router(voice_router)

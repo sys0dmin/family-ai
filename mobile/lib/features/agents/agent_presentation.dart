@@ -59,6 +59,11 @@ const agentPresentations = <String, AgentPresentation>{
     avatarScale: 1.7,
     avatarAlignment: Alignment.topCenter,
   ),
+  'clinic_guide': AgentPresentation(
+    asset: 'assets/characters/doctor-pulse.png',
+    color: Color(0xFF168B88),
+    softColor: Color(0xFFDFF5F2),
+  ),
 };
 
 const fallbackAgentPresentation = AgentPresentation(
