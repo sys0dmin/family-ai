@@ -48,8 +48,10 @@ EOF
     ;;
   database)
     apt-get install -y postgresql postgresql-client prometheus-node-exporter
-    cat >/etc/default/prometheus-node-exporter <<EOF
-ARGS="--web.listen-address=${HOST_IP}:9100"
+    cat >/etc/default/prometheus-node-exporter <<'EOF'
+# Do not bind to the not-yet-assigned LXC address during early boot.
+# harden_network.sh restricts this port to loopback and Gateway.
+ARGS="--web.listen-address=0.0.0.0:9100"
 EOF
     systemctl enable --now postgresql
     systemctl enable prometheus-node-exporter
@@ -57,8 +59,10 @@ EOF
     ;;
   speech)
     apt-get install -y ffmpeg libgomp1 libsndfile1 prometheus-node-exporter
-    cat >/etc/default/prometheus-node-exporter <<EOF
-ARGS="--web.listen-address=${HOST_IP}:9100"
+    cat >/etc/default/prometheus-node-exporter <<'EOF'
+# Do not bind to the not-yet-assigned LXC address during early boot.
+# harden_network.sh restricts this port to loopback and Gateway.
+ARGS="--web.listen-address=0.0.0.0:9100"
 EOF
     install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0750 \
       /var/lib/family-ai-speech \

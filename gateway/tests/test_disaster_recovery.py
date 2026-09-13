@@ -61,6 +61,17 @@ def test_dr_secrets_and_dumps_are_excluded_from_git() -> None:
     assert "*.backup" in gitignore
 
 
+def test_remote_exporters_do_not_depend_on_lxc_address_during_boot() -> None:
+    bootstrap = read("scripts/dr/remote/bootstrap_host.sh")
+    database_defaults = read(
+        "infrastructure/monitoring/prometheus-node-exporter.database"
+    )
+
+    assert bootstrap.count('--web.listen-address=0.0.0.0:9100') == 2
+    assert '--web.listen-address=${HOST_IP}:9100' not in bootstrap
+    assert '--web.listen-address=0.0.0.0:9100' in database_defaults
+
+
 def test_release_controller_supports_fresh_hosts_with_separate_service_user() -> None:
     release = read("scripts/deploy/release.ps1")
     installer = read("scripts/deploy/install_host.sh")
