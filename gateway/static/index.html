@@ -164,6 +164,9 @@
     .agent-card:hover .agent-card-art { transform: scale(1.23); }
     .agent-card[data-agent-id="space_guide"] .agent-card-art { transform: scale(1.03); }
     .agent-card[data-agent-id="space_guide"]:hover .agent-card-art { transform: scale(1.05); }
+    /* Doctor Pulse is intentionally portrait-oriented: keep the whole doctor and cane in frame. */
+    .agent-card[data-agent-id="clinic_guide"] .agent-card-art { transform: scale(0.94); }
+    .agent-card[data-agent-id="clinic_guide"]:hover .agent-card-art { transform: scale(0.98); }
     .agent-card-copy {
       position: absolute;
       inset: auto 0 0;
@@ -534,6 +537,8 @@
       .agent-card:hover .agent-card-art { transform: scale(1.16); }
       .agent-card[data-agent-id="space_guide"] .agent-card-art { transform: scale(1.03); }
       .agent-card[data-agent-id="space_guide"]:hover .agent-card-art { transform: scale(1.05); }
+      .agent-card[data-agent-id="clinic_guide"] .agent-card-art { transform: scale(0.96); }
+      .agent-card[data-agent-id="clinic_guide"]:hover .agent-card-art { transform: scale(1); }
       .agent-card-copy { min-height: 61px; padding: 13px 6px 10px; }
       .agent-card-name { font-size: 0.9rem; }
       .agent-card-hint { display: none; }
