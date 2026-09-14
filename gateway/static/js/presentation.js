@@ -7,7 +7,7 @@ const AGENT_PRESENTATION = {
   outdoor_guide: { image: '/static/assets/characters/murka.webp', color: '#5f8f42', soft: '#edf5df', deep: '#385e32' },
   tech_guide: { image: '/static/assets/characters/baytik.webp', color: '#176b91', soft: '#e2f3f8', deep: '#173f64' },
   space_guide: { image: '/static/assets/characters/alice-selezneva.webp', color: '#7a4fc7', soft: '#eee8fb', deep: '#49317d' },
-  clinic_guide: { image: '/static/assets/characters/doctor-pulse.png?v=2', color: '#168b88', soft: '#dff5f2', deep: '#155d61' }
+  clinic_guide: { image: '/static/assets/characters/doctor-pulse.png?v=3', color: '#168b88', soft: '#dff5f2', deep: '#155d61' }
 };
 
 export const PROMPTS_BY_AGENT = {

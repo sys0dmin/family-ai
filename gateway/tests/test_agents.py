@@ -98,7 +98,7 @@ async def test_child_interface_javascript_modules_are_served(client: AsyncClient
     assert "from './js/image-upload.js?v=22'" in app.text
     assert "export const PROMPTS_BY_AGENT" in presentation.text
     assert (
-        "clinic_guide: { image: '/static/assets/characters/doctor-pulse.png?v=2'"
+        "clinic_guide: { image: '/static/assets/characters/doctor-pulse.png?v=3'"
         in presentation.text
     )
     assert "export async function preparePhotoForUpload" in image_upload.text
