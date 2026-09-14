@@ -14,6 +14,16 @@ class ClinicVital(BaseModel):
     value: str = Field(min_length=1, max_length=20)
     unit: str = Field(default="", max_length=12)
     state: str = Field(pattern=r"^(calm|attention|good)$")
+    readings: tuple["ClinicVitalReading", ...] = Field(default=(), max_length=8)
+
+
+class ClinicVitalReading(BaseModel):
+    """One plausible simulated monitor reading for a fictional patient."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    value: str = Field(min_length=1, max_length=20)
+    state: str = Field(pattern=r"^(calm|attention|good)$")
 
 
 class ClinicVitalUpdate(BaseModel):

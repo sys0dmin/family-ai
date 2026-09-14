@@ -2,14 +2,16 @@
 
 import re
 import uuid
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from secrets import choice
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from gateway.app.clinic.catalog import ClinicCaseCatalog
-from gateway.app.clinic.schemas import ClinicAction, ClinicCase
+from gateway.app.clinic.schemas import ClinicAction, ClinicCase, ClinicVitalReading
 from gateway.app.models.clinic_session import ClinicProcedureEvent, ClinicSession
 from gateway.app.models.conversation import Conversation
 
@@ -72,10 +74,14 @@ class ClinicGameService:
         session: Session,
         catalog: ClinicCaseCatalog | None = None,
         retention_hours: int = 24,
+        vital_reading_picker: Callable[
+            [Sequence[ClinicVitalReading]], ClinicVitalReading
+        ] = choice,
     ) -> None:
         self._session = session
         self._catalog = catalog or ClinicCaseCatalog()
         self._retention_hours = retention_hours
+        self._vital_reading_picker = vital_reading_picker
 
     @property
     def catalog(self) -> ClinicCaseCatalog:
@@ -98,9 +104,7 @@ class ClinicGameService:
         state.case_id = definition.id
         state.case_version = definition.version
         state.status = "active"
-        state.vital_snapshot = {
-            vital.id: vital.model_dump(mode="json") for vital in definition.vitals
-        }
+        state.vital_snapshot = self._initial_vital_snapshot(definition)
         state.started_at = now
         state.updated_at = now
         state.expires_at = now + timedelta(hours=self._retention_hours)
@@ -226,3 +230,21 @@ class ClinicGameService:
         return self._session.scalar(
             select(ClinicSession).where(ClinicSession.conversation_id == conversation_id)
         )
+
+    def _initial_vital_snapshot(self, definition: ClinicCase) -> dict[str, dict[str, object]]:
+        """Choose readings once at intake, then persist the same monitor for both clients."""
+
+        snapshot: dict[str, dict[str, object]] = {}
+        for vital in definition.vitals:
+            reading = (
+                self._vital_reading_picker(vital.readings) if vital.readings else vital
+            )
+            snapshot[vital.id] = {
+                "id": vital.id,
+                "icon": vital.icon,
+                "label": vital.label,
+                "unit": vital.unit,
+                "value": reading.value,
+                "state": reading.state,
+            }
+        return snapshot

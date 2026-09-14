@@ -1,9 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "cases": [
     {
       "id": "teddy_after_walk",
-      "version": 1,
+      "version": 2,
       "title": "Мишка после прогулки",
       "short_title": "Мишка",
       "description": "Помоги уставшему Мишке попить, поесть и отдохнуть.",
@@ -13,22 +13,22 @@
       "opening_text": "Мишка Топа устал после прогулки. Давай послушаем его сердце и поможем ему отдохнуть.",
       "completion_text": "Мишка отдохнул, попил и снова улыбается. Карточка заполнена — на сегодня приём окончен!",
       "vitals": [
-        {"id": "heart", "icon": "❤", "label": "Сердце", "value": "тук-тук", "unit": "", "state": "calm"},
-        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "ровно", "unit": "", "state": "calm"},
-        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,6", "unit": "°", "state": "good"},
-        {"id": "mood", "icon": "🙂", "label": "Самочувствие", "value": "устал", "unit": "", "state": "attention"}
+        {"id": "pulse", "icon": "❤", "label": "Пульс", "value": "100", "unit": "уд/мин", "state": "attention", "readings": [{"value": "96", "state": "attention"}, {"value": "100", "state": "attention"}, {"value": "104", "state": "attention"}]},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "98/64", "unit": "мм рт. ст.", "state": "calm", "readings": [{"value": "96/62", "state": "calm"}, {"value": "98/64", "state": "calm"}, {"value": "100/65", "state": "calm"}]},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,6", "unit": "°C", "state": "good", "readings": [{"value": "36,5", "state": "good"}, {"value": "36,6", "state": "good"}, {"value": "36,7", "state": "good"}]},
+        {"id": "breathing", "icon": "💨", "label": "Дыхание", "value": "23", "unit": "вдох/мин", "state": "attention", "readings": [{"value": "22", "state": "attention"}, {"value": "23", "state": "attention"}, {"value": "24", "state": "attention"}]}
       ],
       "actions": [
         {"id": "listen_heart", "icon": "🩺", "label": "Послушать", "response": "Послушаем сердце Топы: тук-тук, тук-тук. Стучит ровно!", "updates": []},
-        {"id": "give_water", "icon": "💧", "label": "Дать воды", "response": "Мишка сделал несколько глотков воды и повеселел.", "updates": [{"vital_id": "mood", "value": "лучше", "state": "calm"}]},
-        {"id": "feed", "icon": "🥣", "label": "Накормить", "response": "Мишка поел вкусной каши. Теперь у него больше сил.", "updates": []},
-        {"id": "rest", "icon": "🛏", "label": "Уложить", "response": "Мишка уютно устроился под пледом и отдохнул.", "updates": [{"vital_id": "mood", "value": "отлично", "state": "good"}]}
+        {"id": "give_water", "icon": "💧", "label": "Дать воды", "response": "Мишка сделал несколько глотков воды и повеселел. На мониторе пульс стал спокойнее.", "updates": [{"vital_id": "pulse", "value": "92", "state": "calm"}, {"vital_id": "breathing", "value": "21", "state": "calm"}]},
+        {"id": "feed", "icon": "🥣", "label": "Накормить", "response": "Мишка поел вкусной каши. Теперь у него больше сил.", "updates": [{"vital_id": "pulse", "value": "90", "state": "calm"}]},
+        {"id": "rest", "icon": "🛏", "label": "Уложить", "response": "Мишка уютно устроился под пледом и отдохнул. Дыхание стало ровнее.", "updates": [{"vital_id": "pulse", "value": "86", "state": "good"}, {"vital_id": "breathing", "value": "19", "state": "good"}]}
       ],
       "required_action_ids": ["listen_heart", "give_water", "feed", "rest"]
     },
     {
       "id": "robot_checkup",
-      "version": 1,
+      "version": 2,
       "title": "Осмотр робота Рони",
       "short_title": "Робот",
       "description": "Помоги Рони пройти осмотр перед полётом.",
@@ -38,22 +38,22 @@
       "opening_text": "Рони скоро отправляется в полёт и немного волнуется. Давай проведём осмотр и поможем ему успокоиться.",
       "completion_text": "Осмотр закончен! Рони чувствует себя хорошо и готовится к полёту. Он машет тебе на прощание!",
       "vitals": [
-        {"id": "heart", "icon": "❤", "label": "Ритм", "value": "бип-бип", "unit": "", "state": "calm"},
-        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "ровно", "unit": "", "state": "good"},
-        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,5", "unit": "°", "state": "good"},
-        {"id": "mood", "icon": "🙂", "label": "Самочувствие", "value": "волнуется", "unit": "", "state": "attention"}
+        {"id": "pulse", "icon": "❤", "label": "Пульс", "value": "102", "unit": "уд/мин", "state": "attention", "readings": [{"value": "98", "state": "attention"}, {"value": "102", "state": "attention"}, {"value": "106", "state": "attention"}]},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "100/64", "unit": "мм рт. ст.", "state": "calm", "readings": [{"value": "98/62", "state": "calm"}, {"value": "100/64", "state": "calm"}, {"value": "102/66", "state": "calm"}]},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,5", "unit": "°C", "state": "good", "readings": [{"value": "36,4", "state": "good"}, {"value": "36,5", "state": "good"}, {"value": "36,6", "state": "good"}]},
+        {"id": "breathing", "icon": "💨", "label": "Дыхание", "value": "22", "unit": "вдох/мин", "state": "attention", "readings": [{"value": "21", "state": "attention"}, {"value": "22", "state": "attention"}, {"value": "23", "state": "attention"}]}
       ],
       "actions": [
         {"id": "measure_temperature", "icon": "🌡", "label": "Температура", "response": "Термометр пикнул — температуру Рони проверили. Отметим в карточке!", "updates": []},
         {"id": "measure_pressure", "icon": "🩺", "label": "Давление", "response": "Манжета тихонько зашуршала и закончила проверку. Давление Рони записано в карточку.", "updates": []},
-        {"id": "give_blanket", "icon": "🧣", "label": "Дать плед", "response": "Рони стало уютнее, и он перестал волноваться.", "updates": [{"vital_id": "mood", "value": "спокоен", "state": "good"}]},
+        {"id": "give_blanket", "icon": "🧣", "label": "Дать плед", "response": "Рони стало уютнее, и он перестал волноваться. Пульс и дыхание замедлились.", "updates": [{"vital_id": "pulse", "value": "88", "state": "good"}, {"vital_id": "breathing", "value": "19", "state": "good"}]},
         {"id": "call_senior", "icon": "👩‍⚕️", "label": "Старший врач", "response": "Старший врач заглянул в карточку Рони и кивнул: всё отмечено!", "updates": []}
       ],
       "required_action_ids": ["measure_temperature", "measure_pressure", "give_blanket", "call_senior"]
     },
     {
       "id": "fox_after_procedure",
-      "version": 1,
+      "version": 2,
       "title": "Забота о лисёнке",
       "short_title": "Лисёнок",
       "description": "Отметь назначенные старшим врачом процедуры и позаботься о пациенте.",
@@ -63,16 +63,16 @@
       "opening_text": "Лисёнок Рыжик вернулся в палату после процедур. Давай заполним его карточку, накормим и устроим поудобнее.",
       "completion_text": "Карточка заполнена, Рыжик сыт и спокойно отдыхает. Спасибо за заботу — теперь дадим ему поспать.",
       "vitals": [
-        {"id": "heart", "icon": "❤", "label": "Сердце", "value": "ровно", "unit": "", "state": "calm"},
-        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "ровно", "unit": "", "state": "calm"},
-        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,7", "unit": "°", "state": "good"},
-        {"id": "mood", "icon": "🙂", "label": "Самочувствие", "value": "ждёт", "unit": "", "state": "attention"}
+        {"id": "pulse", "icon": "❤", "label": "Пульс", "value": "94", "unit": "уд/мин", "state": "attention", "readings": [{"value": "90", "state": "calm"}, {"value": "94", "state": "attention"}, {"value": "98", "state": "attention"}]},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "98/63", "unit": "мм рт. ст.", "state": "calm", "readings": [{"value": "96/62", "state": "calm"}, {"value": "98/63", "state": "calm"}, {"value": "100/64", "state": "calm"}]},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,7", "unit": "°C", "state": "good", "readings": [{"value": "36,5", "state": "good"}, {"value": "36,6", "state": "good"}, {"value": "36,7", "state": "good"}]},
+        {"id": "breathing", "icon": "💨", "label": "Дыхание", "value": "21", "unit": "вдох/мин", "state": "calm", "readings": [{"value": "20", "state": "calm"}, {"value": "21", "state": "calm"}, {"value": "22", "state": "attention"}]}
       ],
       "actions": [
         {"id": "mark_injection", "icon": "☑", "label": "Укол сделан", "response": "Медсестра уже сделала Рыжику назначенный укол. Ставим галочку в карточке!", "updates": []},
         {"id": "mark_iv", "icon": "💧", "label": "Капельница", "response": "Старший врач закончил процедуру с капельницей. Запишем это в карточку Рыжика.", "updates": []},
         {"id": "feed", "icon": "🥣", "label": "Накормить", "response": "Рыжик поел и благодарно улыбнулся.", "updates": []},
-        {"id": "rest", "icon": "🛏", "label": "Отдых", "response": "Рыжик устроился поудобнее и спокойно отдыхает.", "updates": [{"vital_id": "mood", "value": "отдыхает", "state": "good"}]}
+        {"id": "rest", "icon": "🛏", "label": "Отдых", "response": "Рыжик устроился поудобнее и спокойно отдыхает. Пульс и дыхание пришли в спокойный ритм.", "updates": [{"vital_id": "pulse", "value": "84", "state": "good"}, {"vital_id": "breathing", "value": "18", "state": "good"}]}
       ],
       "required_action_ids": ["mark_injection", "mark_iv", "feed", "rest"]
     }
