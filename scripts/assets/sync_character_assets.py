@@ -16,7 +16,7 @@ def _assets(directory: Path) -> dict[str, Path]:
     return {
         path.name: path
         for path in directory.iterdir()
-        if path.is_file() and path.suffix.lower() == ".webp"
+        if path.is_file() and path.suffix.lower() in {".png", ".webp"}
     }
 
 

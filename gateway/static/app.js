@@ -1,9 +1,9 @@
-import { PROMPTS_BY_AGENT, presentationFor } from './js/presentation.js?v=21';
+import { PROMPTS_BY_AGENT, presentationFor } from './js/presentation.js?v=22';
 import {
     DEFAULT_IMAGE_UPLOAD_MAX_BYTES,
     photoErrorMessage,
     preparePhotoForUpload
-} from './js/image-upload.js?v=21';
+} from './js/image-upload.js?v=22';
 
 let mediaRecorder = null;
 let mediaStream = null;

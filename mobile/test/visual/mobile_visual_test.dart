@@ -109,7 +109,7 @@ const _visualClinicSession = ClinicSession(
       id: 'pressure',
       icon: '〽️',
       label: 'Давление',
-      value: 'игровое',
+      value: 'ровно',
       unit: '',
       state: 'calm',
     ),

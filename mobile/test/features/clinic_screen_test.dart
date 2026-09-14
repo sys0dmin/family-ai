@@ -16,7 +16,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Играем в больницу'), findsOneWidget);
+    expect(find.text('Палата Доктора Пульса'), findsOneWidget);
     await tester.tap(find.byKey(const Key('clinic-case-teddy_after_walk')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));

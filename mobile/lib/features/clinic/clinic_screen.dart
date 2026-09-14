@@ -218,13 +218,13 @@ class _CasePicker extends StatelessWidget {
     padding: const EdgeInsets.all(18),
     children: [
       const Text(
-        'Играем в больницу',
+        'Палата Доктора Пульса',
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
       ),
       const SizedBox(height: 6),
       const Text(
-        'Это игрушечные пациенты и ненастоящие показатели.',
+        'Позаботимся о наших пациентах',
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 15),
       ),
@@ -476,7 +476,7 @@ class _ClinicRoom extends StatelessWidget {
       ),
       const SizedBox(height: 14),
       const Text(
-        'Если по-настоящему что-то болит — сразу позови взрослого.',
+        'Отмечай заботу в карточке пациента',
         textAlign: TextAlign.center,
         style: TextStyle(fontWeight: FontWeight.w700),
       ),
