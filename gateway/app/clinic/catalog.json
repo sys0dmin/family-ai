@@ -75,6 +75,33 @@
         {"id": "rest", "icon": "🛏", "label": "Отдых", "response": "Рыжик устроился поудобнее и спокойно отдыхает. Пульс и дыхание пришли в спокойный ритм.", "updates": [{"vital_id": "pulse", "value": "84", "state": "good"}, {"vital_id": "breathing", "value": "18", "state": "good"}]}
       ],
       "required_action_ids": ["mark_injection", "mark_iv", "feed", "rest"]
+    },
+    {
+      "id": "full_checkup",
+      "version": 1,
+      "title": "Полный осмотр",
+      "short_title": "Полный осмотр",
+      "description": "Проведи осмотр по шагам и помоги пациенту почувствовать себя спокойнее.",
+      "patient_name": "Мишка Топа",
+      "patient_icon": "🧸",
+      "color": "#6C63D9",
+      "opening_text": "Сегодня у нас полный осмотр Мишки Топы. Давай поздороваемся, проверим его показатели и позаботимся о нём по порядку.",
+      "completion_text": "Полный осмотр закончен! Все шаги отмечены, показатели спокойные, а старший врач благодарит тебя за внимательную заботу.",
+      "vitals": [
+        {"id": "pulse", "icon": "❤", "label": "Пульс", "value": "102", "unit": "уд/мин", "state": "attention", "readings": [{"value": "98", "state": "attention"}, {"value": "102", "state": "attention"}, {"value": "106", "state": "attention"}]},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "100/64", "unit": "мм рт. ст.", "state": "calm", "readings": [{"value": "98/62", "state": "calm"}, {"value": "100/64", "state": "calm"}, {"value": "102/66", "state": "calm"}]},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,6", "unit": "°C", "state": "good", "readings": [{"value": "36,5", "state": "good"}, {"value": "36,6", "state": "good"}, {"value": "36,7", "state": "good"}]},
+        {"id": "breathing", "icon": "💨", "label": "Дыхание", "value": "23", "unit": "вдох/мин", "state": "attention", "readings": [{"value": "22", "state": "attention"}, {"value": "23", "state": "attention"}, {"value": "24", "state": "attention"}]}
+      ],
+      "actions": [
+        {"id": "greet_patient", "icon": "👋", "label": "Поздороваться", "response": "Мишка Топа улыбнулся и удобно сел на стул. Он готов к внимательному осмотру.", "updates": []},
+        {"id": "listen_heart", "icon": "🩺", "label": "Послушать сердце", "response": "Тук-тук, тук-тук! Сердце Топы стучит ровно. Он уже меньше волнуется.", "updates": [{"vital_id": "pulse", "value": "96", "state": "attention"}]},
+        {"id": "measure_temperature", "icon": "🌡", "label": "Проверить температуру", "response": "Термометр показал спокойную температуру. Записываем результат в карточку пациента.", "updates": []},
+        {"id": "measure_pressure", "icon": "🩺", "label": "Проверить давление", "response": "Манжета тихонько прошуршала. Давление записано в карточку, всё спокойно.", "updates": []},
+        {"id": "check_breathing", "icon": "💨", "label": "Проверить дыхание", "response": "Топа сделал медленный вдох и выдох. Дыхание стало ровнее.", "updates": [{"vital_id": "breathing", "value": "20", "state": "calm"}]},
+        {"id": "call_senior", "icon": "👩‍⚕️", "label": "Позвать старшего врача", "response": "Старший врач посмотрел карточку и похвалил тебя: ты ничего не пропустил и очень внимательно позаботился о Топе.", "updates": [{"vital_id": "pulse", "value": "88", "state": "good"}]}
+      ],
+      "required_action_ids": ["greet_patient", "listen_heart", "measure_temperature", "measure_pressure", "check_breathing", "call_senior"]
     }
   ]
 }

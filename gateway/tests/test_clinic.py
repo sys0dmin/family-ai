@@ -25,6 +25,7 @@ async def test_clinic_catalog_is_child_safe_and_versioned(client: AsyncClient) -
         "teddy_after_walk",
         "robot_checkup",
         "fox_after_procedure",
+        "full_checkup",
     ]
     assert "opening_text" not in body["items"][0]
 
