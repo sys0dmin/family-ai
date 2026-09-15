@@ -60,7 +60,7 @@ async def test_admin_previews_pauses_resumes_and_resets_clinic_session(
 
     assert catalog.status_code == 200
     assert catalog.json()["schema_version"] == 2
-    assert len(catalog.json()["items"]) == 4
+    assert len(catalog.json()["items"]) == 6
     assert catalog.json()["items"][0]["vitals"]
     assert catalog.json()["items"][0]["actions"]
     assert sessions.status_code == 200

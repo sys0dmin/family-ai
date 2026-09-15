@@ -102,6 +102,60 @@
         {"id": "call_senior", "icon": "👩‍⚕️", "label": "Позвать старшего врача", "response": "Старший врач посмотрел карточку и похвалил тебя: ты ничего не пропустил и очень внимательно позаботился о Топе.", "updates": [{"vital_id": "pulse", "value": "88", "state": "good"}]}
       ],
       "required_action_ids": ["greet_patient", "listen_heart", "measure_temperature", "measure_pressure", "check_breathing", "call_senior"]
+    },
+    {
+      "id": "bunny_tired",
+      "version": 1,
+      "title": "Зайчик устал",
+      "short_title": "Зайчик",
+      "description": "Помоги зайчику отдохнуть после долгого дня в лесу.",
+      "patient_name": "Зайчик Снежок",
+      "patient_icon": "🐰",
+      "mood": "сонное",
+      "complaint": "Устал и хочет немного отдохнуть.",
+      "color": "#8A7BD1",
+      "opening_text": "Зайчик Снежок долго бегал по лесу и устал. Давай спокойно осмотрим его и поможем восстановить силы.",
+      "completion_text": "Снежок отдохнул и снова улыбается. Осмотр закончен — ты отлично позаботился о зайчике!",
+      "vitals": [
+        {"id": "pulse", "icon": "❤", "label": "Пульс", "value": "108", "unit": "уд/мин", "state": "attention", "readings": [{"value": "104", "state": "attention"}, {"value": "108", "state": "attention"}, {"value": "112", "state": "attention"}]},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "99/63", "unit": "мм рт. ст.", "state": "calm"},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,7", "unit": "°C", "state": "good"},
+        {"id": "breathing", "icon": "💨", "label": "Дыхание", "value": "25", "unit": "вдох/мин", "state": "attention", "readings": [{"value": "24", "state": "attention"}, {"value": "25", "state": "attention"}, {"value": "26", "state": "attention"}]}
+      ],
+      "actions": [
+        {"id": "listen_heart", "icon": "🩺", "label": "Послушать сердце", "response": "Сердце Снежка стучит чуть быстрее после пробежки. Он спокойно дышит и слушает тебя.", "updates": []},
+        {"id": "give_water", "icon": "💧", "label": "Дать воды", "response": "Снежок сделал несколько глотков чистой воды. Ему стало заметно спокойнее.", "updates": [{"vital_id": "pulse", "value": "96", "state": "calm"}, {"vital_id": "breathing", "value": "22", "state": "calm"}]},
+        {"id": "rest", "icon": "🛏", "label": "Устроить отдых", "response": "Зайчик устроился на мягком пледе и сделал медленный вдох. Силы возвращаются.", "updates": [{"vital_id": "pulse", "value": "88", "state": "good"}, {"vital_id": "breathing", "value": "19", "state": "good"}]},
+        {"id": "call_senior", "icon": "👩‍⚕️", "label": "Позвать старшего врача", "response": "Старший врач заглянул к Снежку и похвалил твою заботу. Карточка заполнена правильно.", "updates": []}
+      ],
+      "required_action_ids": ["listen_heart", "give_water", "rest", "call_senior"]
+    },
+    {
+      "id": "puppy_afraid",
+      "version": 1,
+      "title": "Щенок боится врача",
+      "short_title": "Щенок",
+      "description": "Познакомься со щенком и помоги ему перестать волноваться.",
+      "patient_name": "Щенок Бублик",
+      "patient_icon": "🐶",
+      "mood": "взволнованное",
+      "complaint": "Боится осмотра и прячет лапку.",
+      "color": "#E69A50",
+      "opening_text": "Щенок Бублик пришёл на осмотр и немного волнуется. Давай сначала познакомимся, а потом осторожно проверим его.",
+      "completion_text": "Бублик перестал бояться и весело виляет хвостом. Осмотр закончен — ты был очень добрым доктором!",
+      "vitals": [
+        {"id": "pulse", "icon": "❤", "label": "Пульс", "value": "112", "unit": "уд/мин", "state": "attention", "readings": [{"value": "108", "state": "attention"}, {"value": "112", "state": "attention"}, {"value": "116", "state": "attention"}]},
+        {"id": "pressure", "icon": "🩺", "label": "Давление", "value": "101/65", "unit": "мм рт. ст.", "state": "calm"},
+        {"id": "temperature", "icon": "🌡", "label": "Температура", "value": "36,6", "unit": "°C", "state": "good"},
+        {"id": "breathing", "icon": "💨", "label": "Дыхание", "value": "27", "unit": "вдох/мин", "state": "attention", "readings": [{"value": "25", "state": "attention"}, {"value": "27", "state": "attention"}, {"value": "29", "state": "attention"}]}
+      ],
+      "actions": [
+        {"id": "greet_patient", "icon": "👋", "label": "Познакомиться", "response": "Бублик услышал добрый голос и осторожно высунулся из-за стула. Он готов попробовать.", "updates": [{"vital_id": "pulse", "value": "104", "state": "attention"}]},
+        {"id": "listen_heart", "icon": "🩺", "label": "Послушать сердце", "response": "Тук-тук! Бублик лежит спокойно, пока ты слушаешь его сердце.", "updates": []},
+        {"id": "give_blanket", "icon": "🧣", "label": "Успокоить", "response": "Тёплый плед помог Бублику расслабиться. Он больше не прячет лапку.", "updates": [{"vital_id": "pulse", "value": "92", "state": "calm"}, {"vital_id": "breathing", "value": "21", "state": "calm"}]},
+        {"id": "call_senior", "icon": "👩‍⚕️", "label": "Позвать старшего врача", "response": "Старший врач осмотрел карточку и сказал, что Бублик в надёжных руках. Спасибо за доброту!", "updates": [{"vital_id": "pulse", "value": "86", "state": "good"}]}
+      ],
+      "required_action_ids": ["greet_patient", "listen_heart", "give_blanket", "call_senior"]
     }
   ]
 }
