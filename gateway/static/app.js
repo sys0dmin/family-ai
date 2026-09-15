@@ -337,6 +337,9 @@ async function loadActivitiesForAgent(agentId) {
 
 function renderClinic() {
     clinicBar.hidden = !selectedAgent?.supports_clinic_game;
+    // A session marked "left" is only a persistence record. It must not trap
+    // the user in an empty room when the clinic dialog is opened again.
+    if (currentClinic?.status === 'left') currentClinic = null;
     clinicCases.replaceChildren();
     for (const item of availableClinicCases) {
         const card = document.createElement('button');
@@ -393,6 +396,11 @@ function renderClinic() {
     const paused = currentClinic.status === 'paused';
     document.getElementById('clinic-pause').hidden = paused || currentClinic.status !== 'active';
     document.getElementById('clinic-resume').hidden = !paused;
+    const leaveButton = document.getElementById('clinic-leave');
+    const completed = currentClinic.status === 'completed';
+    leaveButton.textContent = completed ? '＋ Новый пациент' : '↩ Завершить';
+    leaveButton.setAttribute('aria-label', completed ? 'Выбрать нового пациента' : 'Закончить осмотр');
+    leaveButton.classList.toggle('clinic-new-patient', completed);
 }
 
 async function loadClinicCases(agent) {
@@ -475,8 +483,8 @@ async function transitionClinic(transition) {
         const response = await fetch(`/v1/clinic/conversations/${conversationId}/${transition}`, { method: 'POST' });
         if (!response.ok) throw new Error('Clinic transition failed');
         currentClinic = (await response.json()).session;
+        if (transition === 'leave') currentClinic = null;
         renderClinic();
-        if (transition === 'leave') clinicDialog.close();
     } catch (error) {
         console.error('Clinic transition failed:', error);
     }
@@ -1100,7 +1108,14 @@ clinicOpen.onclick = () => {
 document.getElementById('clinic-close').onclick = () => clinicDialog.close();
 document.getElementById('clinic-pause').onclick = () => transitionClinic('pause');
 document.getElementById('clinic-resume').onclick = () => transitionClinic('resume');
-document.getElementById('clinic-leave').onclick = () => transitionClinic('leave');
+document.getElementById('clinic-leave').onclick = () => {
+    if (currentClinic?.status === 'completed') {
+        currentClinic = null;
+        renderClinic();
+        return;
+    }
+    transitionClinic('leave');
+};
 document.getElementById('clinic-sound').onclick = () => {
     clinicSoundEnabled = !clinicSoundEnabled;
     saveClinicSoundPreference();
