@@ -327,7 +327,7 @@ class _ClinicRoom extends StatelessWidget {
                           style: const TextStyle(color: Color(0xFFA8D8D2)),
                         ),
                         Text(
-                          'Настроение: ${session.mood}',
+                          'Настроение: ${session.isCompleted ? 'довольное' : session.actions.any((action) => action.completed) ? 'становится спокойнее' : session.mood}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: Color(0xFFA8D8D2), fontSize: 12),
