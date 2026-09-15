@@ -159,6 +159,28 @@ def test_clinic_intake_chooses_and_persists_a_plausible_vital_set(
     assert after_water.vital_snapshot["breathing"]["value"] == "21"
 
 
+def test_clinic_catalog_upgrade_closes_an_incompatible_old_appointment(
+    db_session: Session,
+) -> None:
+    conversations = ConversationService(
+        db_session,
+        agents=AgentService(SqlAlchemyAgentRepository(db_session)),
+    )
+    conversation = conversations.create_conversation("clinic_guide")
+    clinic = ClinicGameService(db_session)
+    started = clinic.start(conversation.id, "teddy_after_walk")
+    started.case_version = 1
+    started.vital_snapshot = {"heart": {"value": "тук-тук"}}
+    db_session.flush()
+
+    restored = clinic.get(conversation.id)
+
+    assert restored is not None
+    assert restored.status == "left"
+    assert restored.case_version == 2
+    assert set(restored.vital_snapshot) == {"pulse", "pressure", "temperature", "breathing"}
+
+
 @pytest.mark.anyio
 async def test_clinic_metrics_contain_only_operation_outcomes(client: AsyncClient) -> None:
     clinic_metrics_registry.reset()

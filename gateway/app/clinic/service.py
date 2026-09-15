@@ -122,6 +122,16 @@ class ClinicGameService:
             self._session.delete(state)
             self._session.flush()
             return None
+        definition = self._catalog.get(state.case_id)
+        if definition.version != state.case_version:
+            # A catalog upgrade can rename or add monitor fields. Do not try to
+            # render a mixed old/new snapshot: close the old appointment and
+            # give the client a compatible card from which to begin afresh.
+            state.case_version = definition.version
+            state.status = "left"
+            state.vital_snapshot = self._initial_vital_snapshot(definition)
+            state.updated_at = datetime.now(UTC)
+            self._session.flush()
         return state
 
     def turn_context(self, conversation_id: uuid.UUID) -> ClinicTurnContext | None:
