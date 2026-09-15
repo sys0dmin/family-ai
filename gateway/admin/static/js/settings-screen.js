@@ -52,7 +52,7 @@ export function createSettingsScreen() {
     setValue("image_search_timeout_seconds", data.image_search_timeout_seconds || 6);
     setValue("vision_provider", data.vision_provider || "disabled");
     setValue("vision_base_url", data.vision_base_url || "");
-    setValue("vision_model", data.vision_model || "qwen/qwen3.6-27b");
+    setValue("vision_model", data.vision_model || "qwen/qwen3.8-27b");
     setValue(
       "vision_max_image_mb",
       Math.max(1, Math.round((data.vision_max_image_bytes || 10485760) / 1048576))

@@ -32,14 +32,14 @@
 4. Сохраните настройки и перезапустите Gateway.
 
 Для текущего Groq OpenAI-compatible endpoint подходит модель
-`qwen/qwen3.6-27b`. Model ID остаётся настройкой:
+`qwen/qwen3.8-27b`. Model ID остаётся настройкой:
 провайдер может заменить или отключить preview-модель.
 
 Эквивалентная конфигурация:
 
 ```dotenv
 FAMILY_AI_VISION_PROVIDER=openai_compatible
-FAMILY_AI_VISION_MODEL=qwen/qwen3.6-27b
+FAMILY_AI_VISION_MODEL=qwen/qwen3.8-27b
 FAMILY_AI_VISION_BASE_URL=https://api.groq.com/openai/v1
 # Не задавайте, чтобы использовать FAMILY_AI_OPENAI_API_KEY:
 FAMILY_AI_VISION_API_KEY=
