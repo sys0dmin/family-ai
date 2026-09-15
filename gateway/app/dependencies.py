@@ -7,6 +7,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from gateway.app.activities import ActivityCatalog, ActivityService
+from gateway.admin.clinic_draft_service import published_clinic_overlays
 from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.calibration.service import SpeechCalibrationService
 from gateway.app.clinic import ClinicCaseCatalog, ClinicGameService
@@ -150,7 +151,7 @@ def get_clinic_service(
 ) -> ClinicGameService:
     return ClinicGameService(
         session,
-        ClinicCaseCatalog(),
+        ClinicCaseCatalog(overlays=published_clinic_overlays(session)),
         retention_hours=settings.activity_retention_hours,
     )
 

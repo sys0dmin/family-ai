@@ -10,13 +10,23 @@ class ClinicCaseNotFoundError(LookupError):
 
 
 class ClinicCaseCatalog:
-    def __init__(self, path: Path | None = None) -> None:
+    def __init__(self, path: Path | None = None, overlays: dict[str, dict[str, str]] | None = None) -> None:
         catalog_path = path or Path(__file__).with_name("catalog.json")
         document = ClinicCatalogDocument.model_validate_json(
             catalog_path.read_text(encoding="utf-8")
         )
         self._schema_version = document.schema_version
-        self._items = {item.id: item for item in document.cases}
+        allowed_fields = {
+            "title", "short_title", "description", "patient_name", "patient_icon",
+            "mood", "complaint", "opening_text", "completion_text",
+        }
+        self._items = {
+            item.id: item.model_copy(update={
+                key: value for key, value in (overlays or {}).get(item.id, {}).items()
+                if key in allowed_fields
+            })
+            for item in document.cases
+        }
 
     @property
     def schema_version(self) -> int:

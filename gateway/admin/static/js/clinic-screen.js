@@ -11,6 +11,52 @@ const statusLabels = {
 export function createClinicScreen() {
   let catalog = [];
 
+  const draftFields = {
+    title: "clinic-draft-title",
+    patient_name: "clinic-draft-patient-name",
+    mood: "clinic-draft-mood",
+    complaint: "clinic-draft-complaint",
+    description: "clinic-draft-description",
+    opening_text: "clinic-draft-opening",
+    completion_text: "clinic-draft-completion"
+  };
+
+  function fillDraftEditor() {
+    const selected = catalog.find(item => item.id === byId("clinic-preview-select").value);
+    if (!selected) return;
+    for (const [field, id] of Object.entries(draftFields)) byId(id).value = selected[field] || "";
+  }
+
+  function renderDrafts(items) {
+    const container = byId("clinic-draft-list");
+    container.replaceChildren();
+    if (!items.length) { container.innerHTML = '<div class="empty">Черновиков пока нет</div>'; return; }
+    for (const draft of items) {
+      const row = document.createElement("div"); row.className = "clinic-session-card";
+      const text = document.createElement("span"); text.textContent = `${draft.case_id} · версия ${draft.version} · ${draft.status}`;
+      row.append(text);
+      if (draft.status === "draft") {
+        const publish = document.createElement("button"); publish.className = "secondary"; publish.textContent = "Опубликовать";
+        publish.onclick = async () => { await api(`/api/clinic/drafts/${draft.id}/publish`, { method: "POST" }); await load(); };
+        row.append(publish);
+      }
+      container.append(row);
+    }
+  }
+
+  async function loadDrafts() { renderDrafts(await api("/api/clinic/drafts", { method: "GET" })); }
+
+  async function saveDraft() {
+    const selected = catalog.find(item => item.id === byId("clinic-preview-select").value);
+    if (!selected) return;
+    const payload = {};
+    for (const [field, id] of Object.entries(draftFields)) payload[field] = byId(id).value;
+    setStatus(byId("clinic-draft-status"), "Сохраняю…", "warn");
+    await api("/api/clinic/drafts", { method: "POST", body: JSON.stringify({ case_id: selected.id, payload }) });
+    setStatus(byId("clinic-draft-status"), "Черновик сохранён", "ok");
+    await loadDrafts();
+  }
+
   function renderPreview() {
     const selected = catalog.find(item => item.id === byId("clinic-preview-select").value);
     const container = byId("clinic-preview");
@@ -137,6 +183,7 @@ export function createClinicScreen() {
     }
     if (catalog.some(item => item.id === previous)) select.value = previous;
     renderPreview();
+    fillDraftEditor();
   }
 
   async function loadSessions() {
@@ -147,14 +194,15 @@ export function createClinicScreen() {
   async function load() {
     setStatus(byId("clinic-studio-status"), "Загрузка…", "warn");
     try {
-      await Promise.all([loadCatalog(), loadSessions()]);
+      await Promise.all([loadCatalog(), loadSessions(), loadDrafts()]);
       setStatus(byId("clinic-studio-status"), "Готово", "ok");
     } catch (error) {
       setStatus(byId("clinic-studio-status"), `Ошибка: ${error.message}`, "err");
     }
   }
 
-  byId("clinic-preview-select").onchange = renderPreview;
+  byId("clinic-preview-select").onchange = () => { renderPreview(); fillDraftEditor(); };
   byId("clinic-studio-refresh").onclick = load;
+  byId("clinic-draft-save").onclick = saveDraft;
   return { load };
 }

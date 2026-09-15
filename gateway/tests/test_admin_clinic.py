@@ -79,3 +79,25 @@ def test_admin_panel_loads_clinic_studio_module() -> None:
     assert 'id="clinic-session-list"' in panel
     assert 'from "./clinic-screen.js?v=admin-modules-4"' in app
     assert "clinicScreen.load();" in app
+
+
+@pytest.mark.anyio
+async def test_admin_can_version_and_publish_clinic_draft(
+    authenticated_clinic_admin,
+) -> None:
+    transport = ASGITransport(app=admin_app)
+    async with AsyncClient(transport=transport, base_url="http://admin") as admin:
+        created = await admin.post(
+            "/api/clinic/drafts",
+            json={
+                "case_id": "teddy_after_walk",
+                "payload": {"mood": "радостное", "complaint": "Хочет отдохнуть."},
+            },
+        )
+        listed = await admin.get("/api/clinic/drafts")
+        published = await admin.post(f"/api/clinic/drafts/{created.json()['id']}/publish")
+
+    assert created.status_code == 201
+    assert created.json()["version"] == 1
+    assert listed.json()[0]["status"] == "draft"
+    assert published.json()["status"] == "published"

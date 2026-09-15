@@ -261,6 +261,14 @@
               <div id="clinic-session-list" class="activity-session-list"><div class="empty">Карточек пациентов пока нет</div></div>
             </section>
           </div>
+          <section class="clinic-draft-editor">
+            <div class="panel-head compact"><div><div class="card-kicker">Parent editor</div><h3>Черновик сценария</h3></div><span id="clinic-draft-status" class="muted"></span></div>
+            <p class="muted">Можно менять рассказ и карточку пациента. Процедуры и safety-правила защищены.</p>
+            <div class="grid two"><label class="field"><span>Название</span><input id="clinic-draft-title" maxlength="80"></label><label class="field"><span>Имя пациента</span><input id="clinic-draft-patient-name" maxlength="40"></label><label class="field"><span>Настроение</span><input id="clinic-draft-mood" maxlength="80"></label><label class="field"><span>Жалоба</span><input id="clinic-draft-complaint" maxlength="160"></label></div>
+            <label class="field"><span>Описание</span><textarea id="clinic-draft-description" maxlength="200"></textarea></label><label class="field"><span>Начальная реплика</span><textarea id="clinic-draft-opening" maxlength="500"></textarea></label><label class="field"><span>Финальная реплика</span><textarea id="clinic-draft-completion" maxlength="400"></textarea></label>
+            <div class="studio-actions"><button id="clinic-draft-save" class="primary">Сохранить черновик</button></div>
+            <div id="clinic-draft-list" class="activity-session-list"><div class="empty">Черновиков пока нет</div></div>
+          </section>
         </article>
         <article class="panel studio-controls" style="margin-top:18px">
           <div class="panel-head"><div><div class="card-kicker">Child speech lab</div><h2>Калибровка речи Леры</h2></div><span id="calibration-state" class="health-pill">Не запускалась</span></div>
