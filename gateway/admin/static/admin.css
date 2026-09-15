@@ -948,6 +948,8 @@
     .clinic-preview-head > span, .clinic-session-head > div:first-child > span { width:50px; height:50px; display:grid; place-items:center; flex:0 0 auto; border-radius:16px; background:rgba(84,223,168,.09); font-size:28px; }
     .clinic-preview-head strong, .clinic-preview-head small, .clinic-session-head strong, .clinic-session-head small { display:block; }
     .clinic-preview-head small, .clinic-session-head small { margin-top:4px; color:var(--muted); font-size:11px; }
+    .clinic-preview-context { display:grid; gap:4px; margin:12px 0; padding:10px 12px; border:1px solid var(--line); border-radius:12px; color:var(--muted); font-size:12px; }
+    .clinic-preview-context span { overflow-wrap:anywhere; }
     .clinic-monitor-preview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:14px; padding:12px; border-radius:15px; background:#10282c; }
     .clinic-monitor-preview > div { padding:10px; border-radius:11px; background:#19393d; }
     .clinic-monitor-preview span, .clinic-monitor-preview strong { display:block; }

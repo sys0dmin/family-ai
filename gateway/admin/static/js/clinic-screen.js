@@ -29,6 +29,14 @@ export function createClinicScreen() {
     title.append(strong, small);
     heading.append(icon, title);
 
+    const context = document.createElement("div");
+    context.className = "clinic-preview-context";
+    const mood = document.createElement("span");
+    mood.textContent = `Настроение: ${selected.mood || "спокойное"}`;
+    const complaint = document.createElement("span");
+    complaint.textContent = `Жалоба: ${selected.complaint || "Хочет, чтобы о нём позаботились."}`;
+    context.append(mood, complaint);
+
     const monitor = document.createElement("div");
     monitor.className = "clinic-monitor-preview";
     for (const vital of selected.vitals) {
@@ -56,7 +64,7 @@ export function createClinicScreen() {
     const safety = document.createElement("div");
     safety.className = "clinic-safety-note";
     safety.textContent = "Игровые показатели. Реальная жалоба ставит игру на паузу и зовёт взрослого.";
-    container.append(heading, monitor, actions, safety);
+    container.append(heading, context, monitor, actions, safety);
   }
 
   async function operate(session, operation) {
