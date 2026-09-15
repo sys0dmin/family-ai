@@ -13,10 +13,10 @@ IconData _patientIcon(String caseId) => switch (caseId) {
 };
 
 IconData _vitalIcon(String id) => switch (id) {
-  'heart' => Icons.favorite_rounded,
+  'heart' || 'pulse' => Icons.favorite_rounded,
   'pressure' => Icons.monitor_heart_rounded,
   'temperature' => Icons.device_thermostat_rounded,
-  'mood' => Icons.sentiment_satisfied_alt_rounded,
+  'breathing' => Icons.air_rounded,
   _ => Icons.monitor_heart_rounded,
 };
 
@@ -28,7 +28,7 @@ IconData _actionIcon(String id) => switch (id) {
   'measure_temperature' => Icons.device_thermostat_rounded,
   'measure_pressure' => Icons.monitor_heart_rounded,
   'give_blanket' => Icons.bed_rounded,
-  'call_senior_doctor' => Icons.support_agent_rounded,
+  'call_senior' => Icons.support_agent_rounded,
   'mark_injection' => Icons.task_alt_rounded,
   'mark_iv' => Icons.fact_check_rounded,
   _ => Icons.check_circle_outline_rounded,

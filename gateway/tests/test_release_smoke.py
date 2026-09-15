@@ -28,7 +28,7 @@ def _successful_transport(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
             json={
-                "schema_version": 1,
+                "schema_version": 2,
                 "items": [{"vitals": [{"id": "heart"}], "actions": [{"id": "rest"}]}],
             },
         )

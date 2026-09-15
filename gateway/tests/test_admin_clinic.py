@@ -59,7 +59,7 @@ async def test_admin_previews_pauses_resumes_and_resets_clinic_session(
         reset = await admin.delete(f"/api/clinic/sessions/{session_id}")
 
     assert catalog.status_code == 200
-    assert catalog.json()["schema_version"] == 1
+    assert catalog.json()["schema_version"] == 2
     assert len(catalog.json()["items"]) == 3
     assert catalog.json()["items"][0]["vitals"]
     assert catalog.json()["items"][0]["actions"]

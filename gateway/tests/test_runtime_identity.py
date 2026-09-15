@@ -32,7 +32,7 @@ def test_runtime_identity_compares_manifest_with_deployment_marker(tmp_path: Pat
     assert identity["expected_commit"] == commit
     assert identity["matches_expected"] is True
     assert len(identity["config_fingerprint"]) == 64
-    assert identity["clinic_catalog"]["schema_version"] == 1
+    assert identity["clinic_catalog"]["schema_version"] == 2
     assert len(identity["clinic_catalog"]["fingerprint"]) == 64
 
 

@@ -116,7 +116,7 @@ class ReleaseSmokeRunner:
             valid = all(item.get("vitals") and item.get("actions") for item in cases)
         except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise SmokeStageError("clinic_catalog", "invalid clinic response") from exc
-        if body.get("schema_version") != 1 or not cases or not valid:
+        if body.get("schema_version") != 2 or not cases or not valid:
             raise SmokeStageError("clinic_catalog", "clinic catalog is incomplete")
         return "passed"
 

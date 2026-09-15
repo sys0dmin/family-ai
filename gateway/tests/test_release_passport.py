@@ -73,7 +73,7 @@ def test_release_passport_reports_aligned_runtime(monkeypatch) -> None:
     assert passport.android.version == "1.6.0+8"
     assert passport.configuration.fingerprint == configuration_fingerprint(settings)
     assert passport.clinic_catalog.status == "aligned"
-    assert passport.clinic_catalog.schema_version == 1
+    assert passport.clinic_catalog.schema_version == 2
     session.close()
 
 

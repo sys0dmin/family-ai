@@ -20,7 +20,7 @@ async def test_clinic_catalog_is_child_safe_and_versioned(client: AsyncClient) -
 
     assert response.status_code == 200
     body = response.json()
-    assert body["schema_version"] == 1
+    assert body["schema_version"] == 2
     assert [item["id"] for item in body["items"]] == [
         "teddy_after_walk",
         "robot_checkup",
@@ -129,6 +129,34 @@ def test_clinic_prompt_exposes_only_catalog_actions(db_session: Session) -> None
     assert "Укол сделан" in context.prompt_context
     assert "не назначай" in context.prompt_context.lower()
     assert "дозу" in context.prompt_context.lower()
+
+
+def test_clinic_intake_chooses_and_persists_a_plausible_vital_set(
+    db_session: Session,
+) -> None:
+    conversations = ConversationService(
+        db_session,
+        agents=AgentService(SqlAlchemyAgentRepository(db_session)),
+    )
+    conversation = conversations.create_conversation("clinic_guide")
+    clinic = ClinicGameService(
+        db_session,
+        vital_reading_picker=lambda readings: readings[-1],
+    )
+
+    session = clinic.start(conversation.id, "teddy_after_walk")
+
+    assert session.vital_snapshot["pulse"]["value"] == "104"
+    assert session.vital_snapshot["pressure"]["value"] == "100/65"
+    assert session.vital_snapshot["temperature"]["value"] == "36,7"
+    assert session.vital_snapshot["breathing"]["value"] == "24"
+    assert clinic.get(conversation.id).vital_snapshot == session.vital_snapshot
+
+    clinic.perform_action(conversation.id, "give_water")
+    after_water = clinic.get(conversation.id)
+    assert after_water is not None
+    assert after_water.vital_snapshot["pulse"]["value"] == "92"
+    assert after_water.vital_snapshot["breathing"]["value"] == "21"
 
 
 @pytest.mark.anyio
