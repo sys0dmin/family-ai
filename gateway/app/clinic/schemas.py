@@ -54,6 +54,8 @@ class ClinicCase(BaseModel):
     description: str = Field(min_length=5, max_length=200)
     patient_name: str = Field(min_length=1, max_length=40)
     patient_icon: str = Field(min_length=1, max_length=8)
+    mood: str = Field(default="спокойное", min_length=1, max_length=80)
+    complaint: str = Field(default="Хочет, чтобы о нём позаботились.", min_length=1, max_length=160)
     color: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
     opening_text: str = Field(min_length=20, max_length=500)
     completion_text: str = Field(min_length=20, max_length=400)

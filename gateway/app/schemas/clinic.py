@@ -16,6 +16,8 @@ class ClinicCaseSummaryResponse(BaseModel):
     description: str
     patient_name: str
     patient_icon: str
+    mood: str = "спокойное"
+    complaint: str = "Хочет, чтобы о нём позаботились."
     color: str
 
 
@@ -48,6 +50,8 @@ class ClinicSessionResponse(BaseModel):
     title: str
     patient_name: str
     patient_icon: str
+    mood: str = "спокойное"
+    complaint: str = "Хочет, чтобы о нём позаботились."
     color: str
     status: str
     is_pretend: bool = True

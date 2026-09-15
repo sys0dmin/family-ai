@@ -326,6 +326,18 @@ class _ClinicRoom extends StatelessWidget {
                           session.isCompleted ? 'Всё готово!' : session.title,
                           style: const TextStyle(color: Color(0xFFA8D8D2)),
                         ),
+                        Text(
+                          'Настроение: ${session.mood}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Color(0xFFA8D8D2), fontSize: 12),
+                        ),
+                        Text(
+                          'Жалоба: ${session.complaint}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Color(0xFFA8D8D2), fontSize: 12),
+                        ),
                       ],
                     ),
                   ),

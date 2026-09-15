@@ -363,6 +363,8 @@ function renderClinic() {
     if (!currentClinic) return;
     document.getElementById('clinic-patient-icon').textContent = currentClinic.patient_icon;
     document.getElementById('clinic-patient-name').textContent = currentClinic.patient_name;
+    document.getElementById('clinic-patient-mood').textContent = currentClinic.mood || 'спокойное';
+    document.getElementById('clinic-patient-complaint').textContent = currentClinic.complaint || 'Хочет, чтобы о нём позаботились.';
     const vitals = document.getElementById('clinic-vitals');
     vitals.replaceChildren();
     for (const vital of currentClinic.vitals) {

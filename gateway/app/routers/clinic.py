@@ -38,6 +38,8 @@ def serialize_clinic_session(
         title=definition.title,
         patient_name=definition.patient_name,
         patient_icon=definition.patient_icon,
+        mood=definition.mood,
+        complaint=definition.complaint,
         color=definition.color,
         status=session.status,
         vitals=[
@@ -74,6 +76,8 @@ def list_clinic_cases(
                 description=item.description,
                 patient_name=item.patient_name,
                 patient_icon=item.patient_icon,
+                mood=item.mood,
+                complaint=item.complaint,
                 color=item.color,
             )
             for item in service.catalog.list()

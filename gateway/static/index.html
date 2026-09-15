@@ -480,6 +480,8 @@
     .clinic-patient { display:grid; place-items:center; align-content:center; text-align:center; }
     .clinic-patient-icon { font-size:82px; filter:drop-shadow(0 10px 10px rgba(36,48,71,.12)); }
     .clinic-patient strong { margin-top:8px; font-size:1.25rem; }
+    .clinic-patient-meta { width:100%; margin-top:10px; display:grid; gap:4px; color:var(--muted); font-size:.82rem; line-height:1.25; }
+    .clinic-patient-meta b { color:var(--ink); }
     .clinic-game-label { margin-top:5px; color:#168b88; font-size:.76rem; font-weight:800; }
     .clinic-monitor { color:#dcfff8; background:#10282c; }
     .clinic-wave { height:72px; overflow:hidden; border-radius:16px; background:repeating-linear-gradient(0deg,transparent,transparent 17px,rgba(80,224,190,.08) 18px),repeating-linear-gradient(90deg,transparent,transparent 17px,rgba(80,224,190,.08) 18px); }
@@ -698,13 +700,13 @@
       <div class="clinic-head"><div class="clinic-head-copy"><h2>Палата Доктора Пульса</h2><p>Позаботимся о наших пациентах</p></div><button id="clinic-sound" class="clinic-close" type="button" aria-label="Выключить звук монитора">🔈</button><button id="clinic-close" class="clinic-close" type="button" aria-label="Закрыть">×</button></div>
       <div id="clinic-cases" class="clinic-cases"></div>
       <div id="clinic-room" class="clinic-room" hidden>
-        <div class="clinic-room-top"><div class="clinic-patient"><span id="clinic-patient-icon" class="clinic-patient-icon"></span><strong id="clinic-patient-name"></strong><span class="clinic-game-label">КАРТОЧКА ПАЦИЕНТА</span></div><div class="clinic-monitor"><div class="clinic-wave" aria-label="Ритм сердца пациента"><svg viewBox="0 0 800 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,52 95,52 115,46 130,58 147,52 185,52 205,15 228,88 250,52 400,52 495,52 515,46 530,58 547,52 585,52 605,15 628,88 650,52 800,52" fill="none" stroke="#5be0bd" stroke-width="5" stroke-linejoin="round"/></svg></div><div id="clinic-vitals" class="clinic-vitals"></div></div></div>
+        <div class="clinic-room-top"><div class="clinic-patient"><span id="clinic-patient-icon" class="clinic-patient-icon"></span><strong id="clinic-patient-name"></strong><span class="clinic-game-label">КАРТОЧКА ПАЦИЕНТА</span><div class="clinic-patient-meta"><span>Настроение: <b id="clinic-patient-mood"></b></span><span>Жалоба: <b id="clinic-patient-complaint"></b></span></div></div><div class="clinic-monitor"><div class="clinic-wave" aria-label="Ритм сердца пациента"><svg viewBox="0 0 800 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,52 95,52 115,46 130,58 147,52 185,52 205,15 228,88 250,52 400,52 495,52 515,46 530,58 547,52 585,52 605,15 628,88 650,52 800,52" fill="none" stroke="#5be0bd" stroke-width="5" stroke-linejoin="round"/></svg></div><div id="clinic-vitals" class="clinic-vitals"></div></div></div>
         <div id="clinic-actions" class="clinic-actions"></div>
         <div class="clinic-room-actions"><button id="clinic-pause" type="button" aria-label="Поставить игру на паузу">Ⅱ</button><button id="clinic-resume" type="button" aria-label="Продолжить игру" hidden>▶</button><button id="clinic-leave" type="button" aria-label="Закончить игру">↩</button></div>
       </div>
     </div>
   </dialog>
 
-  <script type="module" src="/static/app.js?v=23"></script>
+  <script type="module" src="/static/app.js?v=24"></script>
 </body>
 </html>

@@ -7,6 +7,8 @@ class ClinicCaseSummary {
     required this.patientName,
     required this.patientIcon,
     required this.color,
+    this.mood = 'спокойное',
+    this.complaint = 'Хочет, чтобы о нём позаботились.',
   });
 
   factory ClinicCaseSummary.fromJson(Map<String, dynamic> json) =>
@@ -18,6 +20,8 @@ class ClinicCaseSummary {
         patientName: json['patient_name'] as String,
         patientIcon: json['patient_icon'] as String,
         color: json['color'] as String,
+        mood: json['mood'] as String? ?? 'спокойное',
+        complaint: json['complaint'] as String? ?? 'Хочет, чтобы о нём позаботились.',
       );
 
   final String id;
@@ -27,6 +31,8 @@ class ClinicCaseSummary {
   final String patientName;
   final String patientIcon;
   final String color;
+  final String mood;
+  final String complaint;
 }
 
 class ClinicVital {
@@ -85,6 +91,8 @@ class ClinicSession {
     required this.patientName,
     required this.patientIcon,
     required this.color,
+    this.mood = 'спокойное',
+    this.complaint = 'Хочет, чтобы о нём позаботились.',
     required this.status,
     required this.vitals,
     required this.actions,
@@ -97,6 +105,8 @@ class ClinicSession {
     patientName: json['patient_name'] as String,
     patientIcon: json['patient_icon'] as String,
     color: json['color'] as String,
+    mood: json['mood'] as String? ?? 'спокойное',
+    complaint: json['complaint'] as String? ?? 'Хочет, чтобы о нём позаботились.',
     status: json['status'] as String,
     vitals: (json['vitals'] as List<dynamic>)
         .map((item) => ClinicVital.fromJson(item as Map<String, dynamic>))
@@ -112,6 +122,8 @@ class ClinicSession {
   final String patientName;
   final String patientIcon;
   final String color;
+  final String mood;
+  final String complaint;
   final String status;
   final List<ClinicVital> vitals;
   final List<ClinicAction> actions;

@@ -65,7 +65,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
     assert "browser-speech-toggle" in page.text
     assert 'id="activity-open"' in page.text
     assert 'id="activity-dialog"' in page.text
-    assert '<script type="module" src="/static/app.js?v=23"></script>' in page.text
+    assert '<script type="module" src="/static/app.js?v=24"></script>' in page.text
     assert page.text.count('class="icon-button new-conversation"') == 2
     assert 'data-state="ready"' in page.text
 
@@ -89,7 +89,7 @@ async def test_child_interface_serves_visual_first_agent_assets(
 
 @pytest.mark.anyio
 async def test_child_interface_javascript_modules_are_served(client: AsyncClient) -> None:
-    app = await client.get("/static/app.js?v=23")
+    app = await client.get("/static/app.js?v=24")
     presentation = await client.get("/static/js/presentation.js?v=22")
     image_upload = await client.get("/static/js/image-upload.js?v=22")
 
