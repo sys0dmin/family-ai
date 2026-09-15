@@ -381,6 +381,15 @@ function renderClinic() {
         vitals.append(item);
     }
     const actions = document.getElementById('clinic-actions');
+    const completedCount = currentClinic.actions.filter((action) => action.completed).length;
+    const stepPrompt = document.getElementById('clinic-step-prompt');
+    if (currentClinic.status === 'completed') {
+        stepPrompt.textContent = 'Осмотр завершён — старший врач всё проверил и благодарит тебя!';
+    } else if (completedCount === 0) {
+        stepPrompt.textContent = 'Что проверим сначала? Выбери любой инструмент ниже.';
+    } else {
+        stepPrompt.textContent = `Отлично! Выполнено шагов: ${completedCount}. Что сделаем дальше?`;
+    }
     actions.replaceChildren();
     for (const action of currentClinic.actions) {
         const button = document.createElement('button');

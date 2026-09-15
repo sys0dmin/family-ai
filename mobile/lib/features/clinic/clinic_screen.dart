@@ -437,6 +437,25 @@ class _ClinicRoom extends StatelessWidget {
       ],
       if (error != null) Text(error!, textAlign: TextAlign.center),
       const SizedBox(height: 10),
+      Card(
+        color: const Color(0xFFEEF8F6),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            session.isCompleted
+                ? 'Осмотр завершён — старший врач всё проверил!'
+                : session.actions.every((action) => !action.completed)
+                ? 'Что проверим сначала? Выбери любой инструмент ниже.'
+                : 'Отлично! Что сделаем дальше?',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF168B88),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 4),
       GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
