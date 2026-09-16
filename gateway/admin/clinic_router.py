@@ -18,7 +18,7 @@ from gateway.app.config import get_settings
 from gateway.app.db.session import get_session_factory
 from gateway.app.routers.clinic import serialize_clinic_session
 from gateway.app.schemas.clinic import ClinicSessionResponse
-from gateway.admin.clinic_draft_service import ClinicDraftService
+from gateway.admin.clinic_draft_service import ClinicDraftService, published_clinic_overlays
 from gateway.app.models.clinic_scenario_draft import ClinicScenarioDraft
 
 router = APIRouter(prefix="/api/clinic", tags=["clinic administration"])
@@ -62,7 +62,7 @@ def get_clinic_admin_service(
     settings = get_settings()
     return ClinicGameService(
         session,
-        ClinicCaseCatalog(),
+        ClinicCaseCatalog(overlays=published_clinic_overlays(session)),
         retention_hours=settings.activity_retention_hours,
     )
 

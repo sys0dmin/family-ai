@@ -96,8 +96,10 @@ async def test_admin_can_version_and_publish_clinic_draft(
         )
         listed = await admin.get("/api/clinic/drafts")
         published = await admin.post(f"/api/clinic/drafts/{created.json()['id']}/publish")
+        catalog = await admin.get("/api/clinic/catalog")
 
     assert created.status_code == 201
     assert created.json()["version"] == 1
     assert listed.json()[0]["status"] == "draft"
     assert published.json()["status"] == "published"
+    assert catalog.json()["items"][0]["mood"] == "радостное"

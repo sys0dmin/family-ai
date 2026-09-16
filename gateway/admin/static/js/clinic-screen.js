@@ -35,8 +35,8 @@ export function createClinicScreen() {
       const row = document.createElement("div"); row.className = "clinic-session-card";
       const text = document.createElement("span"); text.textContent = `${draft.case_id} · версия ${draft.version} · ${draft.status}`;
       row.append(text);
-      if (draft.status === "draft") {
-        const publish = document.createElement("button"); publish.className = "secondary"; publish.textContent = "Опубликовать";
+      if (draft.status !== "published") {
+        const publish = document.createElement("button"); publish.className = "secondary"; publish.textContent = draft.status === "draft" ? "Опубликовать" : "Вернуть эту версию";
         publish.onclick = async () => { await api(`/api/clinic/drafts/${draft.id}/publish`, { method: "POST" }); await load(); };
         row.append(publish);
       }
