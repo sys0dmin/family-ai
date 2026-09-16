@@ -950,6 +950,13 @@
     .clinic-preview-head small, .clinic-session-head small { margin-top:4px; color:var(--muted); font-size:11px; }
     .clinic-preview-context { display:grid; gap:4px; margin:12px 0; padding:10px 12px; border:1px solid var(--line); border-radius:12px; color:var(--muted); font-size:12px; }
     .clinic-preview-context span { overflow-wrap:anywhere; }
+    .clinic-draft-editor { min-width:0; margin-top:20px; padding-top:20px; border-top:1px solid var(--line); }
+    .clinic-draft-editor .field { min-width:0; margin-top:12px; }
+    .clinic-draft-editor textarea { min-height:86px; resize:vertical; }
+    .clinic-draft-editor .studio-actions { margin-top:16px; }
+    .clinic-draft-editor .activity-session-list { margin-top:14px; }
+    .clinic-draft-editor .clinic-session-card { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .clinic-draft-editor .clinic-session-card > span { min-width:0; overflow-wrap:anywhere; }
     .clinic-monitor-preview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:14px; padding:12px; border-radius:15px; background:#10282c; }
     .clinic-monitor-preview > div { padding:10px; border-radius:11px; background:#19393d; }
     .clinic-monitor-preview span, .clinic-monitor-preview strong { display:block; }
@@ -1014,6 +1021,8 @@
       .studio-actions { align-items:stretch; }
       .studio-actions > button { width:100%; flex:1 1 100%; }
       .studio-actions > span { flex:1 1 100%; }
+      .clinic-draft-editor .grid.two { grid-template-columns:1fr; }
+      .clinic-draft-editor .clinic-session-card > button { width:100%; }
       .dialog-actions { flex-direction:column; }
       .dialog-actions button { width:100%; }
       .activity-session-head { flex-direction:column; }
