@@ -25,7 +25,10 @@ void main() {
     expect(find.text('88 уд/мин'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.byKey(const Key('clinic-action-give_water')));
+    final waterAction = find.byKey(const Key('clinic-action-give_water'));
+    await tester.drag(find.byType(ListView), const Offset(0, -260));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(waterAction);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Мишка попил воды.'), findsOneWidget);

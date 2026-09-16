@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,11 +7,48 @@ import 'package:flutter/services.dart';
 import 'clinic_gateway.dart';
 import 'clinic_models.dart';
 
+Color _caseColor(String value) {
+  final normalized = value.replaceFirst('#', '');
+  final parsed = int.tryParse(normalized, radix: 16);
+  return parsed == null ? const Color(0xFF6C63D9) : Color(0xFF000000 | parsed);
+}
+
 IconData _patientIcon(String caseId) => switch (caseId) {
   'robot_checkup' => Icons.smart_toy_rounded,
   'fox_after_procedure' => Icons.cruelty_free_rounded,
+  'bunny_tired' => Icons.pets_rounded,
+  'puppy_afraid' => Icons.pets_rounded,
+  'full_checkup' => Icons.medical_services_rounded,
   _ => Icons.pets_rounded,
 };
+
+Widget _patientAvatar({
+  required IconData icon,
+  required String color,
+  double size = 64,
+}) => SizedBox(
+  width: size,
+  height: size,
+  child: DecoratedBox(
+    decoration: BoxDecoration(
+      color: _caseColor(color).withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(size * 0.32),
+    ),
+    child: Center(
+      child: Icon(icon, color: _caseColor(color), size: size * 0.54),
+    ),
+  ),
+);
+
+int _pulseBpm(ClinicSession session) {
+  final vital = session.vitals.where(
+    (item) => item.id == 'pulse' || item.id == 'heart',
+  );
+  if (vital.isEmpty) return 92;
+  return (int.tryParse(vital.first.value.replaceAll(RegExp(r'[^0-9]'), '')) ??
+          92)
+      .clamp(50, 160);
+}
 
 IconData _vitalIcon(String id) => switch (id) {
   'heart' || 'pulse' => Icons.favorite_rounded,
@@ -247,7 +285,7 @@ class _CasePicker extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(_patientIcon(item.id), size: 48),
+                _patientAvatar(icon: _patientIcon(item.id), color: item.color),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -260,7 +298,11 @@ class _CasePicker extends StatelessWidget {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      Text(item.patientName),
+                      Text(
+                        item.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -304,10 +346,10 @@ class _ClinicRoom extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(
-                    _patientIcon(session.caseId),
-                    size: 54,
-                    color: const Color(0xFF59F0B5),
+                  _patientAvatar(
+                    icon: _patientIcon(session.caseId),
+                    color: session.color,
+                    size: 58,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -327,16 +369,26 @@ class _ClinicRoom extends StatelessWidget {
                           style: const TextStyle(color: Color(0xFFA8D8D2)),
                         ),
                         Text(
-                          'Настроение: ${session.isCompleted ? 'довольное' : session.actions.any((action) => action.completed) ? 'становится спокойнее' : session.mood}',
+                          'Настроение: ${session.isCompleted
+                              ? 'довольное'
+                              : session.actions.any((action) => action.completed)
+                              ? 'становится спокойнее'
+                              : session.mood}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFFA8D8D2), fontSize: 12),
+                          style: const TextStyle(
+                            color: Color(0xFFA8D8D2),
+                            fontSize: 12,
+                          ),
                         ),
                         Text(
                           'Жалоба: ${session.complaint}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFFA8D8D2), fontSize: 12),
+                          style: const TextStyle(
+                            color: Color(0xFFA8D8D2),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -360,7 +412,7 @@ class _ClinicRoom extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              const _PulseLine(),
+              _PulseLine(pulseBpm: _pulseBpm(session), rhythmSeed: session.id),
               const SizedBox(height: 10),
               GridView.builder(
                 shrinkWrap: true,
@@ -516,7 +568,10 @@ class _ClinicRoom extends StatelessWidget {
 }
 
 class _PulseLine extends StatefulWidget {
-  const _PulseLine();
+  const _PulseLine({required this.pulseBpm, required this.rhythmSeed});
+
+  final int pulseBpm;
+  final String rhythmSeed;
 
   @override
   State<_PulseLine> createState() => _PulseLineState();
@@ -529,10 +584,8 @@ class _PulseLineState extends State<_PulseLine>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1300),
-    )..repeat();
+    _controller = AnimationController.unbounded(vsync: this)
+      ..repeat(min: 0, max: 60, period: const Duration(seconds: 60));
   }
 
   @override
@@ -547,16 +600,27 @@ class _PulseLineState extends State<_PulseLine>
     width: double.infinity,
     child: AnimatedBuilder(
       animation: _controller,
-      builder: (context, child) =>
-          CustomPaint(painter: _PulsePainter(progress: _controller.value)),
+      builder: (context, child) => CustomPaint(
+        painter: _PulsePainter(
+          elapsedSeconds: _controller.value,
+          pulseBpm: widget.pulseBpm,
+          rhythmSeed: widget.rhythmSeed,
+        ),
+      ),
     ),
   );
 }
 
 class _PulsePainter extends CustomPainter {
-  const _PulsePainter({required this.progress});
+  const _PulsePainter({
+    required this.elapsedSeconds,
+    required this.pulseBpm,
+    required this.rhythmSeed,
+  });
 
-  final double progress;
+  final double elapsedSeconds;
+  final int pulseBpm;
+  final String rhythmSeed;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -567,13 +631,33 @@ class _PulsePainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
     }
     final path = Path()..moveTo(0, size.height * 0.62);
-    final shift = progress * 90;
+    final secondsPerBeat = 60 / pulseBpm;
+    final windowSeconds = math.max(3.4, secondsPerBeat * 4.4);
     for (var x = 0.0; x <= size.width; x += 3) {
-      final phase = (x + shift) % 90;
+      final time = elapsedSeconds + x / size.width * windowSeconds;
+      final beat = _latestBeat(time, secondsPerBeat);
+      final elapsed = time - _beatTime(beat, secondsPerBeat);
+      final amplitude = size.height * (0.28 + _noise(beat + 37) * 0.28);
+      final width = 0.76 + _noise(beat + 71) * 0.42;
       var y = size.height * 0.62;
-      if (phase > 35 && phase <= 43) y -= (phase - 35) * 2.2;
-      if (phase > 43 && phase <= 51) y += (phase - 43) * 3.4 - 17.6;
-      if (phase > 51 && phase <= 59) y -= (phase - 51) * 1.2 - 9.6;
+      final pWaveStart = 0.11 * width;
+      if (elapsed >= pWaveStart && elapsed < pWaveStart + 0.055 * width) {
+        y -=
+            math.sin((elapsed - pWaveStart) / (0.055 * width) * math.pi) *
+            amplitude *
+            0.12;
+      } else if (elapsed >= 0.19 * width && elapsed < 0.205 * width) {
+        y += (elapsed - 0.19 * width) / (0.015 * width) * amplitude * 0.16;
+      } else if (elapsed >= 0.205 * width && elapsed < 0.235 * width) {
+        y -= (elapsed - 0.205 * width) / (0.03 * width) * amplitude;
+      } else if (elapsed >= 0.235 * width && elapsed < 0.27 * width) {
+        y += (elapsed - 0.235 * width) / (0.035 * width) * amplitude * 0.72;
+      } else if (elapsed >= 0.31 * width && elapsed < 0.42 * width) {
+        y -=
+            math.sin((elapsed - 0.31 * width) / (0.11 * width) * math.pi) *
+            amplitude *
+            0.24;
+      }
       path.lineTo(x, y);
     }
     canvas.drawPath(
@@ -585,7 +669,30 @@ class _PulsePainter extends CustomPainter {
     );
   }
 
+  int _latestBeat(double time, double secondsPerBeat) {
+    final roughBeat = (time / secondsPerBeat).floor();
+    var latest = roughBeat - 2;
+    for (var index = roughBeat - 1; index <= roughBeat + 2; index++) {
+      if (_beatTime(index, secondsPerBeat) <= time) latest = index;
+    }
+    return latest;
+  }
+
+  double _beatTime(int index, double secondsPerBeat) =>
+      index * secondsPerBeat + (_noise(index) - 0.5) * secondsPerBeat * 0.20;
+
+  double _noise(int index) {
+    var hash = 0;
+    for (final unit in rhythmSeed.codeUnits) {
+      hash = (hash * 31 + unit) & 0x7fffffff;
+    }
+    hash = (hash ^ (index * 1103515245)) & 0x7fffffff;
+    return (hash % 1000) / 999;
+  }
+
   @override
   bool shouldRepaint(_PulsePainter oldDelegate) =>
-      progress != oldDelegate.progress;
+      elapsedSeconds != oldDelegate.elapsedSeconds ||
+      pulseBpm != oldDelegate.pulseBpm ||
+      rhythmSeed != oldDelegate.rhythmSeed;
 }
