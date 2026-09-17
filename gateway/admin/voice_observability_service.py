@@ -7,16 +7,24 @@ from urllib.request import Request, urlopen
 
 from gateway.admin.voice_observability_schemas import (
     MetricsSource,
+    VoiceDailyMetricResponse,
     VoiceObservabilityResponse,
 )
 from gateway.app.config import Settings
+from gateway.app.models.voice_daily_metric import VoiceDailyMetric
+from gateway.app.observability.voice_metrics_archive import VoiceMetricsArchive
 
 
 class VoiceObservabilityService:
     """Aggregate runtime-only metrics without exposing service credentials."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        archive: VoiceMetricsArchive | None = None,
+    ) -> None:
         self._settings = settings
+        self._archive = archive
 
     def get_snapshot(self) -> VoiceObservabilityResponse:
         gateway = self._fetch(
@@ -40,7 +48,39 @@ class VoiceObservabilityService:
             speech_url,
             authorization=f"Bearer {speech_token}" if speech_token else None,
         )
-        return VoiceObservabilityResponse(gateway=gateway, speech=speech)
+        history = (
+            [self._history_item(item) for item in self._archive.history()]
+            if self._archive is not None
+            else []
+        )
+        return VoiceObservabilityResponse(
+            gateway=gateway,
+            speech=speech,
+            history=history,
+        )
+
+    @staticmethod
+    def _history_item(item: VoiceDailyMetric) -> VoiceDailyMetricResponse:
+        def average(prefix: str) -> int | None:
+            count = getattr(item, f"{prefix}_count")
+            return round(getattr(item, f"{prefix}_total_ms") / count) if count else None
+
+        return VoiceDailyMetricResponse(
+            metric_date=item.metric_date,
+            mode=item.mode,
+            total_count=item.total_count,
+            success_count=item.success_count,
+            error_count=item.error_count,
+            cancellation_count=item.cancellation_count,
+            recording_average_ms=average("recording"),
+            stt_average_ms=average("stt"),
+            vision_average_ms=average("vision"),
+            llm_average_ms=average("llm"),
+            tts_average_ms=average("tts"),
+            first_audio_average_ms=average("first_audio"),
+            playback_average_ms=average("playback"),
+            total_duration_average_ms=average("total_duration"),
+        )
 
     def _fetch(self, url: str | None, authorization: str | None) -> MetricsSource:
         if not url:

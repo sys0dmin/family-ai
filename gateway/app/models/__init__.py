@@ -24,6 +24,7 @@ from gateway.app.models.safety_baseline import (
     SafetyBaselineRevision,
 )
 from gateway.app.models.topic_statistic import TopicStatistic
+from gateway.app.models.voice_daily_metric import VoiceDailyMetric
 
 __all__ = [
     "Agent",
@@ -47,4 +48,5 @@ __all__ = [
     "SafetyBaselineConfiguration",
     "SafetyBaselineRevision",
     "TopicStatistic",
+    "VoiceDailyMetric",
 ]

@@ -6,6 +6,7 @@ from gateway.admin.auth import verify_admin
 from gateway.admin.voice_observability_schemas import VoiceObservabilityResponse
 from gateway.admin.voice_observability_service import VoiceObservabilityService
 from gateway.app.config import Settings, get_settings
+from gateway.app.observability.voice_metrics_archive import VoiceMetricsArchive
 
 router = APIRouter(prefix="/api/voice-observability", tags=["voice observability"])
 
@@ -13,7 +14,10 @@ router = APIRouter(prefix="/api/voice-observability", tags=["voice observability
 def get_voice_observability_service(
     settings: Settings = Depends(get_settings),
 ) -> VoiceObservabilityService:
-    return VoiceObservabilityService(settings)
+    return VoiceObservabilityService(
+        settings,
+        archive=VoiceMetricsArchive(retention_days=settings.voice_metrics_retention_days),
+    )
 
 
 @router.get("", response_model=VoiceObservabilityResponse)

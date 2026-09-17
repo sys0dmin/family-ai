@@ -170,6 +170,48 @@ export function createInfrastructureScreen() {
       : null;
     byId("pipeline-confidence").textContent =
       confidence == null ? "—" : `${Math.round(confidence * 100)}%`;
+    renderVoiceHistory(data.history || []);
+  }
+
+  function renderVoiceHistory(history) {
+    const list = byId("voice-history-list");
+    const status = byId("voice-history-status");
+    list.replaceChildren();
+    if (!history.length) {
+      status.className = "health-pill";
+      status.textContent = "Пока нет данных";
+      const empty = document.createElement("span");
+      empty.className = "muted";
+      empty.textContent = "Первые агрегаты появятся после голосового обращения.";
+      list.append(empty);
+      return;
+    }
+    const latestDays = [...new Set(history.map(item => item.metric_date))].slice(-7);
+    const visible = history.filter(item => latestDays.includes(item.metric_date));
+    const errors = visible.reduce((total, item) => total + item.error_count, 0);
+    status.className = `health-pill ${errors ? "degraded" : "healthy"}`;
+    status.textContent = errors ? `${errors} ошибок за 7 дней` : "Без ошибок за 7 дней";
+    for (const item of visible) {
+      const card = document.createElement("article");
+      card.className = "voice-history-day";
+      const heading = document.createElement("strong");
+      const label = item.mode === "speech_replay" ? "Повтор ответа" : item.mode === "multimodal" ? "Фото и голос" : "Голосовой диалог";
+      heading.textContent = `${item.metric_date} · ${label}`;
+      const counts = document.createElement("span");
+      counts.className = "muted";
+      counts.textContent = `${item.success_count}/${item.total_count} успешно · ${item.error_count} ошибок · ${item.cancellation_count} отмен`;
+      const stages = document.createElement("div");
+      stages.className = "voice-history-stages";
+      for (const [label, value] of [["STT", item.stt_average_ms], ["LLM", item.llm_average_ms], ["TTS", item.tts_average_ms], ["Первый звук", item.playback_average_ms], ["Всего", item.total_duration_average_ms]]) {
+        if (value != null) {
+          const stage = document.createElement("span");
+          stage.textContent = `${label}: ${formatPipelineMs(value)}`;
+          stages.append(stage);
+        }
+      }
+      card.append(heading, counts, stages);
+      list.append(card);
+    }
   }
 
   function shortCommit(value) {

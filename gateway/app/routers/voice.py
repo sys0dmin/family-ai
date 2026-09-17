@@ -223,11 +223,19 @@ async def synthesize_text(
             request_id=request_id,
         )
     except VoiceStageTimeoutError as exc:
+        duration_ms = round((time.perf_counter() - started_at) * 1000)
+        voice_metrics_registry.record(
+            status="error",
+            mode="speech_replay",
+            tts_duration_ms=duration_ms,
+            total_duration_ms=duration_ms,
+            error_stage="tts_timeout",
+        )
         request_trace_registry.event(
             request_id,
             "tts",
             "error",
-            duration_ms=round((time.perf_counter() - started_at) * 1000),
+            duration_ms=duration_ms,
             error_code="timeout",
         )
         request_trace_registry.finish(request_id, "error", error_code="tts_timeout")
@@ -237,11 +245,19 @@ async def synthesize_text(
             headers={"X-Request-ID": str(request_id)},
         ) from exc
     except Exception as exc:
+        duration_ms = round((time.perf_counter() - started_at) * 1000)
+        voice_metrics_registry.record(
+            status="error",
+            mode="speech_replay",
+            tts_duration_ms=duration_ms,
+            total_duration_ms=duration_ms,
+            error_stage="tts",
+        )
         request_trace_registry.event(
             request_id,
             "tts",
             "error",
-            duration_ms=round((time.perf_counter() - started_at) * 1000),
+            duration_ms=duration_ms,
             error_code="provider_error",
         )
         request_trace_registry.finish(request_id, "error", error_code="tts")
@@ -260,6 +276,13 @@ async def synthesize_text(
         "tts",
         "success",
         duration_ms=round((time.perf_counter() - started_at) * 1000),
+    )
+    duration_ms = round((time.perf_counter() - started_at) * 1000)
+    voice_metrics_registry.record(
+        status="success",
+        mode="speech_replay",
+        tts_duration_ms=duration_ms,
+        total_duration_ms=duration_ms,
     )
     request_trace_registry.finish(request_id, "success")
     response = speech_response(speech)

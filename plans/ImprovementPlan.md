@@ -830,3 +830,15 @@ Service рассматривается отдельно после замера 
 программные гарантии описаны в
 [`docs/child-safety-boundaries.md`](../docs/child-safety-boundaries.md) и
 [`ADR 033`](../docs/adr/033-non-negotiable-child-data-boundaries.md).
+
+### Этап 29. Долговременные privacy-safe Voice-метрики
+
+Статус: выполнен.
+
+- [x] сохранять в PostgreSQL только дневные агрегаты времени и счётчики голосовых операций;
+- [x] учитывать обычный голосовой ход, фото+голос и повторное воспроизведение ответа;
+- [x] не сохранять текст, аудио, фото, request/conversation/device ID и сырые события;
+- [x] показывать в Admin последние семь дней из 30-дневного окна после рестартов Gateway;
+- [x] автоматически очищать старые агрегаты по `FAMILY_AI_VOICE_METRICS_RETENTION_DAYS`.
+
+Решение описано в [`ADR 047`](../docs/adr/047-durable-privacy-safe-voice-metrics.md).

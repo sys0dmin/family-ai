@@ -1,10 +1,14 @@
 """Privacy-preserving metrics for the voice conversation pipeline."""
 
+import logging
 from collections import Counter, deque
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from statistics import fmean
 from threading import Lock
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,26 @@ class VoiceMetricsRegistry:
         self._samples: deque[VoiceTurnSample] = deque(maxlen=max_samples)
         self._pending_playback: dict[str, int] = {}
         self._lock = Lock()
+        self._sample_recorder: Callable[[VoiceTurnSample], None] | None = None
+        self._playback_recorder: Callable[[VoiceTurnSample], None] | None = None
+
+    def set_sample_recorder(
+        self,
+        recorder: Callable[[VoiceTurnSample], None] | None,
+    ) -> None:
+        """Attach an optional durable sink from the application composition root."""
+
+        with self._lock:
+            self._sample_recorder = recorder
+
+    def set_playback_recorder(
+        self,
+        recorder: Callable[[VoiceTurnSample], None] | None,
+    ) -> None:
+        """Attach an optional sink for a playback report that arrives later."""
+
+        with self._lock:
+            self._playback_recorder = recorder
 
     def record(
         self,
@@ -59,9 +83,7 @@ class VoiceMetricsRegistry:
         turn_id: str | None = None,
     ) -> None:
         with self._lock:
-            reported_playback = (
-                self._pending_playback.pop(turn_id, None) if turn_id else None
-            )
+            reported_playback = self._pending_playback.pop(turn_id, None) if turn_id else None
             sample = VoiceTurnSample(
                 timestamp=datetime.now(UTC).isoformat(),
                 mode=mode,
@@ -86,22 +108,42 @@ class VoiceMetricsRegistry:
                 turn_id=turn_id,
             )
             self._samples.append(sample)
+            recorder = self._sample_recorder
+        if recorder is not None:
+            try:
+                recorder(sample)
+            except Exception:
+                # A telemetry destination must never break a voice turn.
+                logger.exception("voice_metrics_sample_recorder_failed")
 
     def report_client_playback(self, turn_id: str, duration_ms: int) -> None:
         """Attach one privacy-safe client playback timing to its stream sample."""
 
+        updated_sample: VoiceTurnSample | None = None
+        recorder: Callable[[VoiceTurnSample], None] | None = None
         with self._lock:
             for index in range(len(self._samples) - 1, -1, -1):
                 sample = self._samples[index]
                 if sample.turn_id == turn_id:
-                    self._samples[index] = replace(
+                    if sample.client_first_playback_ms is not None:
+                        return
+                    updated_sample = replace(
                         sample,
                         client_first_playback_ms=duration_ms,
                     )
-                    return
-            if len(self._pending_playback) >= 200:
-                self._pending_playback.pop(next(iter(self._pending_playback)))
-            self._pending_playback[turn_id] = duration_ms
+                    self._samples[index] = updated_sample
+                    recorder = self._playback_recorder
+                    break
+            else:
+                if len(self._pending_playback) >= 200:
+                    self._pending_playback.pop(next(iter(self._pending_playback)))
+                self._pending_playback[turn_id] = duration_ms
+
+        if updated_sample is not None and recorder is not None:
+            try:
+                recorder(updated_sample)
+            except Exception:
+                logger.exception("voice_metrics_playback_recorder_failed")
 
     def snapshot(self) -> dict[str, object]:
         with self._lock:
@@ -113,11 +155,7 @@ class VoiceMetricsRegistry:
             "errors": sum(sample.status == "error" for sample in samples),
             "cancellations": sum(sample.cancelled for sample in samples),
             "error_stages": dict(
-                Counter(
-                    sample.error_stage
-                    for sample in samples
-                    if sample.error_stage is not None
-                )
+                Counter(sample.error_stage for sample in samples if sample.error_stage is not None)
             ),
             "stages": {
                 field.removesuffix("_duration_ms"): self._stage_summary(samples, field)
@@ -133,11 +171,7 @@ class VoiceMetricsRegistry:
                 )
             },
             "recent": [
-                {
-                    key: value
-                    for key, value in asdict(sample).items()
-                    if key != "turn_id"
-                }
+                {key: value for key, value in asdict(sample).items() if key != "turn_id"}
                 for sample in samples[-20:]
             ],
         }
@@ -147,11 +181,7 @@ class VoiceMetricsRegistry:
         samples: list[VoiceTurnSample],
         field: str,
     ) -> dict[str, int | None]:
-        values = [
-            value
-            for sample in samples
-            if (value := getattr(sample, field)) is not None
-        ]
+        values = [value for sample in samples if (value := getattr(sample, field)) is not None]
         if not values:
             return {"average_ms": None, "p95_ms": None, "last_ms": None}
         ordered = sorted(values)

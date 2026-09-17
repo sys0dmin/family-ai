@@ -35,3 +35,37 @@ def test_voice_metrics_summarize_stages_and_errors_without_content() -> None:
     assert snapshot["recent"][0]["mode"] == "voice"
     assert "text" not in str(snapshot)
     assert "conversation_id" not in str(snapshot)
+
+
+def test_voice_metrics_notifies_a_durable_sink_after_recording() -> None:
+    received = []
+    registry = VoiceMetricsRegistry()
+    registry.set_sample_recorder(received.append)
+
+    registry.record(
+        status="success",
+        mode="speech_replay",
+        tts_duration_ms=450,
+        total_duration_ms=450,
+    )
+
+    assert len(received) == 1
+    assert received[0].mode == "speech_replay"
+    assert received[0].tts_duration_ms == 450
+
+
+def test_voice_metrics_notifies_playback_sink_when_playback_arrives_later() -> None:
+    received = []
+    registry = VoiceMetricsRegistry()
+    registry.set_playback_recorder(received.append)
+    registry.record(
+        status="success",
+        total_duration_ms=500,
+        turn_id="turn-1",
+    )
+
+    registry.report_client_playback("turn-1", 620)
+    registry.report_client_playback("turn-1", 700)
+
+    assert len(received) == 1
+    assert received[0].client_first_playback_ms == 620

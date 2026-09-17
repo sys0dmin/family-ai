@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = ""
     message_retention_days: int = 10
+    voice_metrics_retention_days: int = Field(default=30, ge=1, le=365)
     activity_retention_hours: int = 24
     default_agent_id: str = "teacher_friend"
 

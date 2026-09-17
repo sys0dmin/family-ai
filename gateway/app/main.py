@@ -8,6 +8,8 @@ from fastapi.staticfiles import StaticFiles
 
 from gateway.app.config import get_settings
 from gateway.app.observability.runtime_identity import client_build_registry
+from gateway.app.observability.voice_metrics import voice_metrics_registry
+from gateway.app.observability.voice_metrics_archive import VoiceMetricsArchive
 from gateway.app.routers.activities import router as activities_router
 from gateway.app.routers.agents import router as agents_router
 from gateway.app.routers.calibration import router as calibration_router
@@ -30,6 +32,11 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Internal API for the Family AI Mentor Gateway.",
     )
+    voice_metrics_archive = VoiceMetricsArchive(
+        retention_days=settings.voice_metrics_retention_days
+    )
+    voice_metrics_registry.set_sample_recorder(voice_metrics_archive.record)
+    voice_metrics_registry.set_playback_recorder(voice_metrics_archive.record_playback)
 
     static_dir = Path(__file__).resolve().parents[1] / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")

@@ -975,6 +975,13 @@
     .pipeline-stage { padding:14px; border-radius:15px; background:var(--surface-soft); border:1px solid var(--line); }
     .pipeline-stage span { display:block; color:var(--muted); font-size:12px; }
     .pipeline-stage strong { display:block; margin-top:5px; font-size:22px; }
+    .voice-history-panel { margin-top:18px; padding:22px; }
+    .voice-history-list { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; margin-top:16px; }
+    .voice-history-day { border:1px solid var(--line); border-radius:15px; background:var(--surface-soft); padding:14px; }
+    .voice-history-day strong { display:block; font-size:16px; }
+    .voice-history-day .muted { display:block; margin-top:5px; font-size:12px; }
+    .voice-history-stages { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .voice-history-stages span { border-radius:999px; background:rgba(80, 220, 204, .10); color:var(--text); font-size:12px; padding:4px 7px; }
     .queue-strip { display:flex; gap:16px; flex-wrap:wrap; margin-top:14px; color:var(--muted); }
     .calibration-progress { height:12px; margin:16px 0; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.06); }
     .calibration-progress > span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--violet),var(--cyan)); transition:width .3s ease; }

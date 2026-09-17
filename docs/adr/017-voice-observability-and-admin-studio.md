@@ -31,7 +31,9 @@ Add application-level observability without introducing a time-series database:
 - Admin fetches both internal snapshots server-side and presents one protected
   voice operations view;
 - metrics reset on service restart and never contain transcript, response text,
-  conversation id, child profile id or audio.
+  conversation id, child profile id or audio. A later, separate daily aggregate
+  was added in [ADR 047](047-durable-privacy-safe-voice-metrics.md) so the
+  parent can inspect a privacy-safe 30-day trend.
 
 Use OpenAI-compatible `verbose_json` transcription responses. The local Speech
 Service reports standard segment timestamps, log probability and no-speech
