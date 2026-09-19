@@ -33,7 +33,9 @@ export function createClinicScreen() {
     if (!items.length) { container.innerHTML = '<div class="empty">Черновиков пока нет</div>'; return; }
     for (const draft of items) {
       const row = document.createElement("div"); row.className = "clinic-session-card";
-      const text = document.createElement("span"); text.textContent = `${draft.case_id} · версия ${draft.version} · ${draft.status}`;
+      const text = document.createElement("span");
+      const title = draft.payload?.case?.title || draft.payload?.title || draft.case_id;
+      text.textContent = `${title} · версия ${draft.version} · ${draft.status}`;
       row.append(text);
       if (draft.status !== "published") {
         const publish = document.createElement("button"); publish.className = "secondary"; publish.textContent = draft.status === "draft" ? "Опубликовать" : "Вернуть эту версию";
@@ -55,6 +57,48 @@ export function createClinicScreen() {
     await api("/api/clinic/drafts", { method: "POST", body: JSON.stringify({ case_id: selected.id, payload }) });
     setStatus(byId("clinic-draft-status"), "Черновик сохранён", "ok");
     await loadDrafts();
+  }
+
+  function payloadFromNewPatientForm() {
+    const fields = {
+      patient_name: "clinic-new-patient-name",
+      patient_icon: "clinic-new-patient-icon",
+      mood: "clinic-new-patient-mood",
+      title: "clinic-new-title",
+      complaint: "clinic-new-complaint"
+    };
+    const payload = {};
+    for (const [field, id] of Object.entries(fields)) {
+      const value = byId(id).value.trim();
+      if (value) payload[field] = value;
+    }
+    return payload;
+  }
+
+  async function createPatient() {
+    const name = byId("clinic-new-patient-name").value.trim();
+    const status = byId("clinic-new-patient-status");
+    if (!name) {
+      setStatus(status, "Укажи имя пациента", "err");
+      return;
+    }
+    setStatus(status, "Создаю черновик…", "warn");
+    try {
+      await api("/api/clinic/custom-patients", {
+        method: "POST",
+        body: JSON.stringify({
+          template_case_id: byId("clinic-new-template").value,
+          payload: payloadFromNewPatientForm()
+        })
+      });
+      setStatus(status, "Черновик создан — опубликуй его ниже", "ok");
+      byId("clinic-new-patient-name").value = "";
+      byId("clinic-new-title").value = "";
+      byId("clinic-new-complaint").value = "";
+      await loadDrafts();
+    } catch (error) {
+      setStatus(status, `Ошибка: ${error.message}`, "err");
+    }
   }
 
   function renderPreview() {
@@ -173,15 +217,21 @@ export function createClinicScreen() {
     const data = await api("/api/clinic/catalog", { method: "GET" });
     catalog = data.items;
     const select = byId("clinic-preview-select");
+    const template = byId("clinic-new-template");
     const previous = select.value;
     select.replaceChildren();
+    const previousTemplate = template.value;
+    template.replaceChildren();
     for (const item of catalog) {
       const option = document.createElement("option");
       option.value = item.id;
       option.textContent = `${item.patient_icon} ${item.title}`;
       select.append(option);
+      const templateOption = option.cloneNode(true);
+      template.append(templateOption);
     }
     if (catalog.some(item => item.id === previous)) select.value = previous;
+    if (catalog.some(item => item.id === previousTemplate)) template.value = previousTemplate;
     renderPreview();
     fillDraftEditor();
   }
@@ -204,5 +254,6 @@ export function createClinicScreen() {
   byId("clinic-preview-select").onchange = () => { renderPreview(); fillDraftEditor(); };
   byId("clinic-studio-refresh").onclick = load;
   byId("clinic-draft-save").onclick = saveDraft;
+  byId("clinic-new-patient-create").onclick = createPatient;
   return { load };
 }

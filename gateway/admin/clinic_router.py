@@ -4,22 +4,29 @@ import uuid
 from collections.abc import Generator
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, Field
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import Session
 
 from gateway.admin.auth import verify_admin
+from gateway.admin.clinic_draft_service import (
+    ClinicDraftService,
+    published_clinic_catalog,
+)
 from gateway.admin.clinic_schemas import (
     ClinicAdminCatalogResponse,
     ClinicAdminSessionsResponse,
 )
-from gateway.app.clinic import ClinicCaseCatalog, ClinicCaseNotFoundError, ClinicConversationError, ClinicGameService
+from gateway.app.clinic import (
+    ClinicCaseCatalog,
+    ClinicCaseNotFoundError,
+    ClinicConversationError,
+    ClinicGameService,
+)
 from gateway.app.config import get_settings
 from gateway.app.db.session import get_session_factory
+from gateway.app.models.clinic_scenario_draft import ClinicScenarioDraft
 from gateway.app.routers.clinic import serialize_clinic_session
 from gateway.app.schemas.clinic import ClinicSessionResponse
-from gateway.admin.clinic_draft_service import ClinicDraftService, published_clinic_overlays
-from gateway.app.models.clinic_scenario_draft import ClinicScenarioDraft
 
 router = APIRouter(prefix="/api/clinic", tags=["clinic administration"])
 
@@ -29,12 +36,17 @@ class ClinicDraftWriteRequest(BaseModel):
     payload: dict[str, str]
 
 
+class ClinicCustomPatientRequest(BaseModel):
+    template_case_id: str = Field(pattern=r"^[a-z0-9_]+$")
+    payload: dict[str, str]
+
+
 class ClinicDraftResponse(BaseModel):
     id: uuid.UUID
     case_id: str
     version: int
     status: str
-    payload: dict[str, str]
+    payload: dict[str, object]
     created_by: str
     created_at: object
     published_at: object | None
@@ -60,9 +72,13 @@ def get_clinic_admin_service(
     session: Session = Depends(get_clinic_admin_session),
 ) -> ClinicGameService:
     settings = get_settings()
+    published = published_clinic_catalog(session)
     return ClinicGameService(
         session,
-        ClinicCaseCatalog(overlays=published_clinic_overlays(session)),
+        ClinicCaseCatalog(
+            overlays=published.overlays,
+            custom_cases=published.custom_cases,
+        ),
         retention_hours=settings.activity_retention_hours,
     )
 
@@ -84,7 +100,13 @@ def list_clinic_drafts(
     session: Session = Depends(get_clinic_admin_session),
 ) -> list[ClinicDraftResponse]:
     from sqlalchemy import select
-    return [_draft_response(item) for item in session.scalars(select(ClinicScenarioDraft).order_by(ClinicScenarioDraft.created_at.desc()))]
+
+    return [
+        _draft_response(item)
+        for item in session.scalars(
+            select(ClinicScenarioDraft).order_by(ClinicScenarioDraft.created_at.desc())
+        )
+    ]
 
 
 @router.post("/drafts", response_model=ClinicDraftResponse, status_code=status.HTTP_201_CREATED)
@@ -93,14 +115,52 @@ def create_clinic_draft(
     _parent: str = Depends(verify_admin),
     session: Session = Depends(get_clinic_admin_session),
 ) -> ClinicDraftResponse:
+    published = published_clinic_catalog(session)
+    catalog = ClinicCaseCatalog(
+        overlays=published.overlays,
+        custom_cases=published.custom_cases,
+    )
     try:
-        ClinicCaseCatalog().get(payload.case_id)
+        catalog.get(payload.case_id)
     except Exception:
         raise HTTPException(status_code=404, detail="Clinic case is unavailable")
     try:
-        return _draft_response(ClinicDraftService(session).create(payload.case_id, payload.payload))
+        return _draft_response(
+            ClinicDraftService(session, catalog).create(payload.case_id, payload.payload)
+        )
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail="Clinic draft does not pass validation") from exc
+        raise HTTPException(
+            status_code=422, detail="Clinic draft does not pass validation"
+        ) from exc
+
+
+@router.post(
+    "/custom-patients",
+    response_model=ClinicDraftResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_custom_clinic_patient(
+    payload: ClinicCustomPatientRequest,
+    _parent: str = Depends(verify_admin),
+    session: Session = Depends(get_clinic_admin_session),
+) -> ClinicDraftResponse:
+    published = published_clinic_catalog(session)
+    catalog = ClinicCaseCatalog(
+        overlays=published.overlays,
+        custom_cases=published.custom_cases,
+    )
+    try:
+        draft = ClinicDraftService(session, catalog).create_custom(
+            payload.template_case_id,
+            payload.payload,
+        )
+        return _draft_response(draft)
+    except ClinicCaseNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Clinic template is unavailable") from exc
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(
+            status_code=422, detail="Custom patient does not pass validation"
+        ) from exc
 
 
 @router.post("/drafts/{draft_id}/publish", response_model=ClinicDraftResponse)
@@ -110,7 +170,7 @@ def publish_clinic_draft(
     session: Session = Depends(get_clinic_admin_session),
 ) -> ClinicDraftResponse:
     try:
-        return _draft_response(ClinicDraftService(session).publish(draft_id))
+        return _draft_response(ClinicDraftService(session, ClinicCaseCatalog()).publish(draft_id))
     except LookupError as exc:
         raise HTTPException(status_code=404, detail="Clinic draft not found") from exc
 

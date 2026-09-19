@@ -262,6 +262,12 @@
             </section>
           </div>
           <section class="clinic-draft-editor">
+            <div class="panel-head compact"><div><div class="card-kicker">New patient</div><h3>Добавить пациента</h3></div><span id="clinic-new-patient-status" class="muted"></span></div>
+            <p class="muted">Новый герой наследует готовый безопасный осмотр. Можно менять только его историю и карточку; процедуры остаются проверенными.</p>
+            <div class="grid two"><label class="field"><span>Шаблон осмотра</span><select id="clinic-new-template"></select></label><label class="field"><span>Имя пациента</span><input id="clinic-new-patient-name" maxlength="40" placeholder="Например: Котёнок Пушок"></label><label class="field"><span>Значок</span><input id="clinic-new-patient-icon" maxlength="8" value="🐾"></label><label class="field"><span>Настроение</span><input id="clinic-new-patient-mood" maxlength="80" placeholder="Например: немного волнуется"></label><label class="field"><span>Название карточки</span><input id="clinic-new-title" maxlength="80" placeholder="Можно не заполнять"></label><label class="field"><span>Жалоба</span><input id="clinic-new-complaint" maxlength="160" placeholder="Например: устал после долгой прогулки"></label></div>
+            <div class="studio-actions"><button id="clinic-new-patient-create" class="primary">Создать черновик пациента</button></div>
+          </section>
+          <section class="clinic-draft-editor">
             <div class="panel-head compact"><div><div class="card-kicker">Parent editor</div><h3>Черновик сценария</h3></div><span id="clinic-draft-status" class="muted"></span></div>
             <p class="muted">Можно менять рассказ и карточку пациента. Процедуры и safety-правила защищены.</p>
             <div class="grid two"><label class="field"><span>Название</span><input id="clinic-draft-title" maxlength="80"></label><label class="field"><span>Имя пациента</span><input id="clinic-draft-patient-name" maxlength="40"></label><label class="field"><span>Настроение</span><input id="clinic-draft-mood" maxlength="80"></label><label class="field"><span>Жалоба</span><input id="clinic-draft-complaint" maxlength="160"></label></div>

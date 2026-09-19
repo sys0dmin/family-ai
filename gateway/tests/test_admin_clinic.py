@@ -103,3 +103,50 @@ async def test_admin_can_version_and_publish_clinic_draft(
     assert listed.json()[0]["status"] == "draft"
     assert published.json()["status"] == "published"
     assert catalog.json()["items"][0]["mood"] == "радостное"
+
+
+@pytest.mark.anyio
+async def test_admin_can_create_and_publish_a_new_patient_from_safe_template(
+    authenticated_clinic_admin,
+) -> None:
+    transport = ASGITransport(app=admin_app)
+    async with AsyncClient(transport=transport, base_url="http://admin") as admin:
+        created = await admin.post(
+            "/api/clinic/custom-patients",
+            json={
+                "template_case_id": "teddy_after_walk",
+                "payload": {
+                    "patient_name": "Котёнок Пушок",
+                    "patient_icon": "🐱",
+                    "mood": "любопытное",
+                    "complaint": "Устал после игры в саду.",
+                },
+            },
+        )
+        assert created.status_code == 201
+        draft = created.json()
+        assert draft["payload"]["kind"] == "custom_case"
+        assert draft["payload"]["case"]["patient_name"] == "Котёнок Пушок"
+        assert draft["payload"]["case"]["actions"]
+
+        published = await admin.post(f"/api/clinic/drafts/{draft['id']}/publish")
+        catalog = await admin.get("/api/clinic/catalog")
+        edited = await admin.post(
+            "/api/clinic/drafts",
+            json={
+                "case_id": draft["case_id"],
+                "payload": {"mood": "довольное"},
+            },
+        )
+        republished = await admin.post(f"/api/clinic/drafts/{edited.json()['id']}/publish")
+        updated_catalog = await admin.get("/api/clinic/catalog")
+
+    assert published.status_code == 200
+    custom = next(item for item in catalog.json()["items"] if item["id"] == draft["case_id"])
+    assert custom["patient_name"] == "Котёнок Пушок"
+    assert custom["actions"]
+    assert republished.status_code == 200
+    updated = next(
+        item for item in updated_catalog.json()["items"] if item["id"] == draft["case_id"]
+    )
+    assert updated["mood"] == "довольное"

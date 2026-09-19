@@ -6,8 +6,8 @@ from functools import lru_cache
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from gateway.admin.clinic_draft_service import published_clinic_catalog
 from gateway.app.activities import ActivityCatalog, ActivityService
-from gateway.admin.clinic_draft_service import published_clinic_overlays
 from gateway.app.agents import SqlAlchemyAgentRepository
 from gateway.app.calibration.service import SpeechCalibrationService
 from gateway.app.clinic import ClinicCaseCatalog, ClinicGameService
@@ -74,11 +74,7 @@ def get_speech_recognition_provider() -> SpeechRecognitionProvider:
     return OpenAISpeechRecognitionProvider(
         api_key=api_key,
         model=settings.stt_model,
-        base_url=(
-            settings.stt_base_url
-            or settings.speech_base_url
-            or settings.openai_base_url
-        ),
+        base_url=(settings.stt_base_url or settings.speech_base_url or settings.openai_base_url),
         temperature=settings.stt_temperature,
         initial_prompt=settings.stt_initial_prompt,
     )
@@ -96,11 +92,7 @@ def get_speech_synthesis_provider() -> SpeechSynthesisProvider:
     return OpenAISpeechSynthesisProvider(
         api_key=api_key,
         model=settings.tts_model,
-        base_url=(
-            settings.tts_base_url
-            or settings.speech_base_url
-            or settings.openai_base_url
-        ),
+        base_url=(settings.tts_base_url or settings.speech_base_url or settings.openai_base_url),
         default_voice=settings.tts_voice,
         response_format=settings.tts_response_format,
     )
@@ -149,9 +141,13 @@ def get_clinic_service(
     session: Session = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
 ) -> ClinicGameService:
+    published = published_clinic_catalog(session)
     return ClinicGameService(
         session,
-        ClinicCaseCatalog(overlays=published_clinic_overlays(session)),
+        ClinicCaseCatalog(
+            overlays=published.overlays,
+            custom_cases=published.custom_cases,
+        ),
         retention_hours=settings.activity_retention_hours,
     )
 
@@ -202,8 +198,7 @@ def get_image_understanding_provider() -> ImageUnderstandingProvider | None:
     if settings.vision_provider == "disabled":
         return None
     api_key = (
-        settings.vision_api_key.get_secret_value()
-        or settings.openai_api_key.get_secret_value()
+        settings.vision_api_key.get_secret_value() or settings.openai_api_key.get_secret_value()
     )
     return OpenAIImageUnderstandingProvider(
         api_key=api_key,
@@ -253,9 +248,7 @@ def get_conversation_service(
 
 
 def get_image_understanding_service(
-    provider: ImageUnderstandingProvider | None = Depends(
-        get_image_understanding_provider
-    ),
+    provider: ImageUnderstandingProvider | None = Depends(get_image_understanding_provider),
     conversation: ConversationService = Depends(get_conversation_service),
     safety: SafetyService = Depends(get_safety_service),
     settings: Settings = Depends(get_settings),
@@ -271,9 +264,7 @@ def get_image_understanding_service(
 
 
 def get_voice_service(
-    recognition: SpeechRecognitionProvider = Depends(
-        get_speech_recognition_provider
-    ),
+    recognition: SpeechRecognitionProvider = Depends(get_speech_recognition_provider),
     synthesis: SpeechSynthesisProvider = Depends(get_speech_synthesis_provider),
     conversation: ConversationService = Depends(get_conversation_service),
     music_recognition: MusicRecognitionService = Depends(get_music_recognition_service),
@@ -295,13 +286,9 @@ def get_voice_service(
 
 
 def get_multimodal_turn_service(
-    recognition: SpeechRecognitionProvider = Depends(
-        get_speech_recognition_provider
-    ),
+    recognition: SpeechRecognitionProvider = Depends(get_speech_recognition_provider),
     synthesis: SpeechSynthesisProvider = Depends(get_speech_synthesis_provider),
-    image_understanding: ImageUnderstandingService = Depends(
-        get_image_understanding_service
-    ),
+    image_understanding: ImageUnderstandingService = Depends(get_image_understanding_service),
     conversation: ConversationService = Depends(get_conversation_service),
     settings: Settings = Depends(get_settings),
 ) -> MultimodalTurnService:
