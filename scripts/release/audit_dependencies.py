@@ -6,10 +6,20 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 import tempfile
+import time
 from pathlib import Path
 
 PIP_AUDIT_VERSION = "2.10.1"
+ADVISORY_AUDIT_ATTEMPTS = 3
+ADVISORY_RETRY_DELAY_SECONDS = 2
+RETRYABLE_ADVISORY_ERRORS = (
+    "connection",
+    "read timed out",
+    "ssl",
+    "timeout",
+)
 
 
 def _export(uv: Path, project: Path, output: Path) -> None:
@@ -40,30 +50,63 @@ def _normalize_for_advisory_lookup(requirements: Path) -> None:
     requirements.write_text(content, encoding="utf-8")
 
 
+def _is_retryable_advisory_error(output: str) -> bool:
+    normalized = output.lower()
+    return any(marker in normalized for marker in RETRYABLE_ADVISORY_ERRORS)
+
+
 def _audit(uv: Path, requirements: Path, report: Path) -> dict[str, object]:
-    subprocess.run(
-        [
-            str(uv),
-            "tool",
-            "run",
-            "--from",
-            f"pip-audit=={PIP_AUDIT_VERSION}",
-            "pip-audit",
-            "--requirement",
-            str(requirements),
-            "--no-deps",
-            "--disable-pip",
-            "--strict",
-            "--format",
-            "json",
-            "--progress-spinner",
-            "off",
-            "--output",
-            str(report),
-        ],
-        check=True,
+    command = [
+        str(uv),
+        "tool",
+        "run",
+        "--from",
+        f"pip-audit=={PIP_AUDIT_VERSION}",
+        "pip-audit",
+        "--requirement",
+        str(requirements),
+        "--no-deps",
+        "--disable-pip",
+        "--strict",
+        "--format",
+        "json",
+        "--progress-spinner",
+        "off",
+        "--output",
+        str(report),
+    ]
+    for attempt in range(1, ADVISORY_AUDIT_ATTEMPTS + 1):
+        report.unlink(missing_ok=True)
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+        if result.stdout:
+            sys.stdout.write(result.stdout)
+        if result.stderr:
+            sys.stderr.write(result.stderr)
+        if result.returncode == 0:
+            return json.loads(report.read_text(encoding="utf-8"))
+
+        output = f"{result.stdout}\n{result.stderr}"
+        # A JSON report with a non-zero status is pip-audit's normal signal for
+        # known vulnerabilities. Do not conceal it behind a retry.
+        if report.exists() or not _is_retryable_advisory_error(output):
+            raise subprocess.CalledProcessError(
+                result.returncode,
+                command,
+                output=result.stdout,
+                stderr=result.stderr,
+            )
+        if attempt < ADVISORY_AUDIT_ATTEMPTS:
+            print(
+                "Advisory service is temporarily unavailable; retrying "
+                f"({attempt}/{ADVISORY_AUDIT_ATTEMPTS})...",
+                file=sys.stderr,
+            )
+            time.sleep(ADVISORY_RETRY_DELAY_SECONDS * attempt)
+
+    raise RuntimeError(
+        "Dependency audit could not reach the external advisory service after "
+        f"{ADVISORY_AUDIT_ATTEMPTS} attempts. Retry the release gate later."
     )
-    return json.loads(report.read_text(encoding="utf-8"))
 
 
 def main() -> int:
